@@ -1,125 +1,125 @@
 # PHASE_PLAN.md  
-*(Ticket queue for the nine-agent ChatGPT o3 swarm ñ each item is sized for one ? 20-minute pass.)*
+*(Ticket queue for the nine-agent ChatGPT o3 swarm ‚Äì each item is sized for one ‚â§ 20-minute pass.)*
 
 > **How to use:**  
-> 1. The **Conductor** pops the **next ticket** (top ? bottom).  
+> 1. The **Conductor** pops the **next ticket** (top ‚Üí bottom).  
 > 2. Feeds it to **PromptSmith**, then the appropriate specialist.  
 > 3. When a ticket finishes (`response_status: DONE`), move to the next.  
 > 4. If it fails, re-queue the same ticket with the failure report attached.  
 
 ---
 
-## ?? Phase 0 ó Bootstrapping
+## üì¶ Phase 0 ‚Äî Bootstrapping
 
-| ID  | Ticket (20 min max) | Deliverables / Acceptance Hint |
-|-----|---------------------|--------------------------------|
-| **P0-1** | **Blank mod skeleton** ñ create RED4ext folder layout, `CMakeLists.txt`, `manifest.json`, empty `.reds` entry point. | Repo builds an empty `.archive` & prints ìloadedî on RED4ext console (no game logic yet). |
-| **P0-2** | **Hot-reload harness** ñ add `REDScripts` stub that logs on reload. | Running `ReloadAllMods()` produces console line twice in a row. |
-| **P0-3** | **Networking stub lib** ñ vendor ENet headers + minimal wrapper `Net_Init/Net_Shutdown()`. | `src/net/Net.cpp` & `Net.hpp` compile without undefined refs. |
-| **P0-4** | **Headless server scaffold** ñ CLI target `coop_dedicated.exe` that links Net stub and prints ìDedicated upî. | Executable starts and exits cleanly with `--help`. |
+| ID       | Ticket (20 min max) | Deliverables / Acceptance Hint |
+|----------|---------------------|--------------------------------|
+| **P0-1** | **Blank mod skeleton** ‚Äì create RED4ext folder layout, `CMakeLists.txt`, `manifest.json`, empty `.reds` entry point. | Repo builds an empty `.archive` & prints ‚Äúloaded‚Äù on RED4ext console (no game logic yet). |
+| **P0-2** | **Hot-reload harness** ‚Äì add `REDScripts` stub that logs on reload.                                                  | Running `ReloadAllMods()` produces console line twice in a row.                           |
+| **P0-3** | **Networking stub lib** ‚Äì vendor ENet headers + minimal wrapper `Net_Init/Net_Shutdown()`.                           | `src/net/Net.cpp` & `Net.hpp` compile without undefined refs.                             |
+| **P0-4** | **Headless server scaffold** ‚Äì CLI target `coop_dedicated.exe` that links Net stub and prints ‚ÄúDedicated up‚Äù.        | Executable starts and exits cleanly with `--help`.                                        |
 
 ---
 
-## ?? Phase 1 ó Core Session Pipeline
+## üß© Phase 1 ‚Äî Core Session Pipeline
 
 | ID  | Ticket | Deliverables / Acceptance Hint |
 |-----|--------|--------------------------------|
-| **P1-1** | **Packet enums & header** ñ define `EMsg` and 4-byte `{u16 type,u16 size}` helpers. | `src/net/Packets.hpp` exists; helper tests in `tests/static/packet_header.json` pass lint. |
-| **P1-2** | **Connection states** ñ handshake ? lobby ? in-game; timeouts + ping. | State diagram comments + minimal switch in `Connection.cpp`. |
-| **P1-3** | **Authoritative host flag** ñ hard-code `gIsDedicatedAuthority = true`. | Constant visible in `NetConfig.hpp`. |
-| **P1-4** | **Fixed tick-lock** ñ expose `GameClock::GetCurrentTick()` at 32 ms. | Static test shows monotonic tick increments. |
-| **P1-5** | **RNG seed sync** ñ server sends `SeedPacket`; client sets `std::mt19937`. | Static test: same seed yields equal `rand()` outputs in doc comment. |
-| **P1-6** | **Delta-snapshot schema** ñ create `SnapshotWriter/Reader` skeleton with dirty-bit spec. | Spec commented; JSON sample in `tests/static/snapshot_schema.json`. |
+| **P1-1** | **Packet enums & header** ‚Äì define `EMsg` and 4-byte `{u16 type,u16 size}` helpers. | `src/net/Packets.hpp` exists; helper tests in `tests/static/packet_header.json` pass lint. |
+| **P1-2** | **Connection states** ‚Äì handshake ‚Üí lobby ‚Üí in-game; timeouts + ping. | State diagram comments + minimal switch in `Connection.cpp`. |
+| **P1-3** | **Authoritative host flag** ‚Äì hard-code `gIsDedicatedAuthority = true`. | Constant visible in `NetConfig.hpp`. |
+| **P1-4** | **Fixed tick-lock** ‚Äì expose `GameClock::GetCurrentTick()` at 32 ms. | Static test shows monotonic tick increments. |
+| **P1-5** | **RNG seed sync** ‚Äì server sends `SeedPacket`; client sets `std::mt19937`. | Static test: same seed yields equal `rand()` outputs in doc comment. |
+| **P1-6** | **Delta-snapshot schema** ‚Äì create `SnapshotWriter/Reader` skeleton with dirty-bit spec. | Spec commented; JSON sample in `tests/static/snapshot_schema.json`. |
 
 ---
 
-## ?? Phase 2 ó Player Replication Basics
+## üèÉ Phase 2 ‚Äî Player Replication Basics
 
 | ID  | Ticket | Deliverables / Acceptance Hint |
 |-----|--------|--------------------------------|
-| **P2-1** | **Spawn / despawn RPCs** ñ net spawn proxy avatars; despawn on leave. | `AvatarProxy.reds` added; doc example shows T-pose spawn. |
-| **P2-2** | **Transform sync** ñ serialize `pos,rot,vel` at 20 Hz with delta. | Struct `TransformSnap` in `Snapshot.hpp`. |
-| **P2-3** | **Interpolation buffer** ñ 100 ms buffer + Hermite sample stub. | `SnapshotInterpolator.reds` returns smoothed vec3 (static math check). |
-| **P2-4** | **Client prediction & reconciliation** ñ local authoritative move w/ correction hook. | Commented pseudo-math in `Prediction.reds`. |
-| **P2-5** | **Health / armor model** ñ add to snapshot; floating bar prefab. | `HealthBar.reds` UI stub in `/src/gui/`. |
-| **P2-6** | **Ragdoll on disconnect** ñ swap proxy to ragdoll + killfeed entry. | `OnPeerLeft()` sets `bRagdoll = true`. |
+| **P2-1** | **Spawn / despawn RPCs** ‚Äì net spawn proxy avatars; despawn on leave. | `AvatarProxy.reds` added; doc example shows T-pose spawn. |
+| **P2-2** | **Transform sync** ‚Äì serialize `pos,rot,vel` at 20 Hz with delta. | Struct `TransformSnap` in `Snapshot.hpp`. |
+| **P2-3** | **Interpolation buffer** ‚Äì 100 ms buffer + Hermite sample stub. | `SnapshotInterpolator.reds` returns smoothed vec3 (static math check). |
+| **P2-4** | **Client prediction & reconciliation** ‚Äì local authoritative move w/ correction hook. | Commented pseudo-math in `Prediction.reds`. |
+| **P2-5** | **Health / armor model** ‚Äì add to snapshot; floating bar prefab. | `HealthBar.reds` UI stub in `/src/gui/`. |
+| **P2-6** | **Ragdoll on disconnect** ‚Äì swap proxy to ragdoll + killfeed entry. | `OnPeerLeft()` sets `bRagdoll = true`. |
 
 ---
 
-## ??? Phase 3 ó UI & Lobby Flow
+## üñ•Ô∏è Phase 3 ‚Äî UI & Lobby Flow
 
 | ID  | Ticket | Deliverables / Acceptance Hint |
 |-----|--------|--------------------------------|
-| **P3-1** | **Main-menu button** ñ inject ìCO-OPî into title screen. | Button opens placeholder panel. |
-| **P3-2** | **Server-browser panel** ñ scroll list fed by `/list` JSON; click selects. | `ServerList.reds` with sample JSON in `tests/static/serverlist.json`. |
-| **P3-3** | **Join / Host buttons** ñ host spins hidden dedicated process; join connects. | Successful local loopback connect demonstrated in log comment. |
-| **P3-4** | **In-game chat overlay** ñ toggle on `Enter`, reliable `ChatMsg` packet. | Chat log array length capped at 50 lines. |
+| **P3-1** | **Main-menu button** ‚Äì inject ‚ÄúCO-OP‚Äù into title screen. | Button opens placeholder panel. |
+| **P3-2** | **Server-browser panel** ‚Äì scroll list fed by `/list` JSON; click selects. | `ServerList.reds` with sample JSON in `tests/static/serverlist.json`. |
+| **P3-3** | **Join / Host buttons** ‚Äì host spins hidden dedicated process; join connects. | Successful local loopback connect demonstrated in log comment. |
+| **P3-4** | **In-game chat overlay** ‚Äì toggle on `Enter`, reliable `ChatMsg` packet. | Chat log array length capped at 50 lines. |
 
 ---
 
-## ?? Phase 4 ó World & Quest Sync
+## üåç Phase 4 ‚Äî World & Quest Sync
 
 | ID  | Ticket | Deliverables / Acceptance Hint |
 |-----|--------|--------------------------------|
-| **P4-1** | **Quest stage broadcast** ñ hook `QuestSystem::AdvanceStage`. | `QuestSync.reds` contains `SendQuestStageMsg()`. |
-| **P4-2** | **Trigger / scene sync** ñ cutscene start/stop mirrored. | Comment: ìAll players enter braindance togetherî. |
-| **P4-3** | **Inventory authority** ñ owner field for dropped items. | `ownerId` added to `ItemSnap` struct. |
-| **P4-4** | **Net-safe pop-ups** ñ replace single-player sleeps, braindance. | `PopupGuard.reds` disables freeze. |
-| **P4-5** | **Savegame forking** ñ co-op saves under `SavedGames/Coop/`. | Path constant in `SaveFork.cpp`. |
+| **P4-1** | **Quest stage broadcast** ‚Äì hook `QuestSystem::AdvanceStage`. | `QuestSync.reds` contains `SendQuestStageMsg()`. |
+| **P4-2** | **Trigger / scene sync** ‚Äì cutscene start/stop mirrored. | Comment: ‚ÄúAll players enter braindance together‚Äù. |
+| **P4-3** | **Inventory authority** ‚Äì owner field for dropped items. | `ownerId` added to `ItemSnap` struct. |
+| **P4-4** | **Net-safe pop-ups** ‚Äì replace single-player sleeps, braindance. | `PopupGuard.reds` disables freeze. |
+| **P4-5** | **Savegame forking** ‚Äì co-op saves under `SavedGames/Coop/`. | Path constant in `SaveFork.cpp`. |
 
 ---
 
-## ?? Phase 5 ó Combat Fidelity
+## üî´ Phase 5 ‚Äî Combat Fidelity
 
 | ID  | Ticket | Deliverables / Acceptance Hint |
 |-----|--------|--------------------------------|
-| **P5-1** | **Hitscan lag compensation** ñ rewind N ms on server confirm. | `LagComp.hpp` math comment includes formula. |
-| **P5-2** | **Melee rollback buffer** ñ 250 ms input buffer. | `Rollback.cpp` stub passes static time math test. |
-| **P5-3** | **Quickhack sync** ñ replicate target & cooldown. | `QuickhackSync.reds` added. |
-| **P5-4** | **Armor dmg calc server-side** ñ validate against hacks. | `DamageValidator.cpp` asserts bounds. |
-| **P5-5** | **Shared NCPD heat** ñ sync stars & spawn waves. | `HeatSync.reds` includes enum. |
-| **P5-6** | **World state sync** ñ time-of-day & weather. | `WeatherSync.reds` broadcasts every 30 s. |
+| **P5-1** | **Hitscan lag compensation** ‚Äì rewind N ms on server confirm. | `LagComp.hpp` math comment includes formula. |
+| **P5-2** | **Melee rollback buffer** ‚Äì 250 ms input buffer. | `Rollback.cpp` stub passes static time math test. |
+| **P5-3** | **Quickhack sync** ‚Äì replicate target & cooldown. | `QuickhackSync.reds` added. |
+| **P5-4** | **Armor dmg calc server-side** ‚Äì validate against hacks. | `DamageValidator.cpp` asserts bounds. |
+| **P5-5** | **Shared NCPD heat** ‚Äì sync stars & spawn waves. | `HeatSync.reds` includes enum. |
+| **P5-6** | **World state sync** ‚Äì time-of-day & weather. | `WeatherSync.reds` broadcasts every 30 s. |
 
 ---
 
-## ?? Phase 6 ó Vehicles & Mounts
+## üöó Phase 6 ‚Äî Vehicles & Mounts
 
 | ID  | Ticket | Deliverables / Acceptance Hint |
 |-----|--------|--------------------------------|
-| **P6-1** | **Vehicle spawn replication** ñ server decides ID & transform. | `VehicleSnap` struct present. |
-| **P6-2** | **Seat assignment RPC** ñ `EnterVehicleMsg`. | Seat index comment range 0-3. |
-| **P6-3** | **Deterministic car physics** ñ authoritative server calculated. | `CarPhysics.cpp` includes fixed-step notes. |
-| **P6-4** | **Collision damage sync** ñ `VehicleHitMsg`. | Sample JSON fixture in `tests/static/vehicle_hit.json`. |
+| **P6-1** | **Vehicle spawn replication** ‚Äì server decides ID & transform. | `VehicleSnap` struct present. |
+| **P6-2** | **Seat assignment RPC** ‚Äì `EnterVehicleMsg`. | Seat index comment range 0-3. |
+| **P6-3** | **Deterministic car physics** ‚Äì authoritative server calculated. | `CarPhysics.cpp` includes fixed-step notes. |
+| **P6-4** | **Collision damage sync** ‚Äì `VehicleHitMsg`. | Sample JSON fixture in `tests/static/vehicle_hit.json`. |
 
 ---
 
-## ?? Phase 7 ó Simple Deathmatch Mode
+## üèÖ Phase 7 ‚Äî Simple Deathmatch Mode
 
 | ID  | Ticket | Deliverables / Acceptance Hint |
 |-----|--------|--------------------------------|
-| **P7-1** | **DM ruleset toggle** ñ `/gamemode dm` RPC resets map. | `GameModeManager.reds` toggles enum. |
-| **P7-2** | **Frag counter & HUD** ñ leaderboard panel (`Tab`). | `DMScoreboard.reds` UI stub. |
-| **P7-3** | **Respawn system** ñ random point, 5 s timer. | `Respawn.reds` delay const. |
-| **P7-4** | **Match timer & win** ñ 10-min round / 30 frags. | `MatchTimer.reds` comment describes flow. |
-| **P7-5** | **Stat packet batching** ñ batch kill/death per tick. | `StatBatch.cpp` packs ?1 KB/s. |
+| **P7-1** | **DM ruleset toggle** ‚Äì `/gamemode dm` RPC resets map. | `GameModeManager.reds` toggles enum. |
+| **P7-2** | **Frag counter & HUD** ‚Äì leaderboard panel (`Tab`). | `DMScoreboard.reds` UI stub. |
+| **P7-3** | **Respawn system** ‚Äì random point, 5 s timer. | `Respawn.reds` delay const. |
+| **P7-4** | **Match timer & win** ‚Äì 10-min round / 30 frags. | `MatchTimer.reds` comment describes flow. |
+| **P7-5** | **Stat packet batching** ‚Äì batch kill/death per tick. | `StatBatch.cpp` packs ‚â§1 KB/s. |
 
 ---
 
-## ?? Phase 8 ó Hardening & Polish
+## üßπ Phase 8 ‚Äî Hardening & Polish
 
 | ID  | Ticket | Deliverables / Acceptance Hint |
 |-----|--------|--------------------------------|
-| **P8-1** | **Thread-safety pass** ñ mutexes or lock-free ring buffers. | `ThreadSafeQueue.hpp` added. |
-| **P8-2** | **Crash telemetry** ñ auto-zip minidump + last net log. | `CrashHandler.cpp` path comment. |
-| **P8-3** | **Version hash check** ñ compare CRCs on connect. | `VersionCheck.reds` rejects mismatches. |
-| **P8-4** | **Master-server heartbeat** ñ `/register` ping every 30 s. | `Heartbeat.cpp` example JSON. |
-| **P8-5** | **Settings panel** ñ tick-rate, interp delay, push-to-talk. | `CoopSettings.reds` saves `coop.ini`. |
+| **P8-1** | **Thread-safety pass** ‚Äì mutexes or lock-free ring buffers. | `ThreadSafeQueue.hpp` added. |
+| **P8-2** | **Crash telemetry** ‚Äì auto-zip minidump + last net log. | `CrashHandler.cpp` path comment. |
+| **P8-3** | **Version hash check** ‚Äì compare CRCs on connect. | `VersionCheck.reds` rejects mismatches. |
+| **P8-4** | **Master-server heartbeat** ‚Äì `/register` ping every 30 s. | `Heartbeat.cpp` example JSON. |
+| **P8-5** | **Settings panel** ‚Äì tick-rate, interp delay, push-to-talk. | `CoopSettings.reds` saves `coop.ini`. |
 
 ---
 
-### ? Completion Criteria
+### ‚úÖ Completion Criteria
 
-All tickets **P0-1 ? P8-5** return `response_status: DONE` with `static_checks: lint-ok` or better.  
+All tickets **P0-1 ‚Üí P8-5** return `response_status: DONE` with `static_checks: lint-ok` or better.  
 At that point the project forms a feature-complete, statically sound co-op mod ready for manual runtime validation.
 
 *End of PHASE_PLAN.md*
