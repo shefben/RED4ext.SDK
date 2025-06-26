@@ -1,4 +1,4 @@
-// Simple deathmatch scoreboard placeholder.
+// P7-2: implement full scoreboard UI
 public class DMScoreboard extends inkHUDLayer {
     public static let s_instance: ref<DMScoreboard>;
     public var kills: Uint16;

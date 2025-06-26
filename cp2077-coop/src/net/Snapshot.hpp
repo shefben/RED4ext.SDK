@@ -1,11 +1,11 @@
 #pragma once
 
+#include <RED4ext/Scripting/Natives/Generated/Quaternion.hpp>
+#include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
 #include <cstdint>
 #include <cstring>
-#include <vector>
 #include <type_traits>
-#include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
-#include <RED4ext/Scripting/Natives/Generated/Quaternion.hpp>
+#include <vector>
 
 namespace CoopNet
 {
@@ -55,20 +55,47 @@ struct TransformSnap
 static_assert(std::is_trivially_copyable_v<TransformSnap>, "TransformSnap must be trivial");
 
 // NPC state replicated from the server. Position, rotation, state, and health
-// use delta bits while templateId and appearanceSeed always send full values.
-// health == 0 implies the NPC should despawn.
+// use delta bits while templateId, sectorHash, and appearanceSeed are sent in
+// every full snapshot. health == 0 implies the NPC should despawn.
+enum class NpcState : uint8_t
+{
+    Idle = 0,
+    Wander,
+    Combat
+};
+
 struct NpcSnap
 {
     uint32_t npcId;         // always included
     uint16_t templateId;    // full snap only
-    Vector3  pos;           // delta bit 0
+    uint64_t sectorHash;    // full snap only, FNV-1a hash of sector name
+    Vector3 pos;            // delta bit 0
     Quaternion rot;         // delta bit 1
-    uint8_t  state;         // delta bit 2 (Idle, Wander, Combat, ...)
-    uint16_t health;        // delta bit 3
-    uint8_t  appearanceSeed; // full snap only
-};
+    NpcState state;         // delta bit 2
+    uint16_t health;        // delta bit 3 (0 => despawn)
+    uint8_t appearanceSeed; // full snap only
+}; 
 static_assert(sizeof(NpcSnap) % 4 == 0, "NpcSnap must align to 4 bytes");
 static_assert(std::is_trivially_copyable_v<NpcSnap>, "NpcSnap must be trivial");
+
+// Full item state replicated for inventory/crafting.
+// level, quality, rolls, slotMask and attachmentIds use delta bits while
+// itemId, ownerId and tpl always send the full value.
+// slots are marked via slotMask bit per attachment slot.
+struct ItemSnap
+{
+    uint64_t itemId;            // always included
+    uint32_t ownerId;           // always included
+    uint16_t tpl;               // full snap only (base archetype)
+    uint16_t level;             // delta bit 0
+    uint16_t quality;           // delta bit 1
+    uint32_t rolls[4];          // delta bits 2..5
+    uint8_t slotMask;           // delta bit 6
+    uint8_t _pad[3];
+    uint64_t attachmentIds[4];  // delta bits 7..10
+};
+static_assert(sizeof(ItemSnap) % 4 == 0, "ItemSnap must align to 4 bytes");
+static_assert(std::is_trivially_copyable_v<ItemSnap>, "ItemSnap must be trivial");
 
 // Writes snapshot data into a buffer with dirty-bit tracking.
 // Begin() resets internal state with the target header.
@@ -96,7 +123,7 @@ public:
             return; // ignore out-of-range field bits
 
         const uint32_t word = fieldIndex / 32;
-        const uint32_t bit  = fieldIndex % 32;
+        const uint32_t bit = fieldIndex % 32;
         m_flags.bits[word] |= (1u << bit);
 
         const uint8_t* ptr = reinterpret_cast<const uint8_t*>(&value);
@@ -114,7 +141,8 @@ public:
         std::memcpy(outBuf + sizeof(SnapshotHeader), &m_flags, sizeof(SnapshotFieldFlags));
         if (!m_payload.empty())
         {
-            std::memcpy(outBuf + sizeof(SnapshotHeader) + sizeof(SnapshotFieldFlags), m_payload.data(), m_payload.size());
+            std::memcpy(outBuf + sizeof(SnapshotHeader) + sizeof(SnapshotFieldFlags), m_payload.data(),
+                        m_payload.size());
         }
         return total;
     }
@@ -148,7 +176,7 @@ public:
     bool Has(uint32_t fieldIndex) const
     {
         const uint32_t word = fieldIndex / 32;
-        const uint32_t bit  = fieldIndex % 32;
+        const uint32_t bit = fieldIndex % 32;
         return (m_flags.bits[word] & (1u << bit)) != 0;
     }
 
@@ -164,7 +192,10 @@ public:
         return out;
     }
 
-    SnapshotId GetBaseId() const { return m_header.baseId; }
+    SnapshotId GetBaseId() const
+    {
+        return m_header.baseId;
+    }
 
 private:
     const uint8_t* m_buffer = nullptr;
@@ -175,4 +206,3 @@ private:
 };
 
 } // namespace CoopNet
-

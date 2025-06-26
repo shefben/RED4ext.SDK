@@ -38,4 +38,3 @@ public:
     }
 };
 
-// FIXME(ThreadSafe pass P8-1 completed)
