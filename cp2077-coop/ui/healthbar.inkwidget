@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<inkCanvas>
+    <inkRectangle name="hp" size="200,6" position="0,0" color="#00FF00"/>
+    <inkRectangle name="armor" size="200,6" position="0,8" color="#3F80FF"/>
+</inkCanvas>

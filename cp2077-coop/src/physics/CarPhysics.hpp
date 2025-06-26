@@ -4,6 +4,7 @@
 
 namespace CoopNet
 {
+constexpr float kVehicleStepMs = 16.f; // 60 Hz
 // Server authoritative car physics integration.
 void ServerSimulate(TransformSnap& inout, float dtMs);
 

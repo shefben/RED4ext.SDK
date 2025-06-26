@@ -9,7 +9,7 @@ namespace CoopNet
 // GetCurrentTick() returns the deterministic tick index.
 // GetTickAlpha(nowMs) yields interpolation alpha within the current tick.
 
-constexpr float kFixedDeltaMs = 32.f;
+constexpr float kDefaultDeltaMs = 32.f;
 
 class GameClock
 {
@@ -17,6 +17,9 @@ public:
     static void Tick(float dtMs);
     static uint64_t GetCurrentTick();
     static float GetTickAlpha(float nowMs);
+    static float GetTickMs();
+    static void SetTickMs(float ms);
+    static float currentTickMs; // exposed for scripts
 
 private:
     static float s_accumulator;

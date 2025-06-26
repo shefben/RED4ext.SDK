@@ -9,6 +9,9 @@ public struct HackInfo {
 public class QuickhackSync {
     public static var activeHacks: array<HackInfo>;
     private static var tickAccum: Uint32;
+    private static var armourTimer: Float;
+    private static var cameraTimer: Float;
+    private static var vulnTimer: Float;
     public static func SendHack(info: ref<HackInfo>) -> Void {
         // NetCore.BroadcastQuickhack(info);
         LogChannel(n"DEBUG", "SendHack target=" + IntToString(info.targetId));
@@ -33,6 +36,27 @@ public class QuickhackSync {
         }
         tickAccum -= 500u;
 
+        if armourTimer > 0.0 {
+            armourTimer -= 0.5;
+            if armourTimer <= 0.0 {
+                HeatSync.ApplyArmorDebuff(1.0);
+                LogChannel(n"DEBUG", "Daemon armour debuff expired");
+            }
+        };
+        if cameraTimer > 0.0 {
+            cameraTimer -= 0.5;
+            if cameraTimer <= 0.0 {
+                LogChannel(n"DEBUG", "Daemon camera disable ended");
+            }
+        };
+        if vulnTimer > 0.0 {
+            vulnTimer -= 0.5;
+            if vulnTimer <= 0.0 {
+                HeatSync.ApplyDamageBuff(1.0);
+                LogChannel(n"DEBUG", "Daemon mass vulnerability ended");
+            }
+        };
+
         var i: Int32 = 0;
         while i < activeHacks.Size() {
             let hack = activeHacks[i];
@@ -55,5 +79,22 @@ public class QuickhackSync {
             }
             i += 1;
         }
+    }
+
+    public static func OnBreachResult(peerId: Uint32, mask: Uint8) -> Void {
+        if (mask & 1u) != 0u {
+            armourTimer = 30.0;
+            HeatSync.ApplyArmorDebuff(0.7);
+            LogChannel(n"DEBUG", "Daemon armour debuff 30s");
+        };
+        if (mask & 2u) != 0u {
+            cameraTimer = 90.0;
+            LogChannel(n"DEBUG", "Daemon cameras disabled for 90s"); // future work
+        };
+        if (mask & 4u) != 0u {
+            vulnTimer = 30.0;
+            HeatSync.ApplyDamageBuff(1.2);
+            LogChannel(n"DEBUG", "Daemon mass vulnerability 30s");
+        };
     }
 }
