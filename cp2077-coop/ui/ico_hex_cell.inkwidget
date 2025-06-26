@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<inkCanvas size="24,28">
+    <inkBorder name="bg" size="24,28" texture="hex_placeholder"/> 
+    <inkTextWidget name="code" text="00" anchor="0.5,0.5" hAlign="Center" vAlign="Center"/>
+</inkCanvas>

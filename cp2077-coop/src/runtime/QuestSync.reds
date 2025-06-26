@@ -3,9 +3,11 @@
 // subsequent objectives may never trigger for that player.
 // These helpers send stage and scene updates between peers.
 public class QuestSync {
+    public static var freezeQuests: Bool = false;
     // Called after the game advances a quest stage on the server.
     // Sends a network update so all clients stay in sync.
     public static func OnAdvanceStage(questName: CName) -> Void {
+        if freezeQuests { return; };
         LogChannel(n"DEBUG", "[QuestSync] " + NameToString(questName) + " stage advanced");
         SendQuestStageMsg(questName);
     }
@@ -37,6 +39,11 @@ public class QuestSync {
 
     public static func ApplySceneTrigger(id: TweakDBID, isStart: Bool) -> Void {
         LogChannel(n"DEBUG", "Apply SceneTrigger " + TDBID.ToStringDEBUG(id) + " start=" + BoolToString(isStart));
+    }
+
+    public static func SetFreeze(f: Bool) -> Void {
+        freezeQuests = f;
+        LogChannel(n"DEBUG", "freezeQuests=" + BoolToString(f));
     }
 }
 
