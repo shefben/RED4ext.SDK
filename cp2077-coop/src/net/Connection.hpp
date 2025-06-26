@@ -1,9 +1,11 @@
 #pragma once
 
-#include <cstdint>
-#include <vector>
 #include "Packets.hpp"
 #include "core/ThreadSafeQueue.hpp"
+#include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
+#include <cstdint>
+#include <unordered_set>
+#include <vector>
 
 namespace CoopNet
 {
@@ -34,7 +36,13 @@ public:
 
     bool PopPacket(RawPacket& out);
 
-    ConnectionState GetState() const { return state; }
+    void SendSectorChange(uint64_t hash);
+    void SendSectorReady(uint64_t hash);
+
+    ConnectionState GetState() const
+    {
+        return state;
+    }
 
 private:
     void Transition(ConnectionState next);
@@ -44,7 +52,14 @@ private:
 public:
     uint64_t lastPingSent;
     uint64_t lastRecvTime;
+    uint32_t peerId = 0;
+    uint64_t muteUntilMs = 0;
+    RED4ext::Vector3 avatarPos;
+    uint64_t currentSector = 0;
+    bool sectorReady = true;
+    uint64_t lastSectorChangeTick = 0;
+    std::unordered_set<uint32_t> subscribedNpcs;
+    uint64_t relayBytes = 0;
 };
 
 } // namespace CoopNet
-

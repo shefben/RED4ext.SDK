@@ -10,7 +10,7 @@ void FlushStats()
 {
     if (g_stats.peerId.empty())
         return;
-    // TODO(next ticket): serialize and send ScoreUpdate packet.
+    // P7-2: serialize and send ScoreUpdate packet in scoreboard update
     g_stats.peerId.clear();
     g_stats.k.clear();
     g_stats.d.clear();

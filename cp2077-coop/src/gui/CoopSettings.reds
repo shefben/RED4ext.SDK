@@ -5,7 +5,7 @@ public var pushToTalk: EKey = EKey.T;
 public let kDefaultSettingsPath: String = "coop.ini";
 
 public func Show() -> Void {
-    // FIXME(next ticket): open ink panel
+    // UI-4: open settings ink panel
     LogChannel(n"DEBUG", "CoopSettings.Show");
 }
 

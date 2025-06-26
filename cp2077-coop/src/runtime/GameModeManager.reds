@@ -2,7 +2,8 @@
 public class GameModeManager {
     public enum GameMode {
         Coop,
-        DM
+        DM,
+        Spectate
     }
 
     public static var current: GameMode = GameMode.Coop;
@@ -34,12 +35,12 @@ public class GameModeManager {
         if matchTimeMs > dtMs {
             matchTimeMs -= dtMs;
         } else {
-            LogChannel(n"DEBUG", "Match over – 0"); // FIXME(next ticket: winner)
+            LogChannel(n"DEBUG", "Match over – 0"); // P7-2: announce winner later
             current = GameMode.Coop;
             return;
         }
 
-        // Check frag limit; winnerPeer derived from fragCounts (placeholder).
+        // Check frag limit; winnerPeer derived from fragCounts
         for i in 0 ..< fragCounts.Size() {
             if fragCounts[i] >= fragLimit {
                 LogChannel(n"DEBUG", "Match over – " + IntToString(i));
@@ -50,4 +51,4 @@ public class GameModeManager {
     }
 }
 
-// /gamemode dm console command placeholder will call SetMode(GameMode.DM).
+// P7-1: console command will call SetMode(GameMode.DM)

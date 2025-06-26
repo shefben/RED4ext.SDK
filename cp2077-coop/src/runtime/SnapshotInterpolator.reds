@@ -1,4 +1,8 @@
 public class SnapshotInterpolator {
+    public static let defaultInterpMs: Uint16 = 100u;
+    public static var interpDelayMs: Uint16 = defaultInterpMs;
+    public static var tickMs: Uint16 = 32u;
+
     public var buffer: array<TransformSnap>;
     private var ticks: array<Uint64>;
     // Recent snapshots kept for melee rollback checks (~10 entries)
@@ -14,6 +18,11 @@ public class SnapshotInterpolator {
         if history.Size() > 10 {
             history.Erase(0);
             historyTicks.Erase(0);
+        }
+        let maxAge: Int32 = CeilF(Cast<Float>(interpDelayMs) / Cast<Float>(tickMs)) + 4; // keep margin
+        while ticks.Size() > maxAge {
+            ticks.Erase(0);
+            buffer.Erase(0);
         }
     }
 
@@ -100,4 +109,14 @@ public class SnapshotInterpolator {
         }
         return closest;
     }
+
+    // Called when server adjusts tick length so interpolation remains smooth.
+    public static func OnTickRateChange(ms: Uint16) -> Void {
+        tickMs = ms;
+        interpDelayMs = Max(80u, ms * 2u);
+    }
+}
+
+public static func SnapshotInterpolator_OnTickRateChange(ms: Uint16) -> Void {
+    SnapshotInterpolator.OnTickRateChange(ms);
 }
