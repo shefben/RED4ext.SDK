@@ -20,9 +20,13 @@ public class AvatarProxy extends gameObject {
 
     private var bar: ref<HealthBar>;
 
-    public func Spawn(peer: Uint32, local: Bool) -> Void {
+    public func Spawn(peer: Uint32, local: Bool, snap: ref<TransformSnap>) -> Void {
         peerId = peer;
         isLocal = local;
+        pos = snap.pos;
+        rot = snap.rot;
+        health = snap.health;
+        armor = snap.armor;
         LogChannel(n"DEBUG", "Avatar spawned: " + IntToString(peerId));
         bar = new HealthBar();
         bar.AttachTo(this);

@@ -3,6 +3,7 @@
 #include "../server/BreachController.hpp"
 #include "../server/NpcController.hpp"
 #include "../voice/VoiceDecoder.hpp"
+#include "../core/SessionState.hpp"
 #include "Net.hpp"
 #include "StatBatch.hpp"
 #include "../core/Hash.hpp"
@@ -10,9 +11,10 @@
 #include <iostream>
 
 // Temporary proxies for script methods.
-static void AvatarProxy_Spawn(uint32_t peerId, bool isLocal)
+static void AvatarProxy_Spawn(uint32_t peerId, const CoopNet::TransformSnap& snap, bool isLocal)
 {
-    std::cout << "AvatarProxy::Spawn " << peerId << " local=" << isLocal << std::endl;
+    std::cout << "AvatarProxy::Spawn " << peerId << " local=" << isLocal
+              << " pos=" << snap.pos.X << "," << snap.pos.Y << std::endl;
 }
 
 static void AvatarProxy_Despawn(uint32_t peerId)
@@ -208,6 +210,10 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             uint64_t hash = CoopNet::Fnv1a64Pos(avatarPos.X, avatarPos.Y);
             SectorChangePacket pkt{0u, hash};
             Net_Send(this, EMsg::SectorChange, &pkt, sizeof(pkt));
+            std::vector<uint32_t> ids;
+            for (auto* c : Net_GetConnections())
+                ids.push_back(c->peerId);
+            CoopNet::SessionState_SetParty(ids);
         }
         break;
     case EMsg::Disconnect:
@@ -218,8 +224,9 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(AvatarSpawnPacket))
         {
             const AvatarSpawnPacket* pkt = reinterpret_cast<const AvatarSpawnPacket*>(payload);
-            AvatarProxy_Spawn(pkt->peerId, pkt->peerId == 0);
-            SectorChangePacket sp{pkt->peerId, Fnv1a64("spawn_sector")};
+            AvatarProxy_Spawn(pkt->peerId, pkt->snap, pkt->peerId == 0);
+            uint64_t hash = CoopNet::Fnv1a64Pos(pkt->snap.pos.X, pkt->snap.pos.Y);
+            SectorChangePacket sp{pkt->peerId, hash};
             Net_Send(this, EMsg::SectorChange, &sp, sizeof(sp));
         }
         break;

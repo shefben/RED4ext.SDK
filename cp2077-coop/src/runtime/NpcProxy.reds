@@ -30,13 +30,13 @@ public class NpcProxy extends gameObject {
         sectorHash = snap.sectorHash;
         switch state {
             case NpcState.Idle:
-                LogChannel(n"DEBUG", "Anim idle");
+                SetAnimation(n"idle");
                 break;
             case NpcState.Wander:
-                LogChannel(n"DEBUG", "Anim walk");
+                SetAnimation(n"walk");
                 break;
             case NpcState.Combat:
-                LogChannel(n"DEBUG", "Anim combat");
+                SetAnimation(n"combat");
                 break;
         };
         LogChannel(n"DEBUG", "NpcProxy.ApplySnap " + IntToString(npcId));
@@ -44,5 +44,10 @@ public class NpcProxy extends gameObject {
 
     public func Despawn() -> Void {
         LogChannel(n"DEBUG", "NpcProxy.Despawn " + IntToString(npcId));
+    }
+
+    private func SetAnimation(name: CName) -> Void {
+        // Would call animation controller when available
+        LogChannel(n"DEBUG", "Play anim " + NameToString(name));
     }
 }

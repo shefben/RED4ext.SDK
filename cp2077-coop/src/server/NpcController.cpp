@@ -12,14 +12,14 @@ namespace CoopNet
 
 static uint32_t g_seed = 123456u;
 static NpcSnap g_npc{
-    1u, // npcId
-    0u, // templateId
-    Fnv1a64("start_sector"),
+    1u,
+    0u,
+    0ull,
     RED4ext::Vector3{0.f, 0.f, 0.f},
     RED4ext::Quaternion{0.f, 0.f, 0.f, 1.f},
     NpcState::Idle,
-    100u, // health
-    0u    // appearance
+    100u,
+    0u
 };
 static bool g_alwaysRelevant = false;
 static NpcSnap g_prevSnap = g_npc;
@@ -30,6 +30,7 @@ void NpcController_ServerTick(float dt)
 {
     if (!g_gridInit)
     {
+        g_npc.sectorHash = Fnv1a64Pos(g_npc.pos.X, g_npc.pos.Y);
         g_grid.Insert(g_npc.npcId, g_npc.pos);
         g_gridInit = true;
     }
