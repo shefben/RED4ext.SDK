@@ -38,6 +38,9 @@ void Net_BroadcastElevatorCall(uint32_t peerId, uint32_t elevatorId, uint8_t flo
 void Net_SendElevatorCall(uint32_t elevatorId, uint8_t floorIdx);
 void Net_BroadcastElevatorArrive(uint32_t elevatorId, uint64_t sectorHash, const RED4ext::Vector3& pos);
 void Net_SendTeleportAck(uint32_t elevatorId);
+void Net_BroadcastQuestStage(uint32_t nameHash, uint16_t stage);
+void Net_SendQuestResyncRequest();
+void Net_SendQuestFullSync(CoopNet::Connection* conn, const QuestFullSyncPacket& pkt);
 void Net_BroadcastHoloCallStart(uint32_t peerId);
 void Net_BroadcastHoloCallEnd(uint32_t peerId);
 void Net_BroadcastTickRateChange(uint16_t tickMs);

@@ -33,9 +33,9 @@ static void ChatOverlay_Push(const char* msg)
     RED4ext::ExecuteFunction("ChatOverlay", "PushGlobal", nullptr, &s);
 }
 
-static void QuestSync_ApplyQuestStage(const char* name)
+static void QuestSync_ApplyQuestStage(uint32_t hash, uint16_t stage)
 {
-    std::cout << "Quest stage " << name << std::endl;
+    RED4ext::ExecuteFunction("QuestSync", "ApplyQuestStageByHash", nullptr, &hash, &stage);
 }
 
 static void QuestSync_ApplySceneTrigger(const char* id, bool start)
@@ -319,7 +319,25 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         }
         break;
     case EMsg::QuestStage:
-        QuestSync_ApplyQuestStage(n "tempQuest"); // P4-1: parse payload
+        if (size >= sizeof(QuestStagePacket))
+        {
+            const QuestStagePacket* pkt = reinterpret_cast<const QuestStagePacket*>(payload);
+            QuestSync_ApplyQuestStage(pkt->nameHash, pkt->stage);
+        }
+        break;
+    case EMsg::QuestResyncRequest:
+        if (Net_IsAuthoritative())
+        {
+            QuestFullSyncPacket pkt{}; // FIXME: populate from session state
+            Net_SendQuestFullSync(this, pkt);
+        }
+        break;
+    case EMsg::QuestFullSync:
+        if (size >= sizeof(QuestFullSyncPacket))
+        {
+            const QuestFullSyncPacket* pkt = reinterpret_cast<const QuestFullSyncPacket*>(payload);
+            RED4ext::ExecuteFunction("QuestSync", "ApplyFullSync", nullptr, pkt);
+        }
         break;
     case EMsg::SceneTrigger:
         QuestSync_ApplySceneTrigger("0", true); // P4-2: parse payload

@@ -26,6 +26,8 @@ enum class EMsg : uint16_t
     AvatarSpawn,
     AvatarDespawn,
     QuestStage,
+    QuestFullSync,
+    QuestResyncRequest,
     SceneTrigger,
     HitRequest,
     HitConfirm,
@@ -239,6 +241,32 @@ struct AttachModResultPacket
     ItemSnap item;
     uint8_t success;
     uint8_t _pad2[3];
+};
+
+struct QuestStagePacket
+{
+    uint32_t nameHash;
+    uint16_t stage;
+    uint16_t _pad;
+};
+
+struct QuestResyncRequestPacket
+{
+    uint32_t _pad; // unused
+};
+
+struct QuestEntry
+{
+    uint32_t nameHash;
+    uint16_t stage;
+    uint16_t _pad;
+};
+
+struct QuestFullSyncPacket
+{
+    uint16_t count;
+    uint16_t _pad;
+    QuestEntry entries[32];
 };
 
 struct HeatPacket

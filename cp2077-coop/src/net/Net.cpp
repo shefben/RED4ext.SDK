@@ -337,6 +337,27 @@ void Net_SendTeleportAck(uint32_t elevatorId)
     }
 }
 
+void Net_BroadcastQuestStage(uint32_t nameHash, uint16_t stage)
+{
+    QuestStagePacket pkt{nameHash, stage, 0};
+    Net_Broadcast(EMsg::QuestStage, &pkt, sizeof(pkt));
+}
+
+void Net_SendQuestResyncRequest()
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        QuestResyncRequestPacket pkt{0};
+        Net_Send(conns[0], EMsg::QuestResyncRequest, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_SendQuestFullSync(CoopNet::Connection* conn, const QuestFullSyncPacket& pkt)
+{
+    Net_Send(conn, EMsg::QuestFullSync, &pkt, sizeof(pkt));
+}
+
 void Net_BroadcastHoloCallStart(uint32_t peerId)
 {
     HoloCallPacket pkt{peerId};
