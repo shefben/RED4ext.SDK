@@ -29,14 +29,28 @@ public class NpcProxy extends gameObject {
         health = snap.health;
         sectorHash = snap.sectorHash;
         switch state {
-            case NpcState.Idle:
-                LogChannel(n"DEBUG", "Anim idle");
+           case NpcState.Idle:
+                let seed = NpcController.GetCrowdSeed(sectorHash);
+                let tick = RoundF(GameInstance.GetSimTime() as Float);
+                let val = CoopNet.Fnv1a32(IntToString(npcId + tick)) ^ seed;
+                if val % 2u == 0u {
+                    SetAnimation(n"idle_wave");
+                } else {
+                    SetAnimation(n"idle");
+                };
                 break;
-            case NpcState.Wander:
-                LogChannel(n"DEBUG", "Anim walk");
+           case NpcState.Wander:
+                let seed = NpcController.GetCrowdSeed(sectorHash);
+                let tick = RoundF(GameInstance.GetSimTime() as Float);
+                let val = CoopNet.Fnv1a32(IntToString(npcId + tick)) ^ seed;
+                if val % 2u == 0u {
+                    SetAnimation(n"walk_phone");
+                } else {
+                    SetAnimation(n"walk");
+                };
                 break;
             case NpcState.Combat:
-                LogChannel(n"DEBUG", "Anim combat");
+                SetAnimation(n"combat");
                 break;
         };
         LogChannel(n"DEBUG", "NpcProxy.ApplySnap " + IntToString(npcId));
@@ -44,5 +58,10 @@ public class NpcProxy extends gameObject {
 
     public func Despawn() -> Void {
         LogChannel(n"DEBUG", "NpcProxy.Despawn " + IntToString(npcId));
+    }
+
+    private func SetAnimation(name: CName) -> Void {
+        // Would call animation controller when available
+        LogChannel(n"DEBUG", "Play anim " + NameToString(name));
     }
 }

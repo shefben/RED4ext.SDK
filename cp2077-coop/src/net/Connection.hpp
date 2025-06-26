@@ -60,6 +60,13 @@ public:
     uint64_t lastSectorChangeTick = 0;
     std::unordered_set<uint32_t> subscribedNpcs;
     uint64_t relayBytes = 0;
+    bool usingRelay = false;
+    float rttMs = 0.f;
+    float rttHist[16]{};
+    uint8_t rttIndex = 0;
+    float packetLoss = 0.f;
+    uint64_t balance = 10000;
+    uint64_t lastNonce = 0;
 };
 
 } // namespace CoopNet

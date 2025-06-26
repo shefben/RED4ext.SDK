@@ -7,6 +7,7 @@ public enum NpcState {
 
 public class NpcController {
     public static let proxies: array<ref<NpcProxy>>;
+    public static let crowdSeeds: ref<inkHashMap> = new inkHashMap();
 
     public static func ServerTick(dt: Float) -> Void {
         CoopNet.NpcController_ServerTick(dt);
@@ -39,5 +40,22 @@ public class NpcController {
         } else {
             npc.ApplySnap(snap);
         };
+    }
+
+    public static func DespawnNpc(id: Uint32) -> Void {
+        let npc = FindProxy(id);
+        if IsDefined(npc) {
+            npc.Despawn();
+            proxies.Erase(npc);
+        };
+    }
+
+    public static func ApplyCrowdSeed(hash: Uint64, seed: Uint32) -> Void {
+        crowdSeeds.Insert(hash, seed);
+    }
+
+    public static func GetCrowdSeed(hash: Uint64) -> Uint32 {
+        let val = crowdSeeds.Get(hash) as Uint32;
+        return val;
     }
 }

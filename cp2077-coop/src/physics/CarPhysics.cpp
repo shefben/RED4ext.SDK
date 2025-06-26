@@ -1,4 +1,6 @@
 #include "CarPhysics.hpp"
+#include "../core/GameClock.hpp"
+#include <cmath>
 
 namespace CoopNet
 {
@@ -9,10 +11,13 @@ namespace CoopNet
 void ServerSimulate(TransformSnap& snap, float dtMs)
 {
     float dt = dtMs / 1000.f;
+    uint64_t frame = GameClock::GetCurrentTick();
+    float noise = std::sinf(static_cast<float>(frame) * 0.1f) * 0.01f;
     // Integrate linear velocity
     snap.pos += snap.vel * dt;
-    // Simple friction
-    snap.vel *= 0.98f;
+    // Simple friction with deterministic noise
+    snap.vel.X = (snap.vel.X + noise) * 0.98f;
+    snap.vel.Y = (snap.vel.Y - noise) * 0.98f;
     // Rotate to face velocity direction if moving
     float speed2 = snap.vel.X * snap.vel.X + snap.vel.Y * snap.vel.Y;
     if (speed2 > 0.0001f)
@@ -27,8 +32,11 @@ void ServerSimulate(TransformSnap& snap, float dtMs)
 void ClientPredict(TransformSnap& snap, float dtMs)
 {
     float dt = dtMs / 1000.f;
+    uint64_t frame = GameClock::GetCurrentTick();
+    float noise = std::sinf(static_cast<float>(frame) * 0.1f) * 0.01f;
     snap.pos += snap.vel * dt;
-    snap.vel *= 0.98f;
+    snap.vel.X = (snap.vel.X + noise) * 0.98f;
+    snap.vel.Y = (snap.vel.Y - noise) * 0.98f;
     float speed2 = snap.vel.X * snap.vel.X + snap.vel.Y * snap.vel.Y;
     if (speed2 > 0.0001f)
     {

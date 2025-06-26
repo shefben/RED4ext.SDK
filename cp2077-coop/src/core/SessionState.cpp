@@ -1,5 +1,6 @@
 #include "SessionState.hpp"
 #include "SaveFork.hpp"
+#include "SaveMigration.hpp"
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -19,14 +20,26 @@ struct PartyMember
 static std::vector<PartyMember> g_party;                            // PP-1: populated via lobby sync
 static std::vector<std::pair<std::string, uint32_t>> g_questStages; // questName -> stage
 static std::vector<ItemSnap> g_inventory;
+static uint32_t g_sessionId = 0;
 
-void SessionState_SetParty(const std::vector<uint32_t>& peerIds)
+uint32_t SessionState_SetParty(const std::vector<uint32_t>& peerIds)
 {
     g_party.clear();
-    for (uint32_t id : peerIds)
+    std::vector<uint32_t> sorted = peerIds;
+    std::sort(sorted.begin(), sorted.end());
+    uint32_t hash = 2166136261u;
+    for (uint32_t id : sorted)
     {
+        const uint8_t* b = reinterpret_cast<const uint8_t*>(&id);
+        for (size_t i = 0; i < sizeof(id); ++i)
+        {
+            hash ^= b[i];
+            hash *= 16777619u;
+        }
         g_party.push_back({id, 0});
     }
+    g_sessionId = hash;
+    return g_sessionId;
 }
 
 void SaveSessionState(uint32_t sessionId)
@@ -58,7 +71,9 @@ void SaveSessionState(uint32_t sessionId)
     }
     ss << "]\n}\n";
 
-    SaveSession(sessionId, ss.str());
+    std::string blob = ss.str();
+    SaveRollbackSnapshot(sessionId, blob);
+    SaveSession(sessionId, blob);
 }
 
 void SaveMergeResolution(bool acceptAll)
@@ -77,6 +92,11 @@ void SaveMergeResolution(bool acceptAll)
     } catch (const std::exception& e) {
         std::cerr << "SaveMergeResolution error: " << e.what() << std::endl;
     }
+}
+
+uint32_t SessionState_GetId()
+{
+    return g_sessionId;
 }
 
 } // namespace CoopNet

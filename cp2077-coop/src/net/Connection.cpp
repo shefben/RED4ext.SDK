@@ -1,23 +1,25 @@
 #include "Connection.hpp"
 #include "../core/GameClock.hpp"
+#include "../core/Hash.hpp"
+#include "../core/SessionState.hpp"
+#include "../runtime/GameModeManager.reds"
 #include "../server/BreachController.hpp"
 #include "../server/NpcController.hpp"
 #include "../voice/VoiceDecoder.hpp"
 #include "Net.hpp"
 #include "StatBatch.hpp"
-#include "../core/Hash.hpp"
 #include <RED4ext/RED4ext.hpp>
 #include <iostream>
 
 // Temporary proxies for script methods.
-static void AvatarProxy_Spawn(uint32_t peerId, bool isLocal)
+static void AvatarProxy_SpawnRemote(uint32_t peerId, bool isLocal, const CoopNet::TransformSnap& snap)
 {
-    std::cout << "AvatarProxy::Spawn " << peerId << " local=" << isLocal << std::endl;
+    RED4ext::ExecuteFunction("AvatarProxy", "SpawnRemote", nullptr, peerId, isLocal, &snap);
 }
 
-static void AvatarProxy_Despawn(uint32_t peerId)
+static void AvatarProxy_DespawnRemote(uint32_t peerId)
 {
-    std::cout << "AvatarProxy::Despawn " << peerId << std::endl;
+    RED4ext::ExecuteFunction("AvatarProxy", "DespawnRemote", nullptr, peerId);
 }
 
 static void Killfeed_Push(const char* msg)
@@ -46,14 +48,19 @@ static void DMScoreboard_OnScorePacket(uint32_t peerId, uint16_t k, uint16_t d)
     std::cout << "ScoreUpdate " << peerId << " " << k << "/" << d << std::endl;
 }
 
+static void DMScoreboard_OnMatchOver(uint32_t winner)
+{
+    std::cout << "MatchOver " << winner << std::endl;
+}
+
 static void NpcProxy_Spawn(const CoopNet::NpcSnap& snap)
 {
-    std::cout << "NpcProxy::Spawn " << snap.npcId << std::endl;
+    CoopNet::NpcController_ClientApplySnap(snap);
 }
 
 static void NpcProxy_Despawn(uint32_t npcId)
 {
-    std::cout << "NpcProxy::Despawn " << npcId << std::endl;
+    CoopNet::NpcController_Despawn(npcId);
 }
 
 static void NpcProxy_ApplySnap(const CoopNet::NpcSnap& snap)
@@ -91,6 +98,11 @@ static void Inventory_OnAttachResult(const CoopNet::ItemSnap& snap, bool success
     std::cout << "AttachResult item=" << snap.itemId << " success=" << success << std::endl;
 }
 
+static void Inventory_OnPurchaseResult(uint64_t itemId, uint64_t balance, bool success)
+{
+    RED4ext::ExecuteFunction("Inventory", "OnPurchaseResult", nullptr, &itemId, &balance, &success);
+}
+
 static void AvatarProxy_OnSectorChange(uint32_t peerId, uint64_t hash)
 {
     std::cout << "SectorChange " << peerId << " -> " << hash << std::endl;
@@ -106,9 +118,9 @@ static void VehicleProxy_Detach(uint32_t id, uint8_t part)
     std::cout << "Vehicle detach " << id << " part " << static_cast<int>(part) << std::endl;
 }
 
-static void AvatarProxy_OnEject(uint32_t peerId)
+static void AvatarProxy_OnEject(uint32_t peerId, const RED4ext::Vector3& vel)
 {
-    std::cout << "Eject occupant " << peerId << std::endl;
+    std::cout << "Eject occupant " << peerId << " vel=" << vel.X << "," << vel.Y << "," << vel.Z << std::endl;
 }
 
 static void BreachHud_Start(uint32_t peerId, uint32_t seed, uint8_t w, uint8_t h)
@@ -125,6 +137,27 @@ static void BreachHud_Input(uint32_t peerId, uint8_t idx)
 static void Quickhack_BreachResult(uint32_t peerId, uint8_t mask)
 {
     std::cout << "Breach result mask=" << static_cast<int>(mask) << std::endl;
+}
+
+static void VendorSync_OnStock(const CoopNet::VendorStockPacket& pkt)
+{
+    RED4ext::ExecuteFunction("VendorSync", "OnStock", nullptr, &pkt);
+}
+
+static void HeatSync_Apply(uint8_t level)
+{
+    std::cout << "Heat level " << static_cast<int>(level) << std::endl;
+}
+
+static void WeatherSync_Apply(const CoopNet::WorldStatePacket& pkt)
+{
+    std::cout << "World clock=" << pkt.worldClockMs << " weather=" << static_cast<int>(pkt.weatherId) << std::endl;
+}
+
+static void GlobalEvent_OnPacket(const CoopNet::GlobalEventPacket& pkt)
+{
+    std::cout << "Event " << pkt.eventId << " phase=" << static_cast<int>(pkt.phase) << (pkt.start ? " start" : " stop")
+              << std::endl;
 }
 
 static void SpectatorCam_Enter(uint32_t peerId)
@@ -149,6 +182,11 @@ static void UIPauseAudit_OnHoloEnd(uint32_t peerId)
     std::cout << "HoloCall end " << peerId << std::endl;
 }
 
+static void GameModeManager_SetFriendlyFire(bool enable)
+{
+    std::cout << "FriendlyFire=" << (enable ? "true" : "false") << std::endl;
+}
+
 static void SnapshotInterpolator_OnTickRateChange(uint16_t ms)
 {
     std::cout << "TickRateChange " << ms << " ms" << std::endl;
@@ -164,6 +202,8 @@ Connection::Connection()
     , avatarPos{0.f, 0.f, 0.f}
     , currentSector(0)
     , sectorReady(true)
+    , rttHist{}
+    , rttIndex(0)
 {
 }
 
@@ -171,6 +211,7 @@ void Connection::SendSectorChange(uint64_t hash)
 {
     SectorChangePacket pkt{0u, hash};
     Net_Send(this, EMsg::SectorChange, &pkt, sizeof(pkt));
+    CoopNet::NpcController_OnPlayerEnterSector(peerId, hash);
     sectorReady = false;
     currentSector = hash;
     lastSectorChangeTick = CoopNet::GameClock::GetCurrentTick();
@@ -195,6 +236,24 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
     (void)size;
     switch (static_cast<EMsg>(hdr.type))
     {
+    case EMsg::Ping:
+        if (size >= sizeof(PingPacket))
+        {
+            const PingPacket* pkt = reinterpret_cast<const PingPacket*>(payload);
+            PongPacket pong{pkt->timeMs};
+            Net_Send(this, EMsg::Pong, &pong, sizeof(pong));
+        }
+        break;
+    case EMsg::Pong:
+        if (size >= sizeof(PongPacket))
+        {
+            const PongPacket* pkt = reinterpret_cast<const PongPacket*>(payload);
+            uint64_t now = GameClock::GetTimeMs();
+            rttMs = static_cast<float>(now - pkt->timeMs);
+            rttHist[rttIndex % 16] = rttMs;
+            rttIndex = (rttIndex + 1) % 16;
+        }
+        break;
     case EMsg::Welcome:
         if (state == ConnectionState::Handshaking)
         {
@@ -208,18 +267,27 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             uint64_t hash = CoopNet::Fnv1a64Pos(avatarPos.X, avatarPos.Y);
             SectorChangePacket pkt{0u, hash};
             Net_Send(this, EMsg::SectorChange, &pkt, sizeof(pkt));
+            std::vector<uint32_t> ids;
+            for (auto* c : Net_GetConnections())
+                ids.push_back(c->peerId);
+            CoopNet::SessionState_SetParty(ids);
         }
         break;
     case EMsg::Disconnect:
         Killfeed_Push("0 disconnected");
+        CoopNet::VehicleController_RemovePeer(peerId);
         Transition(ConnectionState::Disconnected);
+        CoopNet::SaveSessionState(CoopNet::SessionState_GetId());
         break;
     case EMsg::AvatarSpawn:
         if (size >= sizeof(AvatarSpawnPacket))
         {
             const AvatarSpawnPacket* pkt = reinterpret_cast<const AvatarSpawnPacket*>(payload);
-            AvatarProxy_Spawn(pkt->peerId, pkt->peerId == 0);
-            SectorChangePacket sp{pkt->peerId, Fnv1a64("spawn_sector")};
+            AvatarProxy_SpawnRemote(pkt->peerId, pkt->peerId == 0, pkt->snap);
+            avatarPos = pkt->snap.pos;
+            uint64_t hash = CoopNet::Fnv1a64Pos(avatarPos.X, avatarPos.Y);
+            currentSector = hash;
+            SectorChangePacket sp{pkt->peerId, hash};
             Net_Send(this, EMsg::SectorChange, &sp, sizeof(sp));
         }
         break;
@@ -227,7 +295,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(AvatarDespawnPacket))
         {
             const AvatarDespawnPacket* pkt = reinterpret_cast<const AvatarDespawnPacket*>(payload);
-            AvatarProxy_Despawn(pkt->peerId);
+            AvatarProxy_DespawnRemote(pkt->peerId);
         }
         Killfeed_Push("0 disconnected");
         break;
@@ -240,7 +308,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             {
                 const ChatPacket* pkt = reinterpret_cast<const ChatPacket*>(payload);
                 ChatPacket out{peerId, {0}};
-                std::strncpy(out.msg, pkt->msg, sizeof(out.msg)-1);
+                std::strncpy(out.msg, pkt->msg, sizeof(out.msg) - 1);
                 Net_Broadcast(EMsg::Chat, &out, sizeof(out));
             }
         }
@@ -303,6 +371,13 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             DMScoreboard_OnScorePacket(pkt->peerId, pkt->k, pkt->d);
         }
         break;
+    case EMsg::MatchOver:
+        if (size >= sizeof(MatchOverPacket))
+        {
+            const MatchOverPacket* pkt = reinterpret_cast<const MatchOverPacket*>(payload);
+            DMScoreboard_OnMatchOver(pkt->winnerId);
+        }
+        break;
     case EMsg::ItemSnap:
         if (size >= sizeof(ItemSnapPacket))
         {
@@ -324,6 +399,20 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             Inventory_OnAttachResult(pkt->item, pkt->success != 0);
         }
         break;
+    case EMsg::HeatSync:
+        if (size >= sizeof(HeatPacket))
+        {
+            const HeatPacket* pkt = reinterpret_cast<const HeatPacket*>(payload);
+            HeatSync_Apply(pkt->level);
+        }
+        break;
+    case EMsg::WorldState:
+        if (size >= sizeof(WorldStatePacket))
+        {
+            const WorldStatePacket* pkt = reinterpret_cast<const WorldStatePacket*>(payload);
+            WeatherSync_Apply(*pkt);
+        }
+        break;
     case EMsg::VehicleExplode:
         if (size >= sizeof(VehicleExplodePacket))
         {
@@ -338,11 +427,39 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             VehicleProxy_Detach(pkt->vehicleId, pkt->partId);
         }
         break;
+    case EMsg::VehicleSpawn:
+        if (size >= sizeof(VehicleSpawnPacket))
+        {
+            const VehicleSpawnPacket* pkt = reinterpret_cast<const VehicleSpawnPacket*>(payload);
+            VehicleProxy_Spawn(pkt->vehicleId, &pkt->transform);
+        }
+        break;
+    case EMsg::SeatAssign:
+        if (size >= sizeof(SeatAssignPacket))
+        {
+            const SeatAssignPacket* pkt = reinterpret_cast<const SeatAssignPacket*>(payload);
+            VehicleProxy_EnterSeat(pkt->peerId, pkt->seatIdx);
+        }
+        break;
+    case EMsg::VehicleHit:
+        if (size >= sizeof(VehicleHitPacket))
+        {
+            const VehicleHitPacket* pkt = reinterpret_cast<const VehicleHitPacket*>(payload);
+            VehicleProxy_ApplyDamage(pkt->vehicleId, pkt->dmg, pkt->side != 0);
+        }
+        break;
+    case EMsg::SeatRequest:
+        if (size >= sizeof(SeatRequestPacket) && Net_IsAuthoritative())
+        {
+            const SeatRequestPacket* pkt = reinterpret_cast<const SeatRequestPacket*>(payload);
+            CoopNet::VehicleController_HandleSeatRequest(this, pkt->vehicleId, pkt->seatIdx);
+        }
+        break;
     case EMsg::EjectOccupant:
         if (size >= sizeof(EjectOccupantPacket))
         {
             const EjectOccupantPacket* pkt = reinterpret_cast<const EjectOccupantPacket*>(payload);
-            AvatarProxy_OnEject(pkt->peerId);
+            AvatarProxy_OnEject(pkt->peerId, pkt->velocity);
         }
         break;
     case EMsg::BreachStart:
@@ -464,6 +581,27 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             }
         }
         break;
+    case EMsg::GlobalEvent:
+        if (size >= sizeof(GlobalEventPacket))
+        {
+            const GlobalEventPacket* pkt = reinterpret_cast<const GlobalEventPacket*>(payload);
+            GlobalEvent_OnPacket(*pkt);
+        }
+        break;
+    case EMsg::CrowdSeed:
+        if (size >= sizeof(CrowdSeedPacket))
+        {
+            const CrowdSeedPacket* pkt = reinterpret_cast<const CrowdSeedPacket*>(payload);
+            NpcController_ApplyCrowdSeed(pkt->sectorHash, pkt->seed);
+        }
+        break;
+    case EMsg::VendorStock:
+        if (size >= sizeof(VendorStockPacket))
+        {
+            const VendorStockPacket* pkt = reinterpret_cast<const VendorStockPacket*>(payload);
+            VendorSync_OnStock(*pkt);
+        }
+        break;
     case EMsg::AdminCmd:
         if (size >= sizeof(AdminCmdPacket))
         {
@@ -476,6 +614,13 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const TickRateChangePacket* pkt = reinterpret_cast<const TickRateChangePacket*>(payload);
             SnapshotInterpolator_OnTickRateChange(pkt->tickMs);
+        }
+        break;
+    case EMsg::RuleChange:
+        if (size >= sizeof(RuleChangePacket))
+        {
+            const RuleChangePacket* pkt = reinterpret_cast<const RuleChangePacket*>(payload);
+            GameModeManager_SetFriendlyFire(pkt->friendlyFire != 0u);
         }
         break;
     case EMsg::CraftRequest:
@@ -492,6 +637,20 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             CoopNet::Inventory_HandleAttachRequest(this, pkt->itemId, pkt->slotIdx, pkt->attachmentId);
         }
         break;
+    case EMsg::PurchaseRequest:
+        if (size >= sizeof(PurchaseRequestPacket) && Net_IsAuthoritative())
+        {
+            const PurchaseRequestPacket* pkt = reinterpret_cast<const PurchaseRequestPacket*>(payload);
+            CoopNet::VendorController_HandlePurchase(this, pkt->vendorId, pkt->itemId, pkt->nonce);
+        }
+        break;
+    case EMsg::PurchaseResult:
+        if (size >= sizeof(PurchaseResultPacket) && !Net_IsAuthoritative())
+        {
+            const PurchaseResultPacket* pkt = reinterpret_cast<const PurchaseResultPacket*>(payload);
+            Inventory_OnPurchaseResult(pkt->itemId, pkt->balance, pkt->success != 0);
+        }
+        break;
     default:
         break;
     }
@@ -499,8 +658,12 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
 
 void Connection::Update(uint64_t nowMs)
 {
-    // Store ping timestamp; actual ping logic will come later.
-    lastPingSent = nowMs;
+    if (nowMs - lastPingSent >= 5000)
+    {
+        PingPacket ping{static_cast<uint32_t>(nowMs & 0xFFFFFFFFu)};
+        Net_Send(this, EMsg::Ping, &ping, sizeof(ping));
+        lastPingSent = nowMs;
+    }
 
     RawPacket pkt;
     while (m_incoming.Pop(pkt))
@@ -516,15 +679,14 @@ void Connection::Update(uint64_t nowMs)
 
     if (!sectorReady)
     {
-        const uint64_t timeoutTicks = static_cast<uint64_t>(10000.f / CoopNet::kFixedDeltaMs);
+        const uint64_t timeoutTicks = static_cast<uint64_t>(10000.f / CoopNet::kVehicleStepMs);
         if (CoopNet::GameClock::GetCurrentTick() - lastSectorChangeTick > timeoutTicks)
         {
             std::cout << "SectorReady timeout" << std::endl;
             sectorReady = true;
         }
     }
-    // At end of tick loop, send any batched score packets.
-    CoopNet::FlushStats();
+    CoopNet::StatBatch_Tick(static_cast<float>(CoopNet::GameClock::GetTickMs()) / 1000.f);
 }
 
 void Connection::EnqueuePacket(const RawPacket& pkt)

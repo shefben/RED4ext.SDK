@@ -2,12 +2,16 @@
 #include "../net/Net.hpp"
 #include "../net/Connection.hpp"
 #include "../core/GameClock.hpp"
+#include "../core/ThreadSafeQueue.hpp"
+#include <openssl/sha.h>
+#include <openssl/evp.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <thread>
 #include <atomic>
+#include <vector>
 #include <sstream>
 #include <iostream>
 
@@ -16,6 +20,8 @@ namespace CoopNet
 static std::thread g_thread;
 static std::atomic<bool> g_running{false};
 static int g_listenSock = -1;
+static std::vector<int> g_wsClients;
+static ThreadSafeQueue<std::string> g_events;
 
 // Build JSON status payload describing connected peers.
 static std::string BuildStatus()
@@ -26,10 +32,15 @@ static std::string BuildStatus()
     for (size_t i = 0; i < conns.size(); ++i)
     {
         auto* c = conns[i];
-        ss << "{\"id\":" << c->peerId
-           << ",\"ping\":0" // SA-3: fill real ping later
+        ss << "{\"id\":" << c->peerId << ",\"hist\":[";
+        for (int h = 0; h < 16; ++h)
+        {
+            ss << c->rttHist[h];
+            if (h < 15) ss << ',';
+        }
+        ss << "],\"relay\":" << c->relayBytes
            << ",\"pos\":" << c->avatarPos.X << "," << c->avatarPos.Y
-           << ",\"mode\":\"unknown\"}";
+           << "}";
         if (i + 1 < conns.size())
             ss << ',';
     }
@@ -75,19 +86,55 @@ static void ServerLoop()
         std::string req(buf, len);
         std::string body;
         std::string hdr;
-        if (req.rfind("GET /status", 0) == 0)
+        if (req.rfind("GET /ws", 0) == 0 && req.find("Upgrade: websocket") != std::string::npos)
+        {
+            size_t pos = req.find("Sec-WebSocket-Key: ");
+            if (pos != std::string::npos)
+            {
+                pos += 19;
+                size_t end = req.find('\r', pos);
+                std::string key = req.substr(pos, end - pos);
+                key += "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+                unsigned char sha[20];
+                SHA1(reinterpret_cast<const unsigned char*>(key.c_str()), key.size(), sha);
+                char b64[32];
+                EVP_EncodeBlock(reinterpret_cast<unsigned char*>(b64), sha, 20);
+                std::string accept(b64);
+                hdr = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " + accept + "\r\n\r\n";
+                send(client, hdr.c_str(), hdr.size(), 0);
+                g_wsClients.push_back(client);
+                continue;
+            }
+        }
+        else if (req.rfind("GET /status", 0) == 0)
         {
             body = BuildStatus();
             hdr = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n";
+            send(client, hdr.c_str(), hdr.size(), 0);
+            send(client, body.c_str(), body.size(), 0);
         }
         else
         {
             body = kPage;
             hdr = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
+            send(client, hdr.c_str(), hdr.size(), 0);
+            send(client, body.c_str(), body.size(), 0);
         }
-        send(client, hdr.c_str(), hdr.size(), 0);
-        send(client, body.c_str(), body.size(), 0);
         close(client);
+    }
+    for (int ws : g_wsClients)
+    {
+        std::string status = BuildStatus();
+        uint8_t hdr[2]{0x81, static_cast<uint8_t>(status.size())};
+        send(ws, hdr, 2, 0);
+        send(ws, status.c_str(), status.size(), 0);
+        std::string evt;
+        while (g_events.Pop(evt))
+        {
+            uint8_t h[2]{0x81, static_cast<uint8_t>(evt.size())};
+            send(ws, h, 2, 0);
+            send(ws, evt.c_str(), evt.size(), 0);
+        }
     }
     close(g_listenSock);
 }
@@ -108,6 +155,11 @@ void WebDash_Stop()
     shutdown(g_listenSock, SHUT_RDWR);
     if (g_thread.joinable())
         g_thread.join();
+}
+
+void WebDash_PushEvent(const std::string& json)
+{
+    g_events.Push(json);
 }
 
 } // namespace CoopNet

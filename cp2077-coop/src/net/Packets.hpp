@@ -30,12 +30,14 @@ enum class EMsg : uint16_t
     HitRequest,
     HitConfirm,
     VehicleSpawn,
+    SeatRequest,
     SeatAssign,
     VehicleHit,
     Quickhack,
     HeatSync,
     WorldState,
     ScoreUpdate,
+    MatchOver,
     NpcSnapshot,
     NpcSpawn,
     NpcDespawn,
@@ -60,6 +62,7 @@ enum class EMsg : uint16_t
     TeleportAck,
     HoloCallStart,
     HoloCallEnd,
+    RuleChange,
     AdminCmd,
     SpectateRequest,
     SpectateGranted,
@@ -67,13 +70,28 @@ enum class EMsg : uint16_t
     CineStart,
     Viseme,
     DialogChoice,
-    Voice
+    Voice,
+    GlobalEvent,
+    CrowdSeed,
+    VendorStock,
+    PurchaseRequest,
+    PurchaseResult
 };
 
 struct PacketHeader
 {
     uint16_t type;
     uint16_t size;
+};
+
+struct PingPacket
+{
+    uint32_t timeMs;
+};
+
+struct PongPacket
+{
+    uint32_t timeMs;
 };
 
 constexpr size_t kHeaderSize = sizeof(PacketHeader);
@@ -119,7 +137,15 @@ struct VersionPacket
 struct VehicleSpawnPacket
 {
     uint32_t vehicleId;
+    uint32_t archetypeId;
+    uint32_t paintId;
     TransformSnap transform;
+};
+
+struct SeatRequestPacket
+{
+    uint32_t vehicleId;
+    uint8_t seatIdx; // 0-3
 };
 
 struct SeatAssignPacket
@@ -133,12 +159,18 @@ struct VehicleHitPacket
 {
     uint32_t vehicleId;
     uint16_t dmg;
+    uint8_t side; // 1 if side impact
+    uint8_t pad;
 };
 
 struct WorldStatePacket
 {
+    uint64_t worldClockMs;
     uint32_t sunAngle; // degrees * 100
+    uint32_t weatherSeed;
     uint8_t weatherId;
+    uint8_t braindancePhase;
+    uint8_t pad[2];
 };
 
 struct ScoreUpdatePacket
@@ -146,6 +178,11 @@ struct ScoreUpdatePacket
     uint32_t peerId;
     uint16_t k;
     uint16_t d;
+};
+
+struct MatchOverPacket
+{
+    uint32_t winnerId;
 };
 
 struct NpcSnapshotPacket
@@ -204,6 +241,12 @@ struct AttachModResultPacket
     uint8_t _pad2[3];
 };
 
+struct HeatPacket
+{
+    uint8_t level;
+    uint8_t _pad[3];
+};
+
 struct VehicleExplodePacket
 {
     uint32_t vehicleId;
@@ -221,6 +264,7 @@ struct VehiclePartDetachPacket
 struct EjectOccupantPacket
 {
     uint32_t peerId;
+    RED4ext::Vector3 velocity;
 };
 
 struct InterestPacket
@@ -278,6 +322,12 @@ struct TeleportAckPacket
     uint32_t elevatorId;
 };
 
+struct RuleChangePacket
+{
+    uint8_t friendlyFire;
+    uint8_t _pad[3];
+};
+
 struct HoloCallPacket
 {
     uint32_t peerId;
@@ -327,6 +377,51 @@ struct VoicePacket
     uint16_t seq;
     uint16_t size;
     uint8_t data[256];
+};
+
+struct GlobalEventPacket
+{
+    uint32_t eventId;
+    uint32_t seed;
+    uint8_t phase;
+    uint8_t start; // 1=start, 0=stop
+    uint8_t pad[2];
+};
+
+struct CrowdSeedPacket
+{
+    uint64_t sectorHash;
+    uint32_t seed;
+};
+
+struct VendorStockItem
+{
+    uint32_t itemId;
+    uint32_t price;
+};
+
+struct VendorStockPacket
+{
+    uint32_t vendorId;
+    uint8_t count;
+    uint8_t _pad[3];
+    VendorStockItem items[8];
+};
+
+struct PurchaseRequestPacket
+{
+    uint32_t vendorId;
+    uint32_t itemId;
+    uint64_t nonce;
+};
+
+struct PurchaseResultPacket
+{
+    uint32_t vendorId;
+    uint32_t itemId;
+    uint64_t balance;
+    uint8_t success;
+    uint8_t _pad[3];
 };
 
 struct AvatarSpawnPacket

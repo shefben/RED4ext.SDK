@@ -8,6 +8,7 @@ public class VehicleProxy extends gameObject {
     private var lastVel: Vector3;
     private var lastAccel: Vector3;
     private var occupantPeer: Uint32;
+    private var physAcc: Float;
 
     private static func FindProxy(id: Uint32) -> ref<VehicleProxy> {
         for p in proxies { if p.vehicleId == id { return p; }; };
@@ -30,6 +31,10 @@ public class VehicleProxy extends gameObject {
     public func EnterSeat(peerId: Uint32, idx: Uint8) -> Void {
         occupantPeer = peerId;
         LogChannel(n"DEBUG", IntToString(peerId) + " entered seat " + IntToString(idx));
+    }
+
+    public func RequestSeat(idx: Uint8) -> Void {
+        CoopNet.Net_SendSeatRequest(vehicleId, idx);
     }
 
     public func DetachPart(partId: Uint8) -> Void {
@@ -91,10 +96,14 @@ public class VehicleProxy extends gameObject {
         };
     }
 
-    // dtMs should equal CoopNet.kFixedDeltaMs for deterministic physics
+    // dtMs may vary; physics steps at CoopNet.kVehicleStepMs
     public func Tick(dtMs: Float) -> Void {
         if Net_IsAuthoritative() {
-            CoopNet.ServerSimulate(state, dtMs);
+            physAcc += dtMs;
+            while physAcc >= CoopNet.kVehicleStepMs {
+                CoopNet.ServerSimulate(state, CoopNet.kVehicleStepMs);
+                physAcc -= CoopNet.kVehicleStepMs;
+            };
             let newVel: Vector3 = state.vel;
             let delta: Vector3 = newVel - lastVel;
             var along: Float = 0.0;
@@ -103,7 +112,7 @@ public class VehicleProxy extends gameObject {
             };
             let decel: Float = -along / (dtMs / 1000.0);
             if decel > 12.0 && occupantPeer != 0u {
-                CoopNet.Net_BroadcastEject(occupantPeer);
+                CoopNet.Net_BroadcastEject(occupantPeer, lastVel);
                 occupantPeer = 0u;
             };
             lastAccel = newVel - lastVel;
@@ -147,4 +156,14 @@ public static func VehicleProxy_Explode(id: Uint32, vfxId: Uint32, seed: Uint32)
 public static func VehicleProxy_Detach(id: Uint32, part: Uint8) -> Void {
     let v = VehicleProxy.FindProxy(id);
     if IsDefined(v) { v.DetachPart(part); };
+}
+
+public static func VehicleProxy_EnterSeat(peerId: Uint32, seat: Uint8) -> Void {
+    let v = VehicleProxy.proxies[0]; // assume single vehicle
+    if IsDefined(v) { v.EnterSeat(peerId, seat); };
+}
+
+public static func VehicleProxy_ApplyDamage(id: Uint32, d: Uint16, side: Bool) -> Void {
+    let v = VehicleProxy.FindProxy(id);
+    if IsDefined(v) { v.ApplyDamage(d, side); };
 }

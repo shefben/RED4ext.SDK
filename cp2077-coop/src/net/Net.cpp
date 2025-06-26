@@ -1,10 +1,10 @@
 #include "Net.hpp"
 #include "../core/Hash.hpp"
+#include "../server/AdminController.hpp"
 #include "Connection.hpp"
+#include "NatClient.hpp"
 #include "NetConfig.hpp"
 #include "Packets.hpp"
-#include "../server/AdminController.hpp"
-#include "NatClient.hpp"
 #include <algorithm>
 #include <cstring>
 #include <enet/enet.h>
@@ -36,10 +36,12 @@ void Net_Init()
     }
 
     g_Host = enet_host_create(nullptr, 8, 2, 0, 0);
-    Nat_SetCandidateCallback([](const char* cand) {
-        std::cout << "Local candidate: " << cand << std::endl;
-        Net_BroadcastNatCandidate(cand);
-    });
+    Nat_SetCandidateCallback(
+        [](const char* cand)
+        {
+            std::cout << "Local candidate: " << cand << std::endl;
+            Net_BroadcastNatCandidate(cand);
+        });
     Nat_Start();
     std::cout << "Net_Init complete" << std::endl;
 }
@@ -202,6 +204,16 @@ void Net_SendAttachRequest(uint64_t itemId, uint8_t slotIdx, uint64_t attachment
     }
 }
 
+void Net_SendPurchaseRequest(uint32_t vendorId, uint32_t itemId, uint64_t nonce)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        PurchaseRequestPacket pkt{vendorId, itemId, nonce};
+        Net_Send(conns[0], EMsg::PurchaseRequest, &pkt, sizeof(pkt));
+    }
+}
+
 void Net_SendBreachInput(uint8_t index)
 {
     auto conns = Net_GetConnections();
@@ -234,10 +246,49 @@ void Net_BroadcastPartDetach(uint32_t vehicleId, uint8_t partId)
     Net_Broadcast(EMsg::VehiclePartDetach, &pkt, sizeof(pkt));
 }
 
-void Net_BroadcastEject(uint32_t peerId)
+void Net_BroadcastEject(uint32_t peerId, const RED4ext::Vector3& vel)
 {
-    EjectOccupantPacket pkt{peerId};
+    EjectOccupantPacket pkt{peerId, vel};
     Net_Broadcast(EMsg::EjectOccupant, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastVehicleSpawn(uint32_t vehicleId, uint32_t archetypeId, uint32_t paintId, const TransformSnap& t)
+{
+    VehicleSpawnPacket pkt{vehicleId, archetypeId, paintId, t};
+    Net_Broadcast(EMsg::VehicleSpawn, &pkt, sizeof(pkt));
+}
+
+void Net_SendSeatRequest(uint32_t vehicleId, uint8_t seatIdx)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        SeatRequestPacket pkt{vehicleId, seatIdx};
+        Net_Send(conns[0], EMsg::SeatRequest, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_BroadcastSeatAssign(uint32_t peerId, uint32_t vehicleId, uint8_t seatIdx)
+{
+    SeatAssignPacket pkt{peerId, vehicleId, seatIdx};
+    Net_Broadcast(EMsg::SeatAssign, &pkt, sizeof(pkt));
+}
+
+void Net_SendVehicleHit(uint32_t vehicleId, uint16_t dmg, bool side)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        VehicleHitPacket pkt{vehicleId, dmg};
+        pkt.pad = side ? 1u : 0u;
+        Net_Send(conns[0], EMsg::VehicleHit, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_BroadcastVehicleHit(uint32_t vehicleId, uint16_t dmg)
+{
+    VehicleHitPacket pkt{vehicleId, dmg};
+    Net_Broadcast(EMsg::VehicleHit, &pkt, sizeof(pkt));
 }
 
 void Net_BroadcastBreachStart(uint32_t peerId, uint32_t seed, uint8_t w, uint8_t h)
@@ -256,6 +307,12 @@ void Net_BroadcastBreachResult(uint32_t peerId, uint8_t mask)
 {
     BreachResultPacket pkt{peerId, mask, {0, 0, 0}};
     Net_Broadcast(EMsg::BreachResult, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastHeat(uint8_t level)
+{
+    HeatPacket pkt{level, {0, 0, 0}};
+    Net_Broadcast(EMsg::HeatSync, &pkt, sizeof(pkt));
 }
 
 void Net_BroadcastElevatorCall(uint32_t peerId, uint32_t elevatorId, uint8_t floorIdx)
@@ -298,6 +355,12 @@ void Net_BroadcastTickRateChange(uint16_t tickMs)
     Net_Broadcast(EMsg::TickRateChange, &pkt, sizeof(pkt));
 }
 
+void Net_BroadcastRuleChange(bool friendly)
+{
+    RuleChangePacket pkt{static_cast<uint8_t>(friendly), {0, 0, 0}};
+    Net_Broadcast(EMsg::RuleChange, &pkt, sizeof(pkt));
+}
+
 void Net_SendSpectateRequest(uint32_t peerId)
 {
     auto conns = Net_GetConnections();
@@ -318,11 +381,23 @@ void Net_SendSpectateGranted(uint32_t peerId)
     }
 }
 
+void Net_BroadcastScoreUpdate(uint32_t peerId, uint16_t k, uint16_t d)
+{
+    ScoreUpdatePacket pkt{peerId, k, d};
+    Net_Broadcast(EMsg::ScoreUpdate, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastMatchOver(uint32_t winnerId)
+{
+    MatchOverPacket pkt{winnerId};
+    Net_Broadcast(EMsg::MatchOver, &pkt, sizeof(pkt));
+}
+
 void Net_SendAdminCmd(Connection* conn, uint8_t cmdType, uint64_t param)
 {
     if (!conn)
         return;
-    AdminCmdPacket pkt{cmdType, {0,0,0}, param};
+    AdminCmdPacket pkt{cmdType, {0, 0, 0}, param};
     Net_Send(conn, EMsg::AdminCmd, &pkt, sizeof(pkt));
 }
 
@@ -330,7 +405,7 @@ void Net_Disconnect(Connection* conn)
 {
     if (!g_Host || !conn)
         return;
-    auto it = std::find_if(g_Peers.begin(), g_Peers.end(), [&](const PeerEntry& p){ return p.conn == conn; });
+    auto it = std::find_if(g_Peers.begin(), g_Peers.end(), [&](const PeerEntry& p) { return p.conn == conn; });
     if (it != g_Peers.end())
     {
         enet_peer_disconnect(it->peer, 0);
@@ -340,7 +415,7 @@ void Net_Disconnect(Connection* conn)
 void Net_BroadcastNatCandidate(const char* sdp)
 {
     NatCandidatePacket pkt{};
-    std::strncpy(pkt.sdp, sdp, sizeof(pkt.sdp)-1);
+    std::strncpy(pkt.sdp, sdp, sizeof(pkt.sdp) - 1);
     Net_Broadcast(EMsg::NatCandidate, &pkt, sizeof(pkt));
 }
 
@@ -352,7 +427,7 @@ void Net_BroadcastCineStart(uint32_t sceneId, uint32_t startTimeMs)
 
 void Net_BroadcastViseme(uint32_t npcId, uint8_t visemeId, uint32_t timeMs)
 {
-    VisemePacket pkt{npcId, visemeId, {0,0,0}, timeMs};
+    VisemePacket pkt{npcId, visemeId, {0, 0, 0}, timeMs};
     Net_Broadcast(EMsg::Viseme, &pkt, sizeof(pkt));
 }
 
@@ -361,14 +436,14 @@ void Net_SendDialogChoice(uint8_t choiceIdx)
     auto conns = Net_GetConnections();
     if (!conns.empty())
     {
-        DialogChoicePacket pkt{0u, choiceIdx, {0,0,0}};
+        DialogChoicePacket pkt{0u, choiceIdx, {0, 0, 0}};
         Net_Send(conns[0], EMsg::DialogChoice, &pkt, sizeof(pkt));
     }
 }
 
 void Net_BroadcastDialogChoice(uint32_t peerId, uint8_t choiceIdx)
 {
-    DialogChoicePacket pkt{peerId, choiceIdx, {0,0,0}};
+    DialogChoicePacket pkt{peerId, choiceIdx, {0, 0, 0}};
     Net_Broadcast(EMsg::DialogChoice, &pkt, sizeof(pkt));
 }
 
@@ -388,4 +463,28 @@ void Net_BroadcastVoice(uint32_t peerId, const uint8_t* data, uint16_t size, uin
     VoicePacket pkt{peerId, seq, size, {0}};
     std::memcpy(pkt.data, data, std::min<size_t>(size, sizeof(pkt.data)));
     Net_Broadcast(EMsg::Voice, &pkt, static_cast<uint16_t>(sizeof(pkt)));
+}
+
+void Net_BroadcastWorldState(uint64_t clockMs, uint32_t sunAngle, uint8_t weatherId, uint32_t weatherSeed,
+                             uint8_t bdPhase)
+{
+    WorldStatePacket pkt{clockMs, sunAngle, weatherSeed, weatherId, bdPhase, {0, 0}};
+    Net_Broadcast(EMsg::WorldState, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastGlobalEvent(uint32_t eventId, uint8_t phase, bool start, uint32_t seed)
+{
+    GlobalEventPacket pkt{eventId, seed, phase, static_cast<uint8_t>(start), {0, 0}};
+    Net_Broadcast(EMsg::GlobalEvent, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastCrowdSeed(uint64_t sectorHash, uint32_t seed)
+{
+    CrowdSeedPacket pkt{sectorHash, seed};
+    Net_Broadcast(EMsg::CrowdSeed, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastVendorStock(const VendorStockPacket& pkt)
+{
+    Net_Broadcast(EMsg::VendorStock, &pkt, sizeof(VendorStockPacket));
 }

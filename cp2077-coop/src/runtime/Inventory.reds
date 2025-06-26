@@ -40,11 +40,24 @@ public class Inventory {
         };
     }
 
+    public static func OnPurchaseResult(itemId: Uint64, balance: Uint64, success: Bool) -> Void {
+        if success {
+            LogChannel(n"DEBUG", "Purchased item " + Uint64ToString(itemId));
+        } else {
+            LogChannel(n"DEBUG", "Purchase failed " + Uint64ToString(itemId));
+        };
+        // FIXME(next ticket): update wallet UI
+    }
+
     public static func RequestCraft(recipeId: Uint32) -> Void {
         Net_SendCraftRequest(recipeId);
     }
 
     public static func RequestAttach(itemId: Uint64, slotIdx: Uint8, attachId: Uint64) -> Void {
         Net_SendAttachRequest(itemId, slotIdx, attachId);
+    }
+
+    public static func RequestPurchase(vendorId: Uint32, itemId: Uint32, nonce: Uint64) -> Void {
+        Net_SendPurchaseRequest(vendorId, itemId, nonce);
     }
 }

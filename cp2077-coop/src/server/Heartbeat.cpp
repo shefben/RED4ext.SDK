@@ -44,4 +44,14 @@ void Heartbeat_Send(const std::string& sessionJson)
     }
 }
 
+void Heartbeat_Announce(const std::string& json)
+{
+    httplib::SSLClient cli("coop-master", 443);
+    auto res = cli.Post("/announce", json, "application/json");
+    if (!res || res->status != 200)
+    {
+        std::cerr << "Announce failed" << std::endl;
+    }
+}
+
 } // namespace CoopNet

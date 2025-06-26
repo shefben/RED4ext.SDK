@@ -6,6 +6,7 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 find_package(Juice REQUIRED)
 find_package(Opus REQUIRED)
 find_package(AL REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 # See README for build and packaging instructions.
 # This CMake script builds the cp2077-coop mod and the coop_dedicated server.
@@ -19,16 +20,21 @@ add_library(cp2077-coop SHARED
     src/core/GameClock.cpp
     src/core/SpatialGrid.cpp
     src/core/SaveFork.cpp
+    src/core/SaveMigration.cpp
+    src/core/Settings.cpp
     src/core/SessionState.cpp
     src/core/CrashHandler.cpp
     src/physics/LagComp.cpp
     src/physics/CarPhysics.cpp
     src/server/InventoryController.cpp
+    src/server/VendorController.cpp
     src/server/NpcController.cpp
     src/server/VehicleController.cpp
     src/server/BreachController.cpp
     src/server/ElevatorController.cpp
+    src/server/GlobalEventController.cpp
     src/server/AdminController.cpp
+    src/server/LedgerService.cpp
     src/server/WebDash.cpp
     src/voice/VoiceEncoder.cpp
     src/voice/VoiceDecoder.cpp
@@ -40,7 +46,7 @@ target_include_directories(cp2077-coop
         "${PROJECT_SOURCE_DIR}/third_party"
 )
 
-target_link_libraries(cp2077-coop PRIVATE enet juice opus AL::AL)
+target_link_libraries(cp2077-coop PRIVATE enet juice opus AL::AL OpenSSL::SSL)
 
 set(BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build")
 file(MAKE_DIRECTORY "${BUILD_DIR}")

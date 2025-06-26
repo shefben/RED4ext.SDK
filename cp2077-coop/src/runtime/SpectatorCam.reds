@@ -1,4 +1,6 @@
 public class SpectatorCam {
+    private static let hud: ref<SpectatorHUD>;
+    private static let target: Uint32;
     // Switches the local player into spectator mode and disables standard HUD.
     public static func Enter(peerId: Uint32) -> Void {
         GameModeManager.current = GameModeManager.GameMode.Spectate;
@@ -8,9 +10,12 @@ public class SpectatorCam {
                 player.DisableCollision();
             };
         };
-        let hud = GameInstance.GetHUDManager(GetGame());
-        let list = hud.GetLayers();
+        let hudMgr = GameInstance.GetHUDManager(GetGame());
+        let list = hudMgr.GetLayers();
         for layer in list { layer.SetVisible(false); };
+        hud = hudMgr.SpawnChildFromExternal(n"SpectatorHUD") as SpectatorHUD;
+        if IsDefined(hud) { hud.SetTarget(peerId); };
+        target = peerId;
         LogChannel(n"DEBUG", "EnterSpectate " + IntToString(peerId));
     }
 
@@ -29,6 +34,19 @@ public class SpectatorCam {
             dir = Vector4.Normalize(dir);
             player.SetWorldPosition(player.GetWorldPosition() + AsVector3(dir) * (dt * 6.0));
         };
+        if IsDefined(hud) { hud.OnUpdate(dt); };
+    }
+
+    public static func CycleTarget() -> Void {
+        let conns = Net_GetConnections();
+        if conns.Size() == 0 { return; };
+        var idx: Int32 = 0;
+        for i in 0 ..< conns.Size() {
+            if conns[i].peerId == target { idx = i + 1; break; };
+        };
+        if idx >= conns.Size() { idx = 0; };
+        target = conns[idx].peerId;
+        if IsDefined(hud) { hud.SetTarget(target); };
     }
 }
 

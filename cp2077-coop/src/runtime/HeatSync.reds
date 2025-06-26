@@ -6,7 +6,7 @@ public class HeatSync {
 
     public static func BroadcastHeat(level: Uint8) -> Void {
         heatLevel = level;
-        // NetCore.BroadcastHeat(level);
+        Net_BroadcastHeat(level);
         LogChannel(n"DEBUG", "BroadcastHeat " + IntToString(level));
     }
 

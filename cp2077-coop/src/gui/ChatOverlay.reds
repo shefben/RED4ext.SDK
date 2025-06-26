@@ -2,6 +2,7 @@ public class ChatOverlay extends inkHUDLayer {
     public static let s_instance: ref<ChatOverlay>;
     public var lines: array<String>;
     private var visible: Bool;
+    private var root: ref<inkVerticalPanel>;
     private var talking: Bool;
     private var seq: Uint16;
 
@@ -20,8 +21,19 @@ public class ChatOverlay extends inkHUDLayer {
         lines.PushBack(txt);
         if lines.Size() > 50 {
             lines.Erase(0);
+            if IsDefined(root) && root.GetNumChildren() > 0 {
+                root.RemoveChild(root.GetChild(0));
+            }
         }
-        // P3-4: render text lines with ink widgets
+        if !IsDefined(root) {
+            root = new inkVerticalPanel();
+            root.SetName(n"chatRoot");
+            root.SetAnchor(inkEAnchor.BottomLeft);
+            AddChild(root);
+        }
+        let line = new inkText();
+        line.SetText(txt);
+        root.AddChild(line);
         LogChannel(n"DEBUG", "Chat: " + txt);
     }
 
@@ -32,9 +44,13 @@ public class ChatOverlay extends inkHUDLayer {
 
     public func OnUpdate(dt: Float) -> Void {
         // Toggle visibility when the player presses Enter.
-        // P3-4: use input listener callback
+        // Input listener would be cleaner but simple poll works
         if GameInstance.GetInputSystem(GetGame()).IsJustPressed(EInputKey.IK_Enter) {
             Toggle();
+        }
+
+        if IsDefined(root) {
+            root.SetVisible(visible);
         }
 
         let input = GameInstance.GetInputSystem(GetGame());

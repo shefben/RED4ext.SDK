@@ -1,11 +1,12 @@
 #include "InventoryController.hpp"
 #include "../net/Net.hpp"
 #include "../net/Packets.hpp"
-#include <unordered_map>
 #include <cstring>
 #include <iostream>
+#include <unordered_map>
 
-namespace CoopNet {
+namespace CoopNet
+{
 
 static uint64_t g_nextItemId = 1;
 static std::unordered_map<uint64_t, ItemSnap> g_items;
@@ -22,6 +23,21 @@ static ItemSnap CraftItem(uint32_t recipe)
     snap.itemId = g_nextItemId++;
     snap.ownerId = 0;
     snap.tpl = static_cast<uint16_t>(recipe);
+    snap.level = 1;
+    snap.quality = 1;
+    std::memset(snap.rolls, 0, sizeof(snap.rolls));
+    snap.slotMask = 0;
+    std::memset(snap.attachmentIds, 0, sizeof(snap.attachmentIds));
+    g_items[snap.itemId] = snap;
+    return snap;
+}
+
+ItemSnap Inventory_CreateItem(uint16_t tpl, uint32_t ownerId)
+{
+    ItemSnap snap{};
+    snap.itemId = g_nextItemId++;
+    snap.ownerId = ownerId;
+    snap.tpl = tpl;
     snap.level = 1;
     snap.quality = 1;
     std::memset(snap.rolls, 0, sizeof(snap.rolls));
@@ -61,7 +77,7 @@ void Inventory_HandleAttachRequest(Connection* conn, uint64_t itemId, uint8_t sl
 {
     ItemSnap updated{};
     bool ok = AttachMod(itemId, slotIdx, attachmentId, updated);
-    AttachModResultPacket pkt{updated, static_cast<uint8_t>(ok), {0,0,0}};
+    AttachModResultPacket pkt{updated, static_cast<uint8_t>(ok), {0, 0, 0}};
     Net_Send(conn, EMsg::AttachModResult, &pkt, sizeof(pkt));
     if (ok)
     {

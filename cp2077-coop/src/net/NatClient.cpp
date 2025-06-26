@@ -71,9 +71,9 @@ void Nat_PerformHandshake(Connection* conn)
     {
         juice_set_remote_description(g_agent, g_remoteCandidate.c_str());
         juice_connect(g_agent);
-        auto start = std::chrono::steady_clock::now();
-        while (!g_connected)
-        {
+    auto start = std::chrono::steady_clock::now();
+    while (!g_connected)
+    {
             juice_poll(g_agent);
             if (std::chrono::steady_clock::now() - start > std::chrono::seconds(5))
             {
@@ -114,6 +114,8 @@ void Nat_PerformHandshake(Connection* conn)
             // Placeholder bandwidth accounting
             g_relayBytes += 5000; // NT-3: obtain stats from libjuice
             conn->relayBytes += g_relayBytes;
+            conn->rttMs = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start).count();
+            conn->usingRelay = g_relayBytes > 0;
             std::cout << "TURN relay bytes=" << conn->relayBytes << std::endl;
         }
     }

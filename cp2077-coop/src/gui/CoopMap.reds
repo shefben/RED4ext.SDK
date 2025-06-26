@@ -19,8 +19,9 @@ public class CoopMap extends inkHUDLayer {
     }
 
     private func SpawnIcons() -> Void {
+        // UI-2: verify that PlayerSystem.GetPlayers lists remote avatars
         let playerSys = GameInstance.GetPlayerSystem(GetGame());
-        let players = playerSys.GetPlayers(); // UI-2: confirm API usage
+        let players = playerSys.GetPlayers(); // returns all connected avatars
         for p in players {
             let img = new inkImage();
             img.SetAtlasResource(r"base/gameplay/gui/fullscreen/minimap/minimap_player.inkatlas");

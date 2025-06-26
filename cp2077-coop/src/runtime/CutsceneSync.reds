@@ -68,3 +68,12 @@ public static func CutsceneSync_Viseme(npcId: Uint32, visemeId: Uint8, timeMs: U
 public static func CutsceneSync_DialogChoice(peerId: Uint32, idx: Uint8) -> Void {
   CutsceneSync.OnDialogChoice(peerId, idx);
 }
+
+@hook(gamevision.StartCinematic)
+protected func gamevision_StartCinematic(original: func(ref<gamevision>, Uint32, Uint32), self: ref<gamevision>, sceneId: Uint32, startMs: Uint32) -> Void {
+  original(self, sceneId, startMs);
+  CutsceneSync.OnCineStart(sceneId, startMs);
+  if Net_IsAuthoritative() {
+    Net_BroadcastCineStart(sceneId, startMs);
+  };
+}

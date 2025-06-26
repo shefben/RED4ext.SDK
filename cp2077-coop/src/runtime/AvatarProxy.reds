@@ -20,9 +20,13 @@ public class AvatarProxy extends gameObject {
 
     private var bar: ref<HealthBar>;
 
-    public func Spawn(peer: Uint32, local: Bool) -> Void {
+    public func Spawn(peer: Uint32, local: Bool, snap: ref<TransformSnap>) -> Void {
         peerId = peer;
         isLocal = local;
+        pos = snap.pos;
+        rot = snap.rot;
+        health = snap.health;
+        armor = snap.armor;
         LogChannel(n"DEBUG", "Avatar spawned: " + IntToString(peerId));
         bar = new HealthBar();
         bar.AttachTo(this);
@@ -42,11 +46,18 @@ public class AvatarProxy extends gameObject {
         LogChannel(n"DEBUG", "Avatar removed: " + IntToString(peerId));
     }
 
-    public static func OnEject(id: Uint32) -> Void {
+    public func ClearInvuln() -> Void {
+        if HasMethod(this, n"SetGodMode") { this.SetGodMode(false); };
+    }
+
+    public static func OnEject(id: Uint32, vel: Vector3) -> Void {
         let avatar = GameInstance.GetPlayerSystem(GetGame()).FindObject(id) as AvatarProxy;
         if IsDefined(avatar) {
             if HasMethod(avatar, n"SetRagdollMode") {
                 avatar.SetRagdollMode(true);
+                if HasMethod(avatar, n"SetLinearVelocity") {
+                    avatar.SetLinearVelocity(vel);
+                };
             };
             avatar.health = Max(0u, avatar.health - 50u);
             avatar.OnVitalsChanged();
@@ -80,7 +91,13 @@ public class AvatarProxy extends gameObject {
         if input.IsActionHeld(EInputKey.IK_A) { moveVec.X -= 1.0; };
         if input.IsActionHeld(EInputKey.IK_D) { moveVec.X += 1.0; };
         if Length(moveVec) > 0.0 { moveVec = Vector3.Normalize(moveVec); };
-        cmd.move = moveVec * dt * 6.0;
+        let yaw: Float = ArcTan2(2.0 * (rot.W * rot.Z + rot.X * rot.Y),
+                                 1.0 - 2.0 * (rot.Y * rot.Y + rot.Z * rot.Z));
+        let cosY: Float = Cos(yaw);
+        let sinY: Float = Sin(yaw);
+        let worldMove = Vector3{moveVec.X * cosY - moveVec.Y * sinY,
+                               moveVec.X * sinY + moveVec.Y * cosY, 0.0};
+        cmd.move = worldMove * dt * 6.0;
         cmd.rot = rot;
 
         pendingInputs.PushBack(cmd);
@@ -135,8 +152,26 @@ public class AvatarProxy extends gameObject {
         Net_SendSectorReady(hash);
         ElevatorSync.OnStreamingDone(hash);
     }
+
+    public static func SpawnRemote(peerId: Uint32, local: Bool, snap: ref<TransformSnap>) -> Void {
+        let playerSys = GameInstance.GetPlayerSystem(GetGame());
+        let avatar = playerSys.FindObject(peerId) as AvatarProxy;
+        if !IsDefined(avatar) {
+            avatar = new AvatarProxy();
+            playerSys.RegisterPlayer(peerId, avatar);
+        };
+        avatar.Spawn(peerId, local, snap);
+    }
+
+    public static func DespawnRemote(peerId: Uint32) -> Void {
+        let playerSys = GameInstance.GetPlayerSystem(GetGame());
+        let avatar = playerSys.FindObject(peerId) as AvatarProxy;
+        if IsDefined(avatar) {
+            avatar.Despawn();
+        };
+    }
 }
 
-public static func AvatarProxy_OnEject(peerId: Uint32) -> Void {
-    AvatarProxy.OnEject(peerId);
+public static func AvatarProxy_OnEject(peerId: Uint32, vel: Vector3) -> Void {
+    AvatarProxy.OnEject(peerId, vel);
 }

@@ -2,13 +2,29 @@
 #include "../core/GameClock.hpp"
 #include "../net/Net.hpp"
 #include "../net/Packets.hpp"
+#include <RED4ext/RED4ext.hpp>
 #include <iostream>
 #include <sstream>
 #include <unordered_set>
+#include "../core/ThreadSafeQueue.hpp"
+#include "WebDash.hpp"
 
 namespace CoopNet {
 
 static std::unordered_set<uint32_t> g_banList;
+static ThreadSafeQueue<std::string> g_cmdQueue;
+static std::thread g_consoleThread;
+static std::atomic<bool> g_consoleRunning{false};
+
+static void GameModeManager_SetMode(uint32_t mode)
+{
+    RED4ext::ExecuteFunction("GameModeManager", "SetMode", nullptr, mode);
+}
+
+static void QuestSync_SetFreeze(bool freeze)
+{
+    RED4ext::ExecuteFunction("QuestSync", "SetFreeze", nullptr, freeze);
+}
 
 static Connection* FindConn(uint32_t peerId)
 {
@@ -45,12 +61,39 @@ static void DoMute(uint32_t peerId, uint32_t secs)
     }
 }
 
-void AdminController_PollConsole()
+static void ConsoleThread()
 {
-    if (!std::cin.rdbuf()->in_avail())
+    while (g_consoleRunning)
+    {
+        std::string line;
+        std::getline(std::cin, line);
+        if (!line.empty())
+            g_cmdQueue.Push(line);
+    }
+}
+
+void AdminController_Start()
+{
+    if (g_consoleRunning)
         return;
+    g_consoleRunning = true;
+    g_consoleThread = std::thread(ConsoleThread);
+}
+
+void AdminController_Stop()
+{
+    if (!g_consoleRunning)
+        return;
+    g_consoleRunning = false;
+    if (g_consoleThread.joinable())
+        g_consoleThread.join();
+}
+
+void AdminController_PollCommands()
+{
     std::string line;
-    std::getline(std::cin, line);
+    if (!g_cmdQueue.Pop(line))
+        return;
     std::stringstream ss(line);
     std::string cmd;
     ss >> cmd;
@@ -58,19 +101,37 @@ void AdminController_PollConsole()
     {
         uint32_t id;
         if (ss >> id)
+        {
             DoKick(id);
+            WebDash_PushEvent("{\"event\":\"kick\",\"id\":" + std::to_string(id) + "}");
+        }
     }
     else if (cmd == "ban")
     {
         uint32_t id;
         if (ss >> id)
+        {
             DoBan(id);
+            WebDash_PushEvent("{\"event\":\"ban\",\"id\":" + std::to_string(id) + "}");
+        }
     }
     else if (cmd == "mute")
     {
         uint32_t id, secs;
         if (ss >> id >> secs)
+        {
             DoMute(id, secs);
+            WebDash_PushEvent("{\"event\":\"mute\",\"id\":" + std::to_string(id) + "}");
+        }
+    }
+    else if (cmd == "sv_dm")
+    {
+        int flag = 0;
+        if (ss >> flag)
+        {
+            GameModeManager_SetMode(flag ? 1u : 0u);
+            QuestSync_SetFreeze(flag != 0);
+        }
     }
 }
 
