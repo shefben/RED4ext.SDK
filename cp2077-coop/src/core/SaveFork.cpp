@@ -83,4 +83,41 @@ void SaveSession(uint32_t sessionId, const std::string& jsonBlob)
         std::cerr << "Error saving session: " << e.what() << std::endl;
     }
 }
+
+void SavePhase(uint32_t sessionId, uint32_t peerId, const std::string& jsonBlob)
+{
+    try
+    {
+        EnsureCoopSaveDirs();
+        namespace fs = std::filesystem;
+        fs::path dir = fs::path(kCoopSavePath) / std::to_string(sessionId);
+        fs::create_directories(dir);
+        fs::path file = dir / ("phase_" + std::to_string(peerId) + ".json.zst");
+
+        std::vector<char> buf(ZSTD_compressBound(jsonBlob.size()));
+        size_t z = ZSTD_compress(buf.data(), buf.size(), jsonBlob.data(), jsonBlob.size(), 3);
+        if (ZSTD_isError(z))
+            z = 0;
+        buf.resize(z);
+
+        std::ofstream out(file, std::ios::binary | std::ios::trunc);
+        if (!out.is_open())
+        {
+            std::cerr << "Failed to open phase file " << file << std::endl;
+            return;
+        }
+        out.write(buf.data(), buf.size());
+        out.close();
+        if (out.good())
+        {
+            std::ofstream idx(dir / "phase_index.txt", std::ios::app);
+            if (idx.is_open())
+                idx << peerId << '\n';
+        }
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Error saving phase: " << e.what() << std::endl;
+    }
+}
 } // namespace CoopNet
