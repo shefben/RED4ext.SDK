@@ -192,4 +192,3 @@ void Net_BroadcastSmartCamEnd(uint32_t projId);                                 
 void Net_BroadcastArcadeStart(uint32_t cabId, uint32_t peerId, uint32_t seed);
 void Net_SendArcadeInput(uint32_t frame, uint8_t buttonMask);
 void Net_BroadcastArcadeScore(uint32_t peerId, uint32_t score);
-

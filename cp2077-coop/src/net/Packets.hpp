@@ -1247,5 +1247,4 @@ struct ArcadeScorePacket
     uint32_t peerId;
     uint32_t score;
 };
-
 } // namespace CoopNet
