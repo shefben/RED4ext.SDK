@@ -4,6 +4,7 @@
 // These helpers send stage and scene updates between peers.
 public class QuestSync {
     public static var freezeQuests: Bool = false;
+    public static var localPhase: Uint32 = 0u; // PX-2
     public static let stageMap: ref<inkHashMap> = new inkHashMap();
     public static let nameMap: ref<inkHashMap> = new inkHashMap();
     // Called after the game advances a quest stage on the server.
@@ -20,7 +21,7 @@ public class QuestSync {
         let hash: Uint32 = CoopNet.Fnv1a32(NameToString(questName));
         nameMap.Insert(hash, questName);
         stageMap.Insert(hash, stage);
-        CoopNet.Net_BroadcastQuestStage(hash, stage);
+        CoopNet.Net_BroadcastQuestStageP2P(localPhase, hash, stage);
         LogChannel(n"DEBUG", "SendQuestStageMsg " + NameToString(questName) + " stage=" + ToString(stage));
     }
 
@@ -48,6 +49,7 @@ public class QuestSync {
     }
 
     public static func ApplyFullSync(pkt: ref<QuestFullSyncPacket>) -> Void {
+        LogChannel(n"quest", "[Watchdog] forced sync");
         let count: Uint16 = pkt.count;
         let i: Uint16 = 0u;
         while i < count {

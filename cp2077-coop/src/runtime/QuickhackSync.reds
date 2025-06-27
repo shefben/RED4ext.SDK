@@ -97,4 +97,12 @@ public class QuickhackSync {
             LogChannel(n"DEBUG", "Daemon mass vulnerability 30s");
         };
     }
+
+    public static func OnPingOutline(peerId: Uint32, ids: array<Uint32>, dur: Uint16) -> Void {
+        for id in ids { LogChannel(n"ping", "outline " + IntToString(id)); };
+    }
+}
+
+public static func QuickhackSync_OnPingOutline(peer: Uint32, dur: Uint16, ids: array<Uint32>) -> Void {
+    QuickhackSync.OnPingOutline(peer, ids, dur);
 }

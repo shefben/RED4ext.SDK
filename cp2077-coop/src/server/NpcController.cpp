@@ -6,30 +6,35 @@
 #include <RED4ext/RED4ext.hpp>
 #include <cmath>
 #include <cstring>
-#include <unordered_map>
 #include <iostream>
+#include <unordered_map>
 
 namespace CoopNet
 {
 
 static uint32_t g_seed = 123456u;
 static std::unordered_map<uint64_t, uint32_t> g_sectorSeeds;
-static NpcSnap g_npc{
-    1u,
-    0u,
-    0ull,
-    RED4ext::Vector3{0.f, 0.f, 0.f},
-    RED4ext::Quaternion{0.f, 0.f, 0.f, 1.f},
-    NpcState::Idle,
-    100u,
-    0u
-};
+static NpcSnap g_npc{1u,
+                     0u,
+                     0ull,
+                     RED4ext::Vector3{0.f, 0.f, 0.f},
+                     RED4ext::Quaternion{0.f, 0.f, 0.f, 1.f},
+                     NpcState::Idle,
+                     100u,
+                     static_cast<uint8_t>(PoliceAIState::Idle),
+                     0u,
+                     {0, 0}};
 static bool g_alwaysRelevant = false;
 static NpcSnap g_prevSnap = g_npc;
 static SpatialGrid g_grid;
 static bool g_gridInit = false;
 static float g_walkDir = 0.f;
 static float g_dirTimer = 0.f;
+static float g_healthMult = 1.f;
+static float g_damageMult = 1.f;
+static float g_waveTimer = 0.f;
+static uint8_t g_waveCount = 0;
+static uint32_t g_nextId = 2u;
 
 static uint32_t GetSectorSeed(uint64_t hash)
 {
@@ -55,11 +60,17 @@ uint32_t NpcController_GetSectorSeed(uint64_t hash)
 
 void NpcController_ServerTick(float dt)
 {
+    auto conns = Net_GetConnections();
+    size_t playerCount = conns.size();
+    g_healthMult = std::min(2.0f, 1.0f + 0.25f * (static_cast<float>(playerCount) - 1.f));
+    g_damageMult = std::min(1.6f, 1.0f + 0.15f * (static_cast<float>(playerCount) - 1.f));
+
     if (!g_gridInit)
     {
         g_npc.sectorHash = Fnv1a64Pos(g_npc.pos.X, g_npc.pos.Y);
         g_grid.Insert(g_npc.npcId, g_npc.pos);
         g_gridInit = true;
+        g_npc.health = static_cast<uint16_t>(100u * g_healthMult);
     }
     // NR-2: deterministic AI walk routine
     g_dirTimer += dt;
@@ -115,11 +126,34 @@ void NpcController_ServerTick(float dt)
         {
             NpcSnapshotPacket pkt{g_npc};
             Net_Send(c, EMsg::NpcSnapshot, &pkt, sizeof(pkt));
+            c->snapBytes += sizeof(pkt);
         }
     }
 
     if (changed)
         g_prevSnap = g_npc;
+
+    if (playerCount > 2 && g_npc.state == NpcState::Combat)
+    {
+        g_waveTimer += dt;
+        if (g_waveTimer >= 30000.f && g_waveCount < 3)
+        {
+            g_waveTimer = 0.f;
+            g_waveCount++;
+            for (int i = 0; i < 2; ++i)
+            {
+                NpcSnap s = g_npc;
+                s.npcId = g_nextId++;
+                s.health = static_cast<uint16_t>(100u * g_healthMult);
+                NpcSpawnPacket pkt{s};
+                Net_Broadcast(EMsg::NpcSpawn, &pkt, sizeof(pkt));
+            }
+        }
+    }
+    else
+    {
+        g_waveTimer = 0.f;
+    }
     // Spatial grid reduces search complexity for interest checks
 }
 

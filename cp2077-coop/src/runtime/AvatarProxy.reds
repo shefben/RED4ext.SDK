@@ -7,6 +7,7 @@ public class AvatarProxy extends gameObject {
     public var health: Uint16;
     public var armor: Uint16;
     public var currentSector: Uint64;
+    public var invulEndTick: Uint64;
     // Future tickets will push per-tick input states here for client prediction
     // and server reconciliation.
     // Buffered movement commands awaiting server acknowledgement.
@@ -48,6 +49,15 @@ public class AvatarProxy extends gameObject {
 
     public func ClearInvuln() -> Void {
         if HasMethod(this, n"SetGodMode") { this.SetGodMode(false); };
+        invulEndTick = 0u;
+    }
+
+    public func StartSpawnProtection(ms: Uint32) -> Void {
+        invulEndTick = CoopNet.GameClock.GetCurrentTick() +
+            Cast<Uint64>(RoundF(Cast<Float>(ms) / CoopNet.GameClock.currentTickMs));
+        if HasMethod(this, n"SetGodMode") { this.SetGodMode(true); };
+        // Show flicker effect
+        if HasMethod(this, n"SetEffect") { this.SetEffect(n"spawn_protect", true); };
     }
 
     public static func OnEject(id: Uint32, vel: Vector3) -> Void {
@@ -61,6 +71,14 @@ public class AvatarProxy extends gameObject {
             };
             avatar.health = Max(0u, avatar.health - 50u);
             avatar.OnVitalsChanged();
+        };
+    }
+
+    public static func OnAppearance(id: Uint32, meshId: Uint32, tintId: Uint32) -> Void {
+        let avatar = GameInstance.GetPlayerSystem(GetGame()).FindObject(id) as AvatarProxy;
+        if IsDefined(avatar) {
+            LogChannel(n"appearance", "peer=" + IntToString(id) + " mesh=" + IntToString(meshId));
+            // TODO apply cloth mesh and tint
         };
     }
 
@@ -82,9 +100,15 @@ public class AvatarProxy extends gameObject {
 
     // Advance client-side estimate and queue the input for reconciliation.
     public func Predict(dt: Float) -> Void {
+        let input = GameInstance.GetInputSystem(GetGame());
+        if invulEndTick > CoopNet.GameClock.GetCurrentTick() &&
+           input.IsActionJustPressed(EInputKey.IK_LeftMouse) {
+            ClearInvuln();
+            if HasMethod(this, n"SetEffect") { this.SetEffect(n"spawn_protect", false); };
+        };
         let cmd: MoveCmd;
         cmd.seq = nextSeq;
-        let input = GameInstance.GetInputSystem(GetGame());
+        // reused input variable
         var moveVec: Vector3 = Vector3.EmptyVector();
         if input.IsActionHeld(EInputKey.IK_W) { moveVec.Y += 1.0; };
         if input.IsActionHeld(EInputKey.IK_S) { moveVec.Y -= 1.0; };
@@ -174,4 +198,8 @@ public class AvatarProxy extends gameObject {
 
 public static func AvatarProxy_OnEject(peerId: Uint32, vel: Vector3) -> Void {
     AvatarProxy.OnEject(peerId, vel);
+}
+
+public static func AvatarProxy_OnAppearance(peerId: Uint32, meshId: Uint32, tintId: Uint32) -> Void {
+    AvatarProxy.OnAppearance(peerId, meshId, tintId);
 }

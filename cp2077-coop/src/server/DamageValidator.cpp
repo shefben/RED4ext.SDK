@@ -1,15 +1,24 @@
+#include "PerkController.hpp"
+#include "ServerConfig.hpp"
 #include <iostream>
 
 namespace CoopNet
 {
-bool ValidateDamage(uint16_t rawDmg, uint16_t targetArmor)
+uint16_t FilterDamage(uint32_t sourcePeer, uint32_t targetPeer, bool targetIsNpc, uint16_t rawDmg, uint16_t targetArmor,
+                      bool invulnerable)
 {
-    uint16_t maxAllowed = targetArmor * 4 + 200;
+    if (invulnerable)
+        return 0;
+    if (!g_cfgFriendlyFire && (sourcePeer == targetPeer || !targetIsNpc))
+        return 0;
+
+    float mult = PerkController_GetHealthMult(targetPeer);
+    uint16_t maxAllowed = static_cast<uint16_t>((targetArmor * 4 + 200) * mult);
     if (rawDmg > maxAllowed)
     {
         std::cout << "cheat detected" << std::endl;
-        return false;
+        return maxAllowed;
     }
-    return true;
+    return rawDmg;
 }
 } // namespace CoopNet

@@ -74,6 +74,6 @@ protected func gamevision_StartCinematic(original: func(ref<gamevision>, Uint32,
   original(self, sceneId, startMs);
   CutsceneSync.OnCineStart(sceneId, startMs);
   if Net_IsAuthoritative() {
-    Net_BroadcastCineStart(sceneId, startMs);
+    Net_BroadcastCineStart(sceneId, startMs, QuestSync.localPhase, false);
   };
 }

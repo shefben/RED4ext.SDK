@@ -1,11 +1,12 @@
 #include "SaveMigration.hpp"
-#include "SaveFork.hpp"
 #include "Hash.hpp"
+#include "SaveFork.hpp"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 
-namespace CoopNet {
+namespace CoopNet
+{
 namespace fs = std::filesystem;
 
 static fs::path GetVanillaDir()
@@ -24,7 +25,8 @@ static fs::path GetVanillaDir()
 
 bool MigrateSinglePlayerSave()
 {
-    try {
+    try
+    {
         fs::path coopDir(kCoopSavePath);
         if (fs::exists(coopDir) && !fs::is_empty(coopDir))
             return true; // already migrated or have saves
@@ -57,7 +59,9 @@ bool MigrateSinglePlayerSave()
             sid = 1;
         SaveSession(sid, outJson);
         return true;
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cerr << "MigrateSinglePlayerSave error: " << e.what() << std::endl;
         return false;
     }
@@ -67,7 +71,8 @@ static size_t g_snapIndex = 0;
 
 void SaveRollbackSnapshot(uint32_t sessionId, const std::string& jsonBlob)
 {
-    try {
+    try
+    {
         EnsureCoopSaveDirs();
         fs::path dir = fs::path(kCoopSavePath) / "snapshots";
         fs::create_directories(dir);
@@ -76,15 +81,18 @@ void SaveRollbackSnapshot(uint32_t sessionId, const std::string& jsonBlob)
         if (out.is_open())
             out << jsonBlob;
         g_snapIndex = (g_snapIndex + 1) % 20;
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cerr << "SaveRollbackSnapshot error: " << e.what() << std::endl;
     }
 }
 
 bool ValidateSessionState(uint32_t sessionId)
 {
-    try {
-        fs::path file = fs::path(kCoopSavePath) / (std::to_string(sessionId) + ".json");
+    try
+    {
+        fs::path file = fs::path(kCoopSavePath) / (std::to_string(sessionId) + ".json.zst");
         std::ifstream in(file, std::ios::binary);
         if (!in.is_open() || in.peek() == EOF)
         {
@@ -102,11 +110,12 @@ bool ValidateSessionState(uint32_t sessionId)
             return false;
         }
         return true;
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cerr << "ValidateSessionState error: " << e.what() << std::endl;
         return false;
     }
 }
 
 } // namespace CoopNet
-

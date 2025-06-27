@@ -1,0 +1,32 @@
+[
+    {
+        "base": 100,
+        "cred": 1,
+        "perk": false,
+        "price": 99
+    },
+    {
+        "base": 100,
+        "cred": 50,
+        "perk": false,
+        "price": 50
+    },
+    {
+        "base": 100,
+        "cred": 25,
+        "perk": true,
+        "price": 67
+    },
+    {
+        "base": 1,
+        "cred": 50,
+        "perk": true,
+        "price": 1
+    },
+    {
+        "base": 200,
+        "cred": 5,
+        "perk": false,
+        "price": 190
+    }
+]
