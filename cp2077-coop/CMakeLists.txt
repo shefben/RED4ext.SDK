@@ -29,7 +29,7 @@ cmake_minimum_required(VERSION 3.21) project(cp2077 - coop)
                                 DoorBreachController.cpp src / server / QuestGadgetController.cpp src / server /
                                 TransitController.cpp src / server / CameraController.cpp src / server /
                                 CarryController.cpp src / server / GrenadeController.cpp src / server /
-                                SmartCamController.cpp src / server / PoliceDispatch.cpp src / server /
+                                SmartCamController.cpp src / server / ArcadeController.cpp src / server / PoliceDispatch.cpp src / server /
                                 LedgerService.cpp src / server / WebDash.cpp src / voice / VoiceEncoder.cpp src /
                                 voice / VoiceDecoder.cpp)
 

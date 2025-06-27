@@ -189,3 +189,6 @@ void Net_BroadcastGrenadePrime(uint32_t entityId, uint32_t startTick);          
 void Net_BroadcastGrenadeSnap(uint32_t entityId, const RED4ext::Vector3& pos, const RED4ext::Vector3& vel);   // GR-1
 void Net_BroadcastSmartCamStart(uint32_t projId);                                                             // RC-1
 void Net_BroadcastSmartCamEnd(uint32_t projId);                                                               // RC-1
+void Net_BroadcastArcadeStart(uint32_t cabId, uint32_t peerId, uint32_t seed);
+void Net_SendArcadeInput(uint32_t frame, uint8_t buttonMask);
+void Net_BroadcastArcadeScore(uint32_t peerId, uint32_t score);

@@ -1256,6 +1256,25 @@ void Net_BroadcastSmartCamEnd(uint32_t projId)
     }
 }
 
+void Net_BroadcastArcadeStart(uint32_t cabId, uint32_t peerId, uint32_t seed)
+{
+    ArcadeStartPacket pkt{cabId, peerId, seed};
+    Net_Broadcast(EMsg::ArcadeStart, &pkt, sizeof(pkt));
+}
+
+void Net_SendArcadeInput(uint32_t frame, uint8_t buttonMask)
+{
+    ArcadeInputPacket pkt{frame, buttonMask, {0, 0, 0}};
+    if (g_Peers.size() > 0)
+        Net_Send(g_Peers[0].conn, EMsg::ArcadeInput, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastArcadeScore(uint32_t peerId, uint32_t score)
+{
+    ArcadeScorePacket pkt{peerId, score};
+    Net_Broadcast(EMsg::ArcadeScore, &pkt, sizeof(pkt));
+}
+
 void Net_BroadcastCriticalVoteStart(uint32_t questHash)
 {
     CriticalVoteStartPacket pkt{questHash};

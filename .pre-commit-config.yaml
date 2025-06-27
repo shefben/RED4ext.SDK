@@ -1,17 +1,16 @@
-# See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
 repos:
-  -   repo: https://github.com/pre-commit/pre-commit-hooks
-      rev: v5.0.0
-      hooks:
-      -   id: trailing-whitespace
-          exclude: ^vendor/
-      -   id: end-of-file-fixer
-          exclude: ^vendor/
-      -   id: check-added-large-files
-          exclude: ^vendor/
-  -   repo: https://github.com/pre-commit/mirrors-clang-format
-      rev: v19.1.7
-      hooks:
-      -   id: clang-format
-          exclude: ^vendor/
+  - repo: https://github.com/psf/black
+    rev: 24.4.2        # pin exact version
+    hooks:
+      - id: black
+        language_version: python3.11
+  - repo: https://github.com/PyCQA/ruff-pre-commit
+    rev: v0.4.2
+    hooks:
+      - id: ruff
+        args: [--fix]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace

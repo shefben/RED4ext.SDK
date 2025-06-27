@@ -175,7 +175,10 @@ enum class EMsg : uint16_t
     GrenadeSnap,
     SmartCamStart, // RC-1
     SmartCamEnd,
-    SlowMoFinisher // RB-1
+    SlowMoFinisher, // RB-1
+    ArcadeStart,    // AM-1
+    ArcadeInput,
+    ArcadeScore
 };
 
 struct PacketHeader
@@ -1225,4 +1228,23 @@ struct SmartCamEndPacket
     uint32_t projId;
 };
 
+struct ArcadeStartPacket
+{
+    uint32_t cabId;
+    uint32_t peerId;
+    uint32_t seed;
+};
+
+struct ArcadeInputPacket
+{
+    uint32_t frame;
+    uint8_t buttonMask;
+    uint8_t _pad[3];
+};
+
+struct ArcadeScorePacket
+{
+    uint32_t peerId;
+    uint32_t score;
+};
 } // namespace CoopNet

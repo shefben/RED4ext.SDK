@@ -1579,6 +1579,31 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
                 RED4ext::ExecuteFunction("SmartCamSync", "OnEnd", nullptr, &pkt->projId);
         }
         break;
+    case EMsg::ArcadeStart:
+        if (size >= sizeof(ArcadeStartPacket))
+        {
+            const ArcadeStartPacket* pkt = reinterpret_cast<const ArcadeStartPacket*>(payload);
+            if (Net_IsAuthoritative())
+                CoopNet::Arcade_Start(pkt->cabId, pkt->peerId, pkt->seed);
+            else
+                RED4ext::ExecuteFunction("ArcadeSync", "OnStart", nullptr, pkt);
+        }
+        break;
+    case EMsg::ArcadeInput:
+        if (size >= sizeof(ArcadeInputPacket))
+        {
+            const ArcadeInputPacket* pkt = reinterpret_cast<const ArcadeInputPacket*>(payload);
+            if (Net_IsAuthoritative())
+                CoopNet::Arcade_Input(pkt->frame, pkt->buttonMask);
+        }
+        break;
+    case EMsg::ArcadeScore:
+        if (size >= sizeof(ArcadeScorePacket))
+        {
+            const ArcadeScorePacket* pkt = reinterpret_cast<const ArcadeScorePacket*>(payload);
+            RED4ext::ExecuteFunction("ArcadeSync", "OnScore", nullptr, pkt);
+        }
+        break;
     default:
         break;
     }
