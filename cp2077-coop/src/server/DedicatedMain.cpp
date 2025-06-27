@@ -8,6 +8,7 @@
 #include "GlobalEventController.hpp"
 #include "Heartbeat.hpp"
 #include "NpcController.hpp"
+#include "PhaseGC.hpp"
 #include "PoliceDispatch.hpp"
 #include "ServerConfig.hpp"
 #include "SnapshotHeap.hpp"
@@ -102,6 +103,7 @@ int main(int argc, char** argv)
         }
         Net_Poll(static_cast<uint32_t>(tickMs));
         CoopNet::QuestWatchdog_Tick(tickMs);
+        CoopNet::PhaseGC_Tick(CoopNet::GameClock::GetCurrentTick());
         CoopNet::AdminController_PollCommands();
         hbTimer += tickMs / 1000.f;
         memTimer += tickMs / 1000.f;

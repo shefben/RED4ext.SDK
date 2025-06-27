@@ -1,5 +1,6 @@
 #include "QuestWatchdog.hpp"
 #include "../net/Net.hpp"
+#include "PhaseGC.hpp"
 #include <fstream>
 #include <unordered_map>
 
@@ -16,6 +17,7 @@ static std::unordered_map<uint32_t, uint16_t> g_critical; // PX-6
 void QuestWatchdog_Record(uint32_t phaseId, uint32_t questHash, uint16_t stage)
 {
     g_phaseStages[phaseId][questHash] = stage;
+    PhaseGC_Touch(phaseId);
 }
 
 void QuestWatchdog_BuildFullSync(uint32_t phaseId, QuestFullSyncPacket& outPkt)

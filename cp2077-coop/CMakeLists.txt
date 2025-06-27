@@ -40,6 +40,7 @@ add_library(cp2077-coop SHARED
     src/server/CyberController.cpp
     src/server/PerkController.cpp
     src/server/QuestWatchdog.cpp
+    src/server/PhaseGC.cpp
     src/server/SnapshotHeap.cpp
     src/server/TextureGuard.cpp
     src/server/PoliceDispatch.cpp
