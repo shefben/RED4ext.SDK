@@ -77,5 +77,7 @@ public class ChatOverlay extends inkHUDLayer {
                 MicIcon.Hide();
             };
         };
+
+        EmoteWheel.Tick();
     }
 }

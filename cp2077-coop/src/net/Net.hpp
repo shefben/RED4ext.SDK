@@ -2,6 +2,7 @@
 
 // Networking layer for cp2077-coop.
 // Provides thin wrappers around ENet.
+#include "../core/QuestGadget.hpp"
 #include "Packets.hpp"
 #include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
 #include <cstdint>
@@ -54,8 +55,8 @@ void Net_SendQuestResyncRequest();
 void Net_SendQuestResyncRequestTo(CoopNet::Connection* conn);
 CoopNet::Connection* Net_FindConnection(uint32_t peerId);
 void Net_SendQuestFullSync(CoopNet::Connection* conn, const QuestFullSyncPacket& pkt);
-void Net_BroadcastHoloCallStart(uint32_t peerId);
-void Net_BroadcastHoloCallEnd(uint32_t peerId);
+void Net_BroadcastHoloCallStart(uint32_t fixerId, uint32_t callId, const uint32_t* peerIds, uint8_t count);
+void Net_BroadcastHoloCallEnd(uint32_t callId);
 void Net_BroadcastTickRateChange(uint16_t tickMs);
 void Net_BroadcastRuleChange(bool friendly);
 void Net_SendSpectateRequest(uint32_t peerId);
@@ -74,11 +75,12 @@ void Net_SendDialogChoice(uint8_t choiceIdx);
 void Net_BroadcastDialogChoice(uint32_t peerId, uint8_t choiceIdx);
 void Net_SendVoice(const uint8_t* data, uint16_t size, uint16_t seq);
 void Net_BroadcastVoice(uint32_t peerId, const uint8_t* data, uint16_t size, uint16_t seq);
-void Net_BroadcastWorldState(uint16_t sunAngleDeg, uint8_t weatherId);
+void Net_BroadcastWorldState(uint16_t sunAngleDeg, uint8_t weatherId, uint16_t particleSeed);
 void Net_BroadcastGlobalEvent(uint32_t eventId, uint8_t phase, bool start, uint32_t seed);
 void Net_BroadcastCrowdSeed(uint64_t sectorHash, uint32_t seed);
 void Net_BroadcastVendorStock(const VendorStockPacket& pkt);
 void Net_BroadcastVendorStockUpdate(const VendorStockUpdatePacket& pkt);
+void Net_BroadcastVendorRefresh(const VendorRefreshPacket& pkt);
 void Net_SendPurchaseRequest(uint32_t vendorId, uint32_t itemId, uint64_t nonce);
 void Net_SendWorldMarkers(CoopNet::Connection* conn, const std::vector<uint8_t>& blob);
 std::vector<uint8_t> BuildMarkerBlob();
@@ -115,6 +117,7 @@ void Net_BroadcastVehicleHitHighSpeed(uint32_t vehA, uint32_t vehB, const RED4ex
 void Net_BroadcastWeaponInspect(uint32_t peerId, uint16_t animId);
 void Net_BroadcastFinisherStart(uint32_t actorId, uint32_t victimId, uint8_t finisherType);
 void Net_BroadcastFinisherEnd(uint32_t actorId);
+void Net_BroadcastSlowMoFinisher(uint32_t peerId, uint32_t targetId, uint16_t durMs); // RB-1
 void Net_BroadcastTextureBiasChange(uint8_t bias);
 void Net_BroadcastCriticalVoteStart(uint32_t questHash);                                                 // PX-6
 void Net_SendCriticalVoteCast(bool yes);                                                                 // PX-6
@@ -153,3 +156,36 @@ void Net_BroadcastVehiclePaintChange(uint32_t vehId, uint32_t colorId, const cha
 void Net_BroadcastPanicEvent(const RED4ext::Vector3& pos, uint32_t seed);                  // AI-1
 void Net_BroadcastAIHack(uint32_t targetId, uint8_t effectId);                             // AI-2
 void Net_BroadcastBossPhase(uint32_t npcId, uint8_t phaseIdx);                             // AI-3
+void Net_BroadcastSectorLOD(uint64_t sectorHash, uint8_t lod);                             // PRF-1
+void Net_SendLowBWMode(CoopNet::Connection* conn, bool enable);                            // PRF-2
+void Net_SendCrowdCfg(CoopNet::Connection* conn, uint8_t density);
+// CD-1
+void Net_BroadcastEmote(uint32_t peerId, uint8_t emoteId); // EM-1
+void Net_BroadcastCrowdChatterStart(uint32_t npcA, uint32_t npcB, uint32_t lineId,
+                                    uint32_t seed);               // CA-1
+void Net_BroadcastCrowdChatterEnd(uint32_t convId);               // CA-1
+void Net_BroadcastHoloSeed(uint64_t sectorHash, uint64_t seed64); // HB-1
+void Net_BroadcastHoloNextAd(uint64_t sectorHash, uint32_t adId); // HB-1
+void Net_BroadcastDoorBreachStart(uint32_t doorId, uint32_t phaseId,
+                                  uint32_t seed);                                                             // DH-1
+void Net_BroadcastDoorBreachTick(uint32_t doorId, uint8_t percent);                                           // DH-1
+void Net_BroadcastDoorBreachSuccess(uint32_t doorId);                                                         // DH-1
+void Net_BroadcastDoorBreachAbort(uint32_t doorId);                                                           // DH-1
+void Net_BroadcastHTableOpen(uint32_t sceneId);                                                               // HT-1
+void Net_BroadcastHTableScrub(uint32_t timestampMs);                                                          // HT-1
+void Net_BroadcastQuestGadgetFire(uint32_t questId, QuestGadgetType type, uint8_t charge, uint32_t targetId); // QG-1
+void Net_BroadcastItemGrab(uint32_t peerId, uint32_t itemId);                                                 // IP-1
+void Net_BroadcastItemDrop(uint32_t peerId, uint32_t itemId, const RED4ext::Vector3& pos);                    // IP-1
+void Net_BroadcastItemStore(uint32_t peerId, uint32_t itemId);                                                // IP-1
+void Net_BroadcastMetroBoard(uint32_t peerId, uint32_t lineId, uint8_t carIdx);                               // SB-1
+void Net_BroadcastMetroArrive(uint32_t peerId, uint32_t stationId);                                           // SB-2
+void Net_BroadcastRadioChange(uint32_t vehId, uint8_t stationId, uint32_t offsetSec);                         // RS-1
+void Net_BroadcastCamHijack(uint32_t camId, uint32_t peerId);                                                 // SF-1
+void Net_BroadcastCamFrameStart(uint32_t camId);                                                              // SF-1
+void Net_BroadcastCarryBegin(uint32_t carrierId, uint32_t entityId);                                          // PC-1
+void Net_BroadcastCarrySnap(uint32_t entityId, const RED4ext::Vector3& pos, const RED4ext::Vector3& vel);     // PC-1
+void Net_BroadcastCarryEnd(uint32_t entityId, const RED4ext::Vector3& pos, const RED4ext::Vector3& vel);      // PC-1
+void Net_BroadcastGrenadePrime(uint32_t entityId, uint32_t startTick);                                        // GR-1
+void Net_BroadcastGrenadeSnap(uint32_t entityId, const RED4ext::Vector3& pos, const RED4ext::Vector3& vel);   // GR-1
+void Net_BroadcastSmartCamStart(uint32_t projId);                                                             // RC-1
+void Net_BroadcastSmartCamEnd(uint32_t projId);                                                               // RC-1

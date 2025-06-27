@@ -1,7 +1,9 @@
 #include "Net.hpp"
+#include "../core/GameClock.hpp"
 #include "../core/Hash.hpp"
 #include "../runtime/QuestSync.reds"
 #include "../server/AdminController.hpp"
+#include "../server/Journal.hpp"
 #include "../server/PoliceDispatch.hpp"
 #include "../server/QuestWatchdog.hpp"
 #include "Connection.hpp"
@@ -12,6 +14,7 @@
 #include <cstring>
 #include <enet/enet.h>
 #include <iostream>
+#include <sodium.h>
 #include <vector>
 
 using CoopNet::Connection;
@@ -96,6 +99,7 @@ void Net_Poll(uint32_t maxMs)
                 std::cout << "peer connected id=" << e.conn->peerId << std::endl;
                 Nat_PerformHandshake(e.conn);
                 e.conn->SendSectorChange(CoopNet::Fnv1a64("start_sector"));
+                Net_SendCrowdCfg(e.conn, 2u);
             }
             break;
         }
@@ -121,8 +125,38 @@ void Net_Poll(uint32_t maxMs)
                 {
                     Connection::RawPacket pkt;
                     pkt.hdr = *reinterpret_cast<PacketHeader*>(evt.packet->data);
-                    pkt.data.resize(evt.packet->dataLength - sizeof(PacketHeader));
-                    memcpy(pkt.data.data(), evt.packet->data + sizeof(PacketHeader), pkt.data.size());
+                    const uint8_t* payload = evt.packet->data + sizeof(PacketHeader);
+                    uint16_t psize = evt.packet->dataLength - sizeof(PacketHeader);
+                    if (it->conn->hasKey && pkt.hdr.type != static_cast<uint16_t>(EMsg::Hello) &&
+                        pkt.hdr.type != static_cast<uint16_t>(EMsg::Welcome))
+                    {
+                        if (psize < 4 + crypto_secretbox_MACBYTES)
+                            break;
+                        uint32_t nonce;
+                        memcpy(&nonce, payload, 4);
+                        if (it->conn->nonceSet.count(nonce))
+                            break;
+                        it->conn->nonceWindow.push_back(nonce);
+                        it->conn->nonceSet.insert(nonce);
+                        if (it->conn->nonceWindow.size() > 1024)
+                        {
+                            uint32_t old = it->conn->nonceWindow.front();
+                            it->conn->nonceWindow.pop_front();
+                            it->conn->nonceSet.erase(old);
+                        }
+                        unsigned char nbuf[crypto_secretbox_NONCEBYTES] = {0};
+                        memcpy(nbuf, &nonce, 4);
+                        std::vector<uint8_t> plain(psize - 4 - crypto_secretbox_MACBYTES);
+                        if (crypto_secretbox_open_easy(plain.data(), payload + 4, psize - 4, nbuf,
+                                                       it->conn->key.data()) != 0)
+                            break;
+                        pkt.data = std::move(plain);
+                    }
+                    else
+                    {
+                        pkt.data.resize(psize);
+                        memcpy(pkt.data.data(), payload, psize);
+                    }
                     it->conn->EnqueuePacket(pkt);
                 }
             }
@@ -157,11 +191,24 @@ void Net_Send(Connection* conn, EMsg type, const void* data, uint16_t size)
     if (it == g_Peers.end())
         return;
 
-    ENetPacket* pkt = enet_packet_create(nullptr, sizeof(PacketHeader) + size, ENET_PACKET_FLAG_RELIABLE);
-    PacketHeader hdr{static_cast<uint16_t>(type), size};
+    std::vector<uint8_t> outBuf;
+    uint16_t finalSize = size;
+    if (conn->hasKey && type != EMsg::Hello && type != EMsg::Welcome)
+    {
+        uint32_t nonce = static_cast<uint32_t>(conn->lastNonce++);
+        unsigned char nbuf[crypto_secretbox_NONCEBYTES] = {0};
+        memcpy(nbuf, &nonce, 4);
+        outBuf.resize(4 + size + crypto_secretbox_MACBYTES);
+        memcpy(outBuf.data(), &nonce, 4);
+        crypto_secretbox_easy(outBuf.data() + 4, static_cast<const unsigned char*>(data), size, nbuf, conn->key.data());
+        finalSize = static_cast<uint16_t>(outBuf.size());
+        data = outBuf.data();
+    }
+    ENetPacket* pkt = enet_packet_create(nullptr, sizeof(PacketHeader) + finalSize, ENET_PACKET_FLAG_RELIABLE);
+    PacketHeader hdr{static_cast<uint16_t>(type), finalSize};
     std::memcpy(pkt->data, &hdr, sizeof(hdr));
-    if (size > 0 && data)
-        std::memcpy(pkt->data + sizeof(hdr), data, size);
+    if (finalSize > 0 && data)
+        std::memcpy(pkt->data + sizeof(hdr), data, finalSize);
     enet_peer_send(it->peer, 0, pkt);
 }
 
@@ -169,13 +216,10 @@ void Net_Broadcast(EMsg type, const void* data, uint16_t size)
 {
     if (!g_Host)
         return;
-
-    ENetPacket* pkt = enet_packet_create(nullptr, sizeof(PacketHeader) + size, ENET_PACKET_FLAG_RELIABLE);
-    PacketHeader hdr{static_cast<uint16_t>(type), size};
-    std::memcpy(pkt->data, &hdr, sizeof(hdr));
-    if (size > 0 && data)
-        std::memcpy(pkt->data + sizeof(hdr), data, size);
-    enet_host_broadcast(g_Host, 0, pkt);
+    for (auto& e : g_Peers)
+    {
+        Net_Send(e.conn, type, data, size);
+    }
 }
 
 void Net_SendUnreliableToAll(EMsg type, const void* data, uint16_t size)
@@ -183,12 +227,15 @@ void Net_SendUnreliableToAll(EMsg type, const void* data, uint16_t size)
     if (!g_Host)
         return;
 
-    ENetPacket* pkt = enet_packet_create(nullptr, sizeof(PacketHeader) + size, 0);
-    PacketHeader hdr{static_cast<uint16_t>(type), size};
-    std::memcpy(pkt->data, &hdr, sizeof(hdr));
-    if (size > 0 && data)
-        std::memcpy(pkt->data + sizeof(hdr), data, size);
-    enet_host_broadcast(g_Host, 0, pkt);
+    for (auto& e : g_Peers)
+    {
+        ENetPacket* pkt = enet_packet_create(nullptr, sizeof(PacketHeader) + size, 0);
+        PacketHeader hdr{static_cast<uint16_t>(type), size};
+        std::memcpy(pkt->data, &hdr, sizeof(hdr));
+        if (size > 0 && data)
+            std::memcpy(pkt->data + sizeof(hdr), data, size);
+        enet_peer_send(e.peer, 0, pkt);
+    }
 }
 
 void Net_SendSectorReady(uint64_t hash)
@@ -370,6 +417,7 @@ void Net_BroadcastQuestStage(uint32_t nameHash, uint16_t stage)
     QuestStagePacket pkt{nameHash, stage, 0};
     for (auto& e : g_Peers)
         CoopNet::QuestWatchdog_Record(e.conn->peerId, nameHash, stage);
+    Journal_Log(GameClock::GetCurrentTick(), 0, "questStage", nameHash, stage);
     Net_Broadcast(EMsg::QuestStage, &pkt, sizeof(pkt));
 }
 
@@ -413,15 +461,20 @@ void Net_SendQuestFullSync(CoopNet::Connection* conn, const QuestFullSyncPacket&
     Net_Send(conn, EMsg::QuestFullSync, &pkt, sizeof(pkt));
 }
 
-void Net_BroadcastHoloCallStart(uint32_t peerId)
+void Net_BroadcastHoloCallStart(uint32_t fixerId, uint32_t callId, const uint32_t* peerIds, uint8_t count)
 {
-    HoloCallPacket pkt{peerId};
+    HolocallStartPacket pkt{};
+    pkt.fixerId = fixerId;
+    pkt.callId = callId;
+    pkt.count = count;
+    for (uint8_t i = 0; i < count && i < 4; ++i)
+        pkt.peerIds[i] = peerIds[i];
     Net_Broadcast(EMsg::HoloCallStart, &pkt, sizeof(pkt));
 }
 
-void Net_BroadcastHoloCallEnd(uint32_t peerId)
+void Net_BroadcastHoloCallEnd(uint32_t callId)
 {
-    HoloCallPacket pkt{peerId};
+    HolocallEndPacket pkt{callId};
     Net_Broadcast(EMsg::HoloCallEnd, &pkt, sizeof(pkt));
 }
 
@@ -528,6 +581,8 @@ void Net_SendVoice(const uint8_t* data, uint16_t size, uint16_t seq)
     auto conns = Net_GetConnections();
     if (!conns.empty())
     {
+        if (conns[0]->voiceMuted)
+            return;
         VoicePacket pkt{0u, seq, size, {0}};
         std::memcpy(pkt.data, data, std::min<size_t>(size, sizeof(pkt.data)));
         Net_Send(conns[0], EMsg::Voice, &pkt, static_cast<uint16_t>(sizeof(pkt)));
@@ -544,9 +599,9 @@ void Net_BroadcastVoice(uint32_t peerId, const uint8_t* data, uint16_t size, uin
         c->voiceBytes += sizeof(pkt);
 }
 
-void Net_BroadcastWorldState(uint16_t sunAngleDeg, uint8_t weatherId)
+void Net_BroadcastWorldState(uint16_t sunAngleDeg, uint8_t weatherId, uint16_t particleSeed)
 {
-    WorldStatePacket pkt{sunAngleDeg, weatherId};
+    WorldStatePacket pkt{sunAngleDeg, weatherId, particleSeed};
     Net_SendUnreliableToAll(EMsg::WorldState, &pkt, sizeof(pkt));
 }
 
@@ -570,6 +625,11 @@ void Net_BroadcastVendorStock(const VendorStockPacket& pkt)
 void Net_BroadcastVendorStockUpdate(const VendorStockUpdatePacket& pkt)
 {
     Net_Broadcast(EMsg::VendorStockUpdate, &pkt, sizeof(VendorStockUpdatePacket));
+}
+
+void Net_BroadcastVendorRefresh(const VendorRefreshPacket& pkt)
+{
+    Net_Broadcast(EMsg::VendorRefresh, &pkt, sizeof(VendorRefreshPacket));
 }
 
 void Net_SendWorldMarkers(Connection* conn, const std::vector<uint8_t>& blob)
@@ -992,10 +1052,208 @@ void Net_BroadcastFinisherEnd(uint32_t actorId)
     Net_Broadcast(EMsg::FinisherEnd, &pkt, sizeof(pkt));
 }
 
+void Net_BroadcastSlowMoFinisher(uint32_t peerId, uint32_t targetId, uint16_t durMs)
+{
+    SlowMoFinisherPacket pkt{peerId, targetId, durMs, 0};
+    Net_Broadcast(EMsg::SlowMoFinisher, &pkt, sizeof(pkt));
+}
+
 void Net_BroadcastTextureBiasChange(uint8_t bias)
 {
     TextureBiasPacket pkt{bias, {0, 0, 0}};
     Net_Broadcast(EMsg::TextureBiasChange, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastSectorLOD(uint64_t sectorHash, uint8_t lod)
+{
+    SectorLODPacket pkt{sectorHash, lod, {0, 0, 0}};
+    Net_Broadcast(EMsg::SectorLOD, &pkt, sizeof(pkt));
+}
+
+void Net_SendLowBWMode(CoopNet::Connection* conn, bool enable)
+{
+    if (!conn)
+        return;
+    LowBWModePacket pkt{static_cast<uint8_t>(enable), {0, 0, 0}};
+    Net_Send(conn, EMsg::LowBWMode, &pkt, sizeof(pkt));
+}
+
+void Net_SendCrowdCfg(CoopNet::Connection* conn, uint8_t density)
+{
+    if (!conn)
+        return;
+    CrowdCfgPacket pkt{density, {0, 0, 0}};
+    Net_Send(conn, EMsg::CrowdCfg, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastEmote(uint32_t peerId, uint8_t emoteId)
+{
+    EmotePacket pkt{peerId, emoteId, {0, 0, 0}};
+    Net_Broadcast(EMsg::Emote, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastCrowdChatterStart(uint32_t npcA, uint32_t npcB, uint32_t lineId, uint32_t seed)
+{
+    CrowdChatterStartPacket pkt{npcA, npcB, lineId, seed};
+    Net_Broadcast(EMsg::CrowdChatterStart, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastCrowdChatterEnd(uint32_t convId)
+{
+    CrowdChatterEndPacket pkt{convId};
+    Net_Broadcast(EMsg::CrowdChatterEnd, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastHoloSeed(uint64_t sectorHash, uint64_t seed64)
+{
+    HoloSeedPacket pkt{sectorHash, seed64};
+    Net_Broadcast(EMsg::HoloSeed, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastHoloNextAd(uint64_t sectorHash, uint32_t adId)
+{
+    HoloNextAdPacket pkt{sectorHash, adId};
+    Net_Broadcast(EMsg::HoloNextAd, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastDoorBreachStart(uint32_t doorId, uint32_t phaseId, uint32_t seed)
+{
+    DoorBreachStartPacket pkt{doorId, phaseId, seed};
+    Net_Broadcast(EMsg::DoorBreachStart, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastDoorBreachTick(uint32_t doorId, uint8_t percent)
+{
+    DoorBreachTickPacket pkt{doorId, percent, {0, 0, 0}};
+    Net_Broadcast(EMsg::DoorBreachTick, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastDoorBreachSuccess(uint32_t doorId)
+{
+    DoorBreachSuccessPacket pkt{doorId};
+    Net_Broadcast(EMsg::DoorBreachSuccess, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastDoorBreachAbort(uint32_t doorId)
+{
+    DoorBreachAbortPacket pkt{doorId};
+    Net_Broadcast(EMsg::DoorBreachAbort, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastHTableOpen(uint32_t sceneId)
+{
+    HTableOpenPacket pkt{sceneId};
+    Net_Broadcast(EMsg::HTableOpen, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastHTableScrub(uint32_t timestampMs)
+{
+    HTableScrubPacket pkt{timestampMs};
+    Net_Broadcast(EMsg::HTableScrub, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastQuestGadgetFire(uint32_t questId, QuestGadgetType type, uint8_t charge, uint32_t targetId)
+{
+    QuestGadgetFirePacket pkt{questId, static_cast<uint8_t>(type), charge, targetId, 0};
+    Net_Broadcast(EMsg::QuestGadgetFire, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastItemGrab(uint32_t peerId, uint32_t itemId)
+{
+    ItemGrabPacket pkt{peerId, itemId};
+    Net_Broadcast(EMsg::ItemGrab, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastItemDrop(uint32_t peerId, uint32_t itemId, const RED4ext::Vector3& pos)
+{
+    ItemDropPacket pkt{peerId, itemId, pos};
+    Net_Broadcast(EMsg::ItemDrop, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastItemStore(uint32_t peerId, uint32_t itemId)
+{
+    ItemStorePacket pkt{peerId, itemId};
+    Net_Broadcast(EMsg::ItemStore, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastMetroBoard(uint32_t peerId, uint32_t lineId, uint8_t carIdx)
+{
+    MetroBoardPacket pkt{peerId, lineId, carIdx, {0, 0, 0}};
+    Net_Broadcast(EMsg::MetroBoard, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastMetroArrive(uint32_t peerId, uint32_t stationId)
+{
+    MetroArrivePacket pkt{peerId, stationId};
+    Net_Broadcast(EMsg::MetroArrive, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastRadioChange(uint32_t vehId, uint8_t stationId, uint32_t offsetSec)
+{
+    RadioChangePacket pkt{vehId, stationId, 0, offsetSec};
+    Net_Broadcast(EMsg::RadioChange, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastCamHijack(uint32_t camId, uint32_t peerId)
+{
+    CamHijackPacket pkt{camId, peerId};
+    Net_Broadcast(EMsg::CamHijack, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastCamFrameStart(uint32_t camId)
+{
+    CamFrameStartPacket pkt{camId};
+    Net_Broadcast(EMsg::CamFrameStart, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastCarryBegin(uint32_t carrierId, uint32_t entityId)
+{
+    CarryBeginPacket pkt{carrierId, entityId};
+    Net_Broadcast(EMsg::CarryBegin, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastCarrySnap(uint32_t entityId, const RED4ext::Vector3& pos, const RED4ext::Vector3& vel)
+{
+    CarrySnapPacket pkt{entityId, pos, vel};
+    Net_Broadcast(EMsg::CarrySnap, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastCarryEnd(uint32_t entityId, const RED4ext::Vector3& pos, const RED4ext::Vector3& vel)
+{
+    CarryEndPacket pkt{entityId, pos, vel};
+    Net_Broadcast(EMsg::CarryEnd, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastGrenadePrime(uint32_t entityId, uint32_t startTick)
+{
+    GrenadePrimePacket pkt{entityId, startTick};
+    Net_Broadcast(EMsg::GrenadePrime, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastGrenadeSnap(uint32_t entityId, const RED4ext::Vector3& pos, const RED4ext::Vector3& vel)
+{
+    GrenadeSnapPacket pkt{entityId, pos, vel};
+    Net_Broadcast(EMsg::GrenadeSnap, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastSmartCamStart(uint32_t projId)
+{
+    SmartCamStartPacket pkt{projId};
+    for (auto& e : g_Peers)
+    {
+        if (!e.conn->lowBWMode)
+            Net_Send(e.conn, EMsg::SmartCamStart, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_BroadcastSmartCamEnd(uint32_t projId)
+{
+    SmartCamEndPacket pkt{projId};
+    for (auto& e : g_Peers)
+    {
+        if (!e.conn->lowBWMode)
+            Net_Send(e.conn, EMsg::SmartCamEnd, &pkt, sizeof(pkt));
+    }
 }
 
 void Net_BroadcastCriticalVoteStart(uint32_t questHash)

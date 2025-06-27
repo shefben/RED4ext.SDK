@@ -1,7 +1,9 @@
 #include "ApartmentController.hpp"
+#include "../core/GameClock.hpp"
 #include "../core/SaveFork.hpp"
 #include "../core/SessionState.hpp"
 #include "../net/Net.hpp"
+#include "Journal.hpp"
 #include "LedgerService.hpp"
 #include <fstream>
 #include <iostream>
@@ -89,6 +91,7 @@ void ApartmentController_HandlePurchase(Connection* conn, uint32_t aptId)
         return;
     }
     g_owned[conn->peerId].insert(aptId);
+    Journal_Log(GameClock::GetCurrentTick(), conn->peerId, "purchase", aptId, -static_cast<int32_t>(it->second.price));
     std::stringstream ss;
     ss << "{\"ApartmentOwnership\":[";
     bool first = true;

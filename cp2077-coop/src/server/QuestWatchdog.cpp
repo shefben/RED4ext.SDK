@@ -71,6 +71,17 @@ void QuestWatchdog_BuildFullSync(uint32_t phaseId, QuestFullSyncPacket& outPkt)
     }
 }
 
+uint16_t QuestWatchdog_GetStage(uint32_t phaseId, uint32_t questHash)
+{
+    auto it = g_phaseStages.find(phaseId);
+    if (it == g_phaseStages.end())
+        return 0u;
+    auto qIt = it->second.find(questHash);
+    if (qIt == it->second.end())
+        return 0u;
+    return qIt->second;
+}
+
 std::vector<uint32_t> QuestWatchdog_ListPhases()
 {
     std::vector<uint32_t> ids;

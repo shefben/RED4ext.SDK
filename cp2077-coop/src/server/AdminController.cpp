@@ -1,15 +1,16 @@
 #include "AdminController.hpp"
 #include "../core/GameClock.hpp"
+#include "../core/ThreadSafeQueue.hpp"
 #include "../net/Net.hpp"
 #include "../net/Packets.hpp"
+#include "WebDash.hpp"
 #include <RED4ext/RED4ext.hpp>
 #include <iostream>
 #include <sstream>
 #include <unordered_set>
-#include "../core/ThreadSafeQueue.hpp"
-#include "WebDash.hpp"
 
-namespace CoopNet {
+namespace CoopNet
+{
 
 static std::unordered_set<uint32_t> g_banList;
 static ThreadSafeQueue<std::string> g_cmdQueue;
@@ -52,12 +53,26 @@ static void DoBan(uint32_t peerId)
     DoKick(peerId);
 }
 
-static void DoMute(uint32_t peerId, uint32_t secs)
+static void DoMute(uint32_t peerId, uint32_t mins)
 {
     if (Connection* c = FindConn(peerId))
     {
-        c->muteUntilMs = GameClock::GetTimeMs() + static_cast<uint64_t>(secs) * 1000ull;
-        Net_SendAdminCmd(c, static_cast<uint8_t>(AdminCmdType::Mute), secs);
+        c->voiceMuted = true;
+        if (mins > 0)
+            c->voiceMuteEndMs = GameClock::GetTimeMs() + static_cast<uint64_t>(mins) * 60000ull;
+        else
+            c->voiceMuteEndMs = 0;
+        Net_SendAdminCmd(c, static_cast<uint8_t>(AdminCmdType::Mute), 1);
+    }
+}
+
+static void DoUnmute(uint32_t peerId)
+{
+    if (Connection* c = FindConn(peerId))
+    {
+        c->voiceMuted = false;
+        c->voiceMuteEndMs = 0;
+        Net_SendAdminCmd(c, static_cast<uint8_t>(AdminCmdType::Mute), 0);
     }
 }
 
@@ -117,11 +132,20 @@ void AdminController_PollCommands()
     }
     else if (cmd == "mute")
     {
-        uint32_t id, secs;
-        if (ss >> id >> secs)
+        uint32_t id = 0;
+        uint32_t mins = 0;
+        if (ss >> id)
+            ss >> mins;
+        DoMute(id, mins);
+        WebDash_PushEvent("{\"event\":\"mute\",\"id\":" + std::to_string(id) + "}");
+    }
+    else if (cmd == "unmute")
+    {
+        uint32_t id;
+        if (ss >> id)
         {
-            DoMute(id, secs);
-            WebDash_PushEvent("{\"event\":\"mute\",\"id\":" + std::to_string(id) + "}");
+            DoUnmute(id);
+            WebDash_PushEvent("{\"event\":\"unmute\",\"id\":" + std::to_string(id) + "}");
         }
     }
     else if (cmd == "sv_dm")

@@ -19,4 +19,13 @@ public class MicIcon extends inkHUDLayer {
         GameInstance.GetHUDManager(GetGame()).RemoveLayer(s_instance);
         s_instance = null;
     }
+
+    public static func SetMuted(muted: Bool) -> Void {
+        Show();
+        if muted {
+            s_instance.rect.SetTintColor(new HDRColor(0.5,0.5,0.5,1.0));
+        } else {
+            s_instance.rect.SetTintColor(new HDRColor(1.0,1.0,1.0,1.0));
+        };
+    }
 }
