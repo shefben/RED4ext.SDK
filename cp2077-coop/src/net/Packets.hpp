@@ -26,6 +26,7 @@ enum class EMsg : uint16_t
     AvatarSpawn,
     AvatarDespawn,
     QuestStage,
+    QuestStageP2P,
     QuestFullSync,
     QuestResyncRequest,
     SceneTrigger,
@@ -33,6 +34,7 @@ enum class EMsg : uint16_t
     HitConfirm,
     VehicleSpawn,
     SeatRequest,
+    VehicleSummonRequest,
     SeatAssign,
     VehicleHit,
     Quickhack,
@@ -76,8 +78,39 @@ enum class EMsg : uint16_t
     GlobalEvent,
     CrowdSeed,
     VendorStock,
+    VendorStockUpdate,
     PurchaseRequest,
-    PurchaseResult
+    PurchaseResult,
+    SnapshotAck,
+    WorldMarkers,
+    NpcSpawnCruiser,
+    NpcState,
+    CrimeEventSpawn,
+    CyberEquip,
+    SlowMoStart,
+    PerkUnlock,
+    PerkRespecRequest,
+    PerkRespecAck,
+    StatusApply,
+    StatusTick,
+    TrafficSeed,
+    TrafficDespawn,
+    PropBreak,
+    PropIgnite,
+    VOPlay,
+    FixerCallStart,
+    FixerCallEnd,
+    GigSpawn,
+    VehicleSummon,
+    Appearance,
+    PingOutline,
+    LootRoll,
+    DealerBuy,
+    VehicleUnlock,
+    WeaponInspectStart,
+    FinisherStart,
+    FinisherEnd,
+    TextureBiasChange
 };
 
 struct PacketHeader
@@ -150,6 +183,12 @@ struct SeatRequestPacket
     uint8_t seatIdx; // 0-3
 };
 
+struct VehicleSummonRequestPacket
+{
+    uint32_t vehId;
+    TransformSnap pos;
+};
+
 struct SeatAssignPacket
 {
     uint32_t peerId;
@@ -167,12 +206,8 @@ struct VehicleHitPacket
 
 struct WorldStatePacket
 {
-    uint64_t worldClockMs;
-    uint32_t sunAngle; // degrees * 100
-    uint32_t weatherSeed;
+    uint16_t sunAngleDeg; // 0-359
     uint8_t weatherId;
-    uint8_t braindancePhase;
-    uint8_t pad[2];
 };
 
 struct ScoreUpdatePacket
@@ -250,9 +285,25 @@ struct QuestStagePacket
     uint16_t _pad;
 };
 
+struct QuestStageP2PPacket
+{
+    uint32_t phaseId; // PX-2
+    uint32_t questHash;
+    uint16_t stage;
+    uint16_t _pad;
+};
+
 struct QuestResyncRequestPacket
 {
     uint32_t _pad; // unused
+};
+
+struct SceneTriggerPacket
+{
+    uint32_t phaseId; // PX-1
+    uint32_t nameHash;
+    uint8_t start;
+    uint8_t _pad[3];
 };
 
 struct QuestEntry
@@ -382,6 +433,9 @@ struct CineStartPacket
 {
     uint32_t sceneId;
     uint32_t startTimeMs;
+    uint32_t phaseId; // PX-4
+    uint8_t solo;
+    uint8_t _pad[3];
 };
 
 struct VisemePacket
@@ -426,6 +480,8 @@ struct VendorStockItem
 {
     uint32_t itemId;
     uint32_t price;
+    uint16_t qty;
+    uint16_t _pad;
 };
 
 struct VendorStockPacket
@@ -434,6 +490,14 @@ struct VendorStockPacket
     uint8_t count;
     uint8_t _pad[3];
     VendorStockItem items[8];
+};
+
+struct VendorStockUpdatePacket
+{
+    uint32_t vendorId;
+    uint32_t itemId;
+    uint16_t qty;
+    uint16_t _pad;
 };
 
 struct PurchaseRequestPacket
@@ -452,15 +516,203 @@ struct PurchaseResultPacket
     uint8_t _pad[3];
 };
 
+struct WorldMarkersPacket
+{
+    uint16_t blobBytes;
+    uint8_t zstdBlob[1];
+};
+
+struct NpcSpawnCruiserPacket
+{
+    uint8_t waveIdx;
+    uint8_t _pad[3];
+    uint32_t npcSeeds[4];
+};
+
+struct NpcStatePacket
+{
+    uint32_t npcId;
+    uint8_t aiState;
+    uint8_t _pad[3];
+};
+
+struct CrimeEventSpawnPacket
+{
+    uint32_t eventId;
+    uint32_t seed;
+    uint8_t count;
+    uint8_t _pad[3];
+    uint32_t npcIds[4];
+};
+
+struct CyberEquipPacket
+{
+    uint32_t peerId;
+    uint8_t slotId;
+    uint8_t _pad[3];
+    ItemSnap snap;
+};
+
+struct SlowMoStartPacket
+{
+    uint32_t peerId;
+    float factor;
+    uint16_t durationMs;
+    uint16_t _pad;
+};
+
+struct PerkUnlockPacket
+{
+    uint32_t peerId;
+    uint32_t perkId;
+    uint8_t rank;
+    uint8_t _pad[3];
+};
+
+struct PerkRespecRequestPacket
+{
+    uint32_t peerId;
+};
+
+struct PerkRespecAckPacket
+{
+    uint32_t peerId;
+    uint16_t newPoints;
+    uint8_t _pad[2];
+};
+
+struct StatusApplyPacket
+{
+    uint32_t targetId;
+    uint8_t effectId;
+    uint16_t durMs;
+    uint8_t amp;
+};
+
+struct StatusTickPacket
+{
+    uint32_t targetId;
+    int16_t hpDelta;
+};
+
+struct TrafficSeedPacket
+{
+    uint64_t sectorHash;
+    uint64_t seed64;
+};
+
+struct TrafficDespawnPacket
+{
+    uint32_t vehId;
+};
+
+struct PropBreakPacket
+{
+    uint32_t entityId;
+    uint32_t seed;
+};
+
+struct PropIgnitePacket
+{
+    uint32_t entityId;
+    uint16_t delayMs;
+    uint16_t _pad;
+};
+
+struct VOPlayPacket
+{
+    uint32_t lineId;
+};
+
+struct FixerCallPacket
+{
+    uint32_t fixerId;
+};
+
+struct GigSpawnPacket
+{
+    uint32_t questId;
+    uint32_t seed;
+};
+
+struct VehicleSummonPacket
+{
+    uint32_t vehId;
+    uint32_t ownerId;
+    TransformSnap pos;
+};
+
+struct AppearancePacket
+{
+    uint32_t peerId;
+    uint32_t meshId;
+    uint32_t tintId;
+};
+
+struct PingOutlinePacket
+{
+    uint32_t peerId;
+    uint8_t count;
+    uint8_t _pad;
+    uint16_t durationMs;
+    uint32_t entityIds[32];
+};
+
+struct LootRollPacket
+{
+    uint32_t containerId;
+    uint32_t seed;
+};
+
+struct DealerBuyPacket
+{
+    uint32_t vehicleTpl;
+    uint32_t price;
+};
+
+struct VehicleUnlockPacket
+{
+    uint32_t peerId;
+    uint32_t vehicleTpl;
+};
+
+struct WeaponInspectPacket
+{
+    uint32_t peerId;
+    uint16_t animId;
+    uint16_t _pad;
+};
+
+struct FinisherStartPacket
+{
+    uint32_t actorId;
+    uint32_t victimId;
+    uint16_t animId;
+    uint16_t _pad;
+};
+
+struct FinisherEndPacket
+{
+    uint32_t actorId;
+};
+
+struct TextureBiasPacket
+{
+    uint8_t bias;
+    uint8_t _pad[3];
+};
+
 struct AvatarSpawnPacket
 {
     uint32_t peerId;
     TransformSnap snap;
+    uint32_t phaseId; // PX-1
 };
 
 struct AvatarDespawnPacket
 {
     uint32_t peerId;
+    uint32_t phaseId; // PX-1
 };
 
 struct ChatPacket

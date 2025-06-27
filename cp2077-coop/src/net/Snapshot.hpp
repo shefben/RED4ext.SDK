@@ -64,6 +64,15 @@ enum class NpcState : uint8_t
     Combat
 };
 
+// PD-2 pursuit AI state
+enum class PoliceAIState : uint8_t
+{
+    Idle = 0,
+    Search,
+    Pursuit,
+    Combat
+};
+
 struct NpcSnap
 {
     uint32_t npcId;         // always included
@@ -73,8 +82,11 @@ struct NpcSnap
     Quaternion rot;         // delta bit 1
     NpcState state;         // delta bit 2
     uint16_t health;        // delta bit 3 (0 => despawn)
+    uint8_t aiState;        // PD-2
     uint8_t appearanceSeed; // full snap only
-}; 
+    uint8_t _pad[2];
+    uint32_t phaseId; // PX-1
+};
 static_assert(sizeof(NpcSnap) % 4 == 0, "NpcSnap must align to 4 bytes");
 static_assert(std::is_trivially_copyable_v<NpcSnap>, "NpcSnap must be trivial");
 
@@ -84,15 +96,15 @@ static_assert(std::is_trivially_copyable_v<NpcSnap>, "NpcSnap must be trivial");
 // slots are marked via slotMask bit per attachment slot.
 struct ItemSnap
 {
-    uint64_t itemId;            // always included
-    uint32_t ownerId;           // always included
-    uint16_t tpl;               // full snap only (base archetype)
-    uint16_t level;             // delta bit 0
-    uint16_t quality;           // delta bit 1
-    uint32_t rolls[4];          // delta bits 2..5
-    uint8_t slotMask;           // delta bit 6
+    uint64_t itemId;   // always included
+    uint32_t ownerId;  // always included
+    uint16_t tpl;      // full snap only (base archetype)
+    uint16_t level;    // delta bit 0
+    uint16_t quality;  // delta bit 1
+    uint32_t rolls[4]; // delta bits 2..5
+    uint8_t slotMask;  // delta bit 6
     uint8_t _pad[3];
-    uint64_t attachmentIds[4];  // delta bits 7..10
+    uint64_t attachmentIds[4]; // delta bits 7..10
 };
 static_assert(sizeof(ItemSnap) % 4 == 0, "ItemSnap must align to 4 bytes");
 static_assert(std::is_trivially_copyable_v<ItemSnap>, "ItemSnap must be trivial");

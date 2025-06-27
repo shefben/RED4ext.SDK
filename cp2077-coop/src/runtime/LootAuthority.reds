@@ -7,4 +7,12 @@ public class LootAuthority {
         LogChannel(n"DEBUG", "CanPickup " + Uint64ToString(itemId) + " by " + IntToString(peerId));
         return true;
     }
+
+    public static func OnLootRoll(containerId: Uint32, seed: Uint32) -> Void {
+        LogChannel(n"loot", "roll " + IntToString(containerId) + " seed " + IntToString(seed));
+    }
+}
+
+public static func LootAuthority_OnLootRoll(id: Uint32, seed: Uint32) -> Void {
+    LootAuthority.OnLootRoll(id, seed);
 }

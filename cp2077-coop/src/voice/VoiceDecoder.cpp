@@ -1,11 +1,12 @@
 #include "VoiceDecoder.hpp"
+#include <AL/al.h>
+#include <AL/alc.h>
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <iostream>
 #include <opus/opus.h>
 #include <vector>
-#include <AL/al.h>
-#include <AL/alc.h>
 
 namespace CoopVoice
 {
@@ -19,6 +20,9 @@ struct JitterPkt
 static std::vector<JitterPkt> g_buffer;
 static OpusDecoder* g_decoder = nullptr;
 static uint16_t g_lastSeq = 0;
+static uint32_t g_recv = 0;
+static uint32_t g_dropped = 0;
+static uint64_t g_lastWarn = 0;
 static ALCdevice* g_dev = nullptr;
 static ALCcontext* g_ctx = nullptr;
 static ALuint g_source = 0;
@@ -34,8 +38,20 @@ void PushPacket(uint16_t seq, const uint8_t* data, uint16_t size)
     auto it = std::lower_bound(g_buffer.begin(), g_buffer.end(), seq,
                                [](const JitterPkt& a, uint16_t s) { return a.seq < s; });
     g_buffer.insert(it, p);
-    if (g_buffer.size() > 50)
+    g_recv++;
+    while (g_buffer.size() > 120)
+    {
         g_buffer.erase(g_buffer.begin());
+        g_dropped++;
+        uint64_t now =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+                .count();
+        if (now - g_lastWarn > 60000)
+        {
+            std::cerr << "[Voice] backlog purge" << std::endl;
+            g_lastWarn = now;
+        }
+    }
 }
 
 static bool NextPacket(JitterPkt& out)
@@ -106,8 +122,7 @@ int DecodeFrame(int16_t* pcmOut)
     if (queued > 8)
         return samples; // drop to avoid latency
 
-    alBufferData(g_buffers[g_bufIndex], AL_FORMAT_MONO16, pcmOut,
-                 samples * sizeof(int16_t), 48000);
+    alBufferData(g_buffers[g_bufIndex], AL_FORMAT_MONO16, pcmOut, samples * sizeof(int16_t), 48000);
     alSourceQueueBuffers(g_source, 1, &g_buffers[g_bufIndex]);
     g_bufIndex = (g_bufIndex + 1) % 4;
     ALint state = 0;
@@ -115,5 +130,16 @@ int DecodeFrame(int16_t* pcmOut)
     if (state != AL_PLAYING)
         alSourcePlay(g_source);
     return samples;
+}
+
+uint16_t ConsumeDropPct()
+{
+    uint32_t total = g_recv + g_dropped;
+    uint16_t pct = 0;
+    if (total > 0)
+        pct = static_cast<uint16_t>((g_dropped * 100) / total);
+    g_recv = 0;
+    g_dropped = 0;
+    return pct;
 }
 } // namespace CoopVoice

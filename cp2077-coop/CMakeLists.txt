@@ -17,6 +17,7 @@ add_library(cp2077-coop SHARED
     src/net/Connection.cpp
     src/net/StatBatch.cpp
     src/net/NatClient.cpp
+    src/net/WorldMarkers.cpp
     src/core/GameClock.cpp
     src/core/SpatialGrid.cpp
     src/core/SaveFork.cpp
@@ -28,12 +29,19 @@ add_library(cp2077-coop SHARED
     src/physics/CarPhysics.cpp
     src/server/InventoryController.cpp
     src/server/VendorController.cpp
+    src/server/DealerController.cpp
     src/server/NpcController.cpp
     src/server/VehicleController.cpp
     src/server/BreachController.cpp
     src/server/ElevatorController.cpp
     src/server/GlobalEventController.cpp
     src/server/AdminController.cpp
+    src/server/CyberController.cpp
+    src/server/PerkController.cpp
+    src/server/QuestWatchdog.cpp
+    src/server/SnapshotHeap.cpp
+    src/server/TextureGuard.cpp
+    src/server/PoliceDispatch.cpp
     src/server/LedgerService.cpp
     src/server/WebDash.cpp
     src/voice/VoiceEncoder.cpp
@@ -44,6 +52,7 @@ target_include_directories(cp2077-coop
     PRIVATE
         "${PROJECT_SOURCE_DIR}/third_party/enet/include"
         "${PROJECT_SOURCE_DIR}/third_party"
+        "${PROJECT_SOURCE_DIR}/third_party/zstd"
 )
 
 target_link_libraries(cp2077-coop PRIVATE enet juice opus AL::AL OpenSSL::SSL)
@@ -61,6 +70,7 @@ add_custom_command(
 add_executable(coop_dedicated
     src/server/DedicatedMain.cpp
     src/server/DamageValidator.cpp
+    src/server/ServerConfig.cpp
     src/server/Heartbeat.cpp
     src/server/AdminController.cpp
 )

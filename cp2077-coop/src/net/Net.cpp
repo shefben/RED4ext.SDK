@@ -1,6 +1,8 @@
 #include "Net.hpp"
 #include "../core/Hash.hpp"
 #include "../server/AdminController.hpp"
+#include "../server/PoliceDispatch.hpp"
+#include "../server/QuestWatchdog.hpp"
 #include "Connection.hpp"
 #include "NatClient.hpp"
 #include "NetConfig.hpp"
@@ -175,6 +177,19 @@ void Net_Broadcast(EMsg type, const void* data, uint16_t size)
     enet_host_broadcast(g_Host, 0, pkt);
 }
 
+void Net_SendUnreliableToAll(EMsg type, const void* data, uint16_t size)
+{
+    if (!g_Host)
+        return;
+
+    ENetPacket* pkt = enet_packet_create(nullptr, sizeof(PacketHeader) + size, 0);
+    PacketHeader hdr{static_cast<uint16_t>(type), size};
+    std::memcpy(pkt->data, &hdr, sizeof(hdr));
+    if (size > 0 && data)
+        std::memcpy(pkt->data + sizeof(hdr), data, size);
+    enet_host_broadcast(g_Host, 0, pkt);
+}
+
 void Net_SendSectorReady(uint64_t hash)
 {
     auto conns = Net_GetConnections();
@@ -211,6 +226,16 @@ void Net_SendPurchaseRequest(uint32_t vendorId, uint32_t itemId, uint64_t nonce)
     {
         PurchaseRequestPacket pkt{vendorId, itemId, nonce};
         Net_Send(conns[0], EMsg::PurchaseRequest, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_SendVehicleSummonRequest(uint32_t vehId, const TransformSnap& pos)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        VehicleSummonRequestPacket pkt{vehId, pos};
+        Net_Send(conns[0], EMsg::VehicleSummonRequest, &pkt, sizeof(pkt));
     }
 }
 
@@ -313,6 +338,7 @@ void Net_BroadcastHeat(uint8_t level)
 {
     HeatPacket pkt{level, {0, 0, 0}};
     Net_Broadcast(EMsg::HeatSync, &pkt, sizeof(pkt));
+    PoliceDispatch_OnHeatChange(level);
 }
 
 void Net_BroadcastElevatorCall(uint32_t peerId, uint32_t elevatorId, uint8_t floorIdx)
@@ -340,7 +366,17 @@ void Net_SendTeleportAck(uint32_t elevatorId)
 void Net_BroadcastQuestStage(uint32_t nameHash, uint16_t stage)
 {
     QuestStagePacket pkt{nameHash, stage, 0};
+    for (auto& e : g_Peers)
+        CoopNet::QuestWatchdog_Record(e.conn->peerId, nameHash, stage);
     Net_Broadcast(EMsg::QuestStage, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastQuestStageP2P(uint32_t phaseId, uint32_t questHash, uint16_t stage)
+{
+    QuestStageP2PPacket pkt{phaseId, questHash, stage, 0};
+    for (auto& e : g_Peers)
+        CoopNet::QuestWatchdog_Record(phaseId, questHash, stage);
+    Net_Broadcast(EMsg::QuestStageP2P, &pkt, sizeof(pkt));
 }
 
 void Net_SendQuestResyncRequest()
@@ -351,6 +387,23 @@ void Net_SendQuestResyncRequest()
         QuestResyncRequestPacket pkt{0};
         Net_Send(conns[0], EMsg::QuestResyncRequest, &pkt, sizeof(pkt));
     }
+}
+
+void Net_SendQuestResyncRequestTo(Connection* conn)
+{
+    if (!conn)
+        return;
+    QuestResyncRequestPacket pkt{0};
+    Net_Send(conn, EMsg::QuestResyncRequest, &pkt, sizeof(pkt));
+}
+
+Connection* Net_FindConnection(uint32_t peerId)
+{
+    auto it =
+        std::find_if(g_Peers.begin(), g_Peers.end(), [&](const PeerEntry& p) { return p.conn->peerId == peerId; });
+    if (it == g_Peers.end())
+        return nullptr;
+    return it->conn;
 }
 
 void Net_SendQuestFullSync(CoopNet::Connection* conn, const QuestFullSyncPacket& pkt)
@@ -440,9 +493,9 @@ void Net_BroadcastNatCandidate(const char* sdp)
     Net_Broadcast(EMsg::NatCandidate, &pkt, sizeof(pkt));
 }
 
-void Net_BroadcastCineStart(uint32_t sceneId, uint32_t startTimeMs)
+void Net_BroadcastCineStart(uint32_t sceneId, uint32_t startTimeMs, uint32_t phaseId, bool solo)
 {
-    CineStartPacket pkt{sceneId, startTimeMs};
+    CineStartPacket pkt{sceneId, startTimeMs, phaseId, static_cast<uint8_t>(solo), {0, 0, 0}};
     Net_Broadcast(EMsg::CineStart, &pkt, sizeof(pkt));
 }
 
@@ -476,6 +529,7 @@ void Net_SendVoice(const uint8_t* data, uint16_t size, uint16_t seq)
         VoicePacket pkt{0u, seq, size, {0}};
         std::memcpy(pkt.data, data, std::min<size_t>(size, sizeof(pkt.data)));
         Net_Send(conns[0], EMsg::Voice, &pkt, static_cast<uint16_t>(sizeof(pkt)));
+        conns[0]->voiceBytes += sizeof(pkt);
     }
 }
 
@@ -484,13 +538,14 @@ void Net_BroadcastVoice(uint32_t peerId, const uint8_t* data, uint16_t size, uin
     VoicePacket pkt{peerId, seq, size, {0}};
     std::memcpy(pkt.data, data, std::min<size_t>(size, sizeof(pkt.data)));
     Net_Broadcast(EMsg::Voice, &pkt, static_cast<uint16_t>(sizeof(pkt)));
+    for (auto* c : Net_GetConnections())
+        c->voiceBytes += sizeof(pkt);
 }
 
-void Net_BroadcastWorldState(uint64_t clockMs, uint32_t sunAngle, uint8_t weatherId, uint32_t weatherSeed,
-                             uint8_t bdPhase)
+void Net_BroadcastWorldState(uint16_t sunAngleDeg, uint8_t weatherId)
 {
-    WorldStatePacket pkt{clockMs, sunAngle, weatherSeed, weatherId, bdPhase, {0, 0}};
-    Net_Broadcast(EMsg::WorldState, &pkt, sizeof(pkt));
+    WorldStatePacket pkt{sunAngleDeg, weatherId};
+    Net_SendUnreliableToAll(EMsg::WorldState, &pkt, sizeof(pkt));
 }
 
 void Net_BroadcastGlobalEvent(uint32_t eventId, uint8_t phase, bool start, uint32_t seed)
@@ -508,4 +563,218 @@ void Net_BroadcastCrowdSeed(uint64_t sectorHash, uint32_t seed)
 void Net_BroadcastVendorStock(const VendorStockPacket& pkt)
 {
     Net_Broadcast(EMsg::VendorStock, &pkt, sizeof(VendorStockPacket));
+}
+
+void Net_BroadcastVendorStockUpdate(const VendorStockUpdatePacket& pkt)
+{
+    Net_Broadcast(EMsg::VendorStockUpdate, &pkt, sizeof(VendorStockUpdatePacket));
+}
+
+void Net_SendWorldMarkers(Connection* conn, const std::vector<uint8_t>& blob)
+{
+    if (!conn || blob.size() > 10240)
+        return;
+    std::vector<uint8_t> buf(sizeof(WorldMarkersPacket) + blob.size());
+    auto* pkt = reinterpret_cast<WorldMarkersPacket*>(buf.data());
+    pkt->blobBytes = static_cast<uint16_t>(blob.size());
+    std::memcpy(pkt->zstdBlob, blob.data(), blob.size());
+    Net_Send(conn, EMsg::WorldMarkers, pkt, static_cast<uint16_t>(buf.size()));
+}
+
+void Net_BroadcastNpcSpawnCruiser(uint8_t waveIdx, const uint32_t seeds[4])
+{
+    NpcSpawnCruiserPacket pkt{};
+    pkt.waveIdx = waveIdx;
+    std::memcpy(pkt.npcSeeds, seeds, sizeof(pkt.npcSeeds));
+    Net_Broadcast(EMsg::NpcSpawnCruiser, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastNpcState(uint32_t npcId, uint8_t aiState)
+{
+    NpcStatePacket pkt{npcId, aiState, {0, 0, 0}};
+    Net_Broadcast(EMsg::NpcState, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastCrimeEvent(const CrimeEventSpawnPacket& pkt)
+{
+    Net_Broadcast(EMsg::CrimeEventSpawn, &pkt, sizeof(CrimeEventSpawnPacket));
+}
+
+void Net_BroadcastCyberEquip(uint32_t peerId, uint8_t slotId, const ItemSnap& snap)
+{
+    CyberEquipPacket pkt{};
+    pkt.peerId = peerId;
+    pkt.slotId = slotId;
+    pkt.snap = snap;
+    Net_Broadcast(EMsg::CyberEquip, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastSlowMoStart(uint32_t peerId, float factor, uint16_t durationMs)
+{
+    SlowMoStartPacket pkt{peerId, factor, durationMs, 0};
+    Net_Broadcast(EMsg::SlowMoStart, &pkt, sizeof(pkt));
+}
+
+void Net_SendPerkUnlock(uint32_t perkId, uint8_t rank)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        PerkUnlockPacket pkt{0u, perkId, rank, {0, 0, 0}};
+        Net_Send(conns[0], EMsg::PerkUnlock, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_BroadcastPerkUnlock(uint32_t peerId, uint32_t perkId, uint8_t rank)
+{
+    PerkUnlockPacket pkt{peerId, perkId, rank, {0, 0, 0}};
+    Net_Broadcast(EMsg::PerkUnlock, &pkt, sizeof(pkt));
+}
+
+void Net_SendPerkRespecRequest()
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        PerkRespecRequestPacket pkt{0u};
+        Net_Send(conns[0], EMsg::PerkRespecRequest, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_SendPerkRespecAck(CoopNet::Connection* conn, uint16_t newPoints)
+{
+    PerkRespecAckPacket pkt{conn->peerId, newPoints, {0, 0}};
+    Net_Send(conn, EMsg::PerkRespecAck, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastStatusApply(uint32_t targetId, uint8_t effectId, uint16_t durMs, uint8_t amp)
+{
+    StatusApplyPacket pkt{targetId, effectId, durMs, amp};
+    Net_Broadcast(EMsg::StatusApply, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastStatusTick(uint32_t targetId, int16_t hpDelta)
+{
+    StatusTickPacket pkt{targetId, hpDelta};
+    Net_Broadcast(EMsg::StatusTick, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastTrafficSeed(uint64_t sectorHash, uint64_t seed)
+{
+    TrafficSeedPacket pkt{sectorHash, seed};
+    Net_Broadcast(EMsg::TrafficSeed, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastTrafficDespawn(uint32_t vehId)
+{
+    TrafficDespawnPacket pkt{vehId};
+    Net_Broadcast(EMsg::TrafficDespawn, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastPropBreak(uint32_t entityId, uint32_t seed)
+{
+    PropBreakPacket pkt{entityId, seed};
+    Net_Broadcast(EMsg::PropBreak, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastPropIgnite(uint32_t entityId, uint16_t delayMs)
+{
+    PropIgnitePacket pkt{entityId, delayMs, 0};
+    Net_Broadcast(EMsg::PropIgnite, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastVOPlay(uint32_t lineId)
+{
+    VOPlayPacket pkt{lineId};
+    Net_Broadcast(EMsg::VOPlay, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastFixerCallStart(uint32_t fixerId)
+{
+    FixerCallPacket pkt{fixerId};
+    Net_Broadcast(EMsg::FixerCallStart, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastFixerCallEnd(uint32_t fixerId)
+{
+    FixerCallPacket pkt{fixerId};
+    Net_Broadcast(EMsg::FixerCallEnd, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastGigSpawn(uint32_t questId, uint32_t seed)
+{
+    GigSpawnPacket pkt{questId, seed};
+    Net_Broadcast(EMsg::GigSpawn, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastVehicleSummon(uint32_t vehId, uint32_t ownerId, const TransformSnap& pos)
+{
+    VehicleSummonPacket pkt{vehId, ownerId, pos};
+    Net_Broadcast(EMsg::VehicleSummon, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastAppearance(uint32_t peerId, uint32_t meshId, uint32_t tintId)
+{
+    AppearancePacket pkt{peerId, meshId, tintId};
+    Net_Broadcast(EMsg::Appearance, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastPingOutline(uint32_t peerId, uint16_t durationMs, const std::vector<uint32_t>& ids)
+{
+    if (ids.empty() || ids.size() > 32)
+        return;
+    PingOutlinePacket pkt{};
+    pkt.peerId = peerId;
+    pkt.count = static_cast<uint8_t>(ids.size());
+    pkt._pad = 0;
+    pkt.durationMs = durationMs;
+    for (size_t i = 0; i < ids.size(); ++i)
+        pkt.entityIds[i] = ids[i];
+    Net_Broadcast(EMsg::PingOutline, &pkt, sizeof(uint32_t) * pkt.count + 8);
+}
+
+void Net_BroadcastLootRoll(uint32_t containerId, uint32_t seed)
+{
+    LootRollPacket pkt{containerId, seed};
+    Net_Broadcast(EMsg::LootRoll, &pkt, sizeof(pkt));
+}
+
+void Net_SendDealerBuy(uint32_t vehicleTpl, uint32_t price)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        DealerBuyPacket pkt{vehicleTpl, price};
+        Net_Send(conns[0], EMsg::DealerBuy, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_BroadcastVehicleUnlock(uint32_t peerId, uint32_t vehicleTpl)
+{
+    VehicleUnlockPacket pkt{peerId, vehicleTpl};
+    Net_Broadcast(EMsg::VehicleUnlock, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastWeaponInspect(uint32_t peerId, uint16_t animId)
+{
+    WeaponInspectPacket pkt{peerId, animId, 0};
+    Net_Broadcast(EMsg::WeaponInspectStart, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastFinisherStart(uint32_t actorId, uint32_t victimId, uint16_t animId)
+{
+    FinisherStartPacket pkt{actorId, victimId, animId, 0};
+    Net_Broadcast(EMsg::FinisherStart, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastFinisherEnd(uint32_t actorId)
+{
+    FinisherEndPacket pkt{actorId};
+    Net_Broadcast(EMsg::FinisherEnd, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastTextureBiasChange(uint8_t bias)
+{
+    TextureBiasPacket pkt{bias, {0, 0, 0}};
+    Net_Broadcast(EMsg::TextureBiasChange, &pkt, sizeof(pkt));
 }
