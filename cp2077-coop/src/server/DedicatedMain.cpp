@@ -6,13 +6,18 @@
 #include "AdminController.hpp"
 #include "ApartmentController.hpp"
 #include "BreachController.hpp"
+#include "CameraController.hpp"
+#include "CarryController.hpp"
 #include "ElevatorController.hpp"
 #include "GlobalEventController.hpp"
+#include "GrenadeController.hpp"
 #include "Heartbeat.hpp"
 #include "NpcController.hpp"
 #include "PhaseGC.hpp"
 #include "PoliceDispatch.hpp"
+#include "SectorLODController.hpp"
 #include "ServerConfig.hpp"
+#include "SmartCamController.hpp"
 #include "SnapshotHeap.hpp"
 #include "StatusController.hpp"
 #include "TextureGuard.hpp"
@@ -59,7 +64,7 @@ int main(int argc, char** argv)
     uint32_t sessionId = 0;
     uint64_t worldClock = 0;
     uint32_t sunAngle = 0;
-    uint32_t weatherSeed = 1u;
+    uint16_t particleSeed = 1u;
     uint8_t weatherId = 0u;
     uint8_t bdPhase = 0u;
     float worldTimer = 0.f;
@@ -101,8 +106,12 @@ int main(int argc, char** argv)
         {
             worldTimer = 0.f;
             lastSunDeg = deg;
-            lastWeather = weatherId;
-            Net_BroadcastWorldState(deg, weatherId);
+            if (weatherId != lastWeather)
+            {
+                lastWeather = weatherId;
+                particleSeed = static_cast<uint16_t>(std::rand());
+            }
+            Net_BroadcastWorldState(deg, weatherId, particleSeed);
         }
         CoopNet::ElevatorController_ServerTick(tickMs);
         if (!CoopNet::ElevatorController_IsPaused())
@@ -111,7 +120,12 @@ int main(int argc, char** argv)
             CoopNet::VehicleController_ServerTick(tickMs);
             CoopNet::BreachController_ServerTick(tickMs);
             CoopNet::ShardController_ServerTick(tickMs);
-            CoopNet::VendorController_Tick(tickMs);
+            CoopNet::VendorController_Tick(tickMs, worldClock);
+            CoopNet::BillboardController_Tick(tickMs);
+            CoopNet::DoorBreachController_Tick(tickMs);
+            CoopNet::CamController_Tick(tickMs);
+            CoopNet::CarryController_Tick(tickMs);
+            CoopNet::GrenadeController_Tick(tickMs);
             CoopNet::PoliceDispatch_Tick(tickMs);
             CoopNet::StatusController_Tick(tickMs);
             CoopNet::TrafficController_Tick(tickMs);
@@ -124,6 +138,26 @@ int main(int argc, char** argv)
         hbTimer += tickMs / 1000.f;
         memTimer += tickMs / 1000.f;
         CoopNet::TextureGuard_Tick(tickMs / 1000.f);
+        CoopNet::SectorLODController_Tick(tickMs / 1000.f);
+        for (auto* c : Net_GetConnections())
+        {
+            uint64_t now = CoopNet::GameClock::GetTimeMs();
+            if (now - c->lastBWCheckMs >= 30000)
+            {
+                c->lastBWCheckMs = now;
+                bool poor = c->rttMs > 250.f || c->packetLoss > 0.15f;
+                if (poor && !c->lowBWMode)
+                {
+                    c->lowBWMode = true;
+                    Net_SendLowBWMode(c, true);
+                }
+                else if (!poor && c->lowBWMode)
+                {
+                    c->lowBWMode = false;
+                    Net_SendLowBWMode(c, false);
+                }
+            }
+        }
         if (hbTimer >= 30.f)
         {
             hbTimer = 0.f;

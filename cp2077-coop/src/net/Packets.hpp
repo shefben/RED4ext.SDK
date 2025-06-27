@@ -80,6 +80,7 @@ enum class EMsg : uint16_t
     CrowdSeed,
     VendorStock,
     VendorStockUpdate,
+    VendorRefresh,
     PurchaseRequest,
     PurchaseResult,
     SnapshotAck,
@@ -143,13 +144,54 @@ enum class EMsg : uint16_t
     VehiclePaintChange, // VT-4
     PanicEvent,         // AI-1
     AIHack,             // AI-2
-    BossPhase           // AI-3
+    BossPhase,          // AI-3
+    SectorLOD,          // PRF-1
+    LowBWMode,          // PRF-2
+    CrowdCfg,           // CD-1
+    Emote,              // EM-1
+    CrowdChatterStart,  // CA-1
+    CrowdChatterEnd,
+    HoloSeed, // HB-1
+    HoloNextAd,
+    DoorBreachStart, // DH-1
+    DoorBreachTick,
+    DoorBreachSuccess,
+    DoorBreachAbort,
+    HTableOpen, // HT-1
+    HTableScrub,
+    QuestGadgetFire, // QG-1
+    ItemGrab,        // IP-1
+    ItemDrop,
+    ItemStore,
+    MetroBoard,  // SB-1
+    MetroArrive, // SB-2
+    RadioChange, // RS-1
+    CamHijack,   // SF-1
+    CamFrameStart,
+    CarryBegin, // PC-1
+    CarrySnap,
+    CarryEnd,
+    GrenadePrime, // GR-1
+    GrenadeSnap,
+    SmartCamStart, // RC-1
+    SmartCamEnd,
+    SlowMoFinisher // RB-1
 };
 
 struct PacketHeader
 {
     uint16_t type;
     uint16_t size;
+};
+
+struct HelloPacket
+{
+    uint8_t pub[crypto_kx_PUBLICKEYBYTES];
+};
+
+struct WelcomePacket
+{
+    uint8_t pub[crypto_kx_PUBLICKEYBYTES];
 };
 
 struct PingPacket
@@ -249,6 +291,7 @@ struct WorldStatePacket
 {
     uint16_t sunAngleDeg; // 0-359
     uint8_t weatherId;
+    uint16_t particleSeed;
 };
 
 struct ScoreUpdatePacket
@@ -448,9 +491,37 @@ struct RuleChangePacket
     uint8_t _pad[3];
 };
 
-struct HoloCallPacket
+struct HolocallStartPacket
 {
-    uint32_t peerId;
+    uint32_t fixerId;
+    uint32_t callId;
+    uint8_t count;
+    uint8_t _pad[3];
+    uint32_t peerIds[4];
+};
+
+struct HolocallEndPacket
+{
+    uint32_t callId;
+};
+
+struct HTableOpenPacket
+{
+    uint32_t sceneId;
+};
+
+struct HTableScrubPacket
+{
+    uint32_t timestampMs;
+};
+
+struct QuestGadgetFirePacket
+{
+    uint32_t questId;
+    uint8_t gadgetType;
+    uint8_t charge;    // RailGun
+    uint32_t targetId; // Nanowire
+    uint8_t _pad;
 };
 
 struct AdminCmdPacket
@@ -541,6 +612,12 @@ struct VendorStockUpdatePacket
     uint32_t itemId;
     uint16_t qty;
     uint16_t _pad;
+};
+
+struct VendorRefreshPacket
+{
+    uint32_t vendorId;
+    uint32_t phaseId; // PX-8
 };
 
 struct PurchaseRequestPacket
@@ -744,6 +821,14 @@ struct FinisherStartPacket
 struct FinisherEndPacket
 {
     uint32_t actorId;
+};
+
+struct SlowMoFinisherPacket
+{
+    uint32_t peerId;
+    uint32_t targetId;
+    uint16_t durationMs;
+    uint16_t _pad;
 };
 
 struct TextureBiasPacket
@@ -951,6 +1036,25 @@ struct BossPhasePacket
     uint8_t _pad[3];
 };
 
+struct SectorLODPacket
+{
+    uint64_t sectorHash;
+    uint8_t lod;
+    uint8_t _pad[3];
+};
+
+struct LowBWModePacket
+{
+    uint8_t enable;
+    uint8_t _pad[3];
+};
+
+struct CrowdCfgPacket
+{
+    uint8_t density;
+    uint8_t _pad[3];
+};
+
 struct AvatarSpawnPacket
 {
     uint32_t peerId;
@@ -968,6 +1072,157 @@ struct ChatPacket
 {
     uint32_t peerId;
     char msg[64];
+};
+
+struct EmotePacket
+{
+    uint32_t peerId;
+    uint8_t emoteId;
+    uint8_t _pad[3];
+};
+
+struct CrowdChatterStartPacket
+{
+    uint32_t npcA;
+    uint32_t npcB;
+    uint32_t lineId;
+    uint32_t seed;
+};
+
+struct CrowdChatterEndPacket
+{
+    uint32_t convId;
+};
+
+struct HoloSeedPacket
+{
+    uint64_t sectorHash;
+    uint64_t seed64;
+};
+
+struct HoloNextAdPacket
+{
+    uint64_t sectorHash;
+    uint32_t adId;
+};
+
+struct DoorBreachStartPacket
+{
+    uint32_t doorId;
+    uint32_t phaseId;
+    uint32_t seed;
+};
+
+struct DoorBreachTickPacket
+{
+    uint32_t doorId;
+    uint8_t percent;
+    uint8_t _pad[3];
+};
+
+struct DoorBreachSuccessPacket
+{
+    uint32_t doorId;
+};
+
+struct DoorBreachAbortPacket
+{
+    uint32_t doorId;
+};
+
+struct ItemGrabPacket
+{
+    uint32_t peerId;
+    uint32_t itemId;
+};
+
+struct ItemDropPacket
+{
+    uint32_t peerId;
+    uint32_t itemId;
+    RED4ext::Vector3 pos;
+};
+
+struct ItemStorePacket
+{
+    uint32_t peerId;
+    uint32_t itemId;
+};
+
+struct MetroBoardPacket
+{
+    uint32_t peerId;
+    uint32_t lineId;
+    uint8_t carIdx;
+    uint8_t _pad[3];
+};
+
+struct MetroArrivePacket
+{
+    uint32_t peerId;
+    uint32_t stationId;
+};
+
+struct RadioChangePacket
+{
+    uint32_t vehId;
+    uint8_t stationId;
+    uint8_t _pad;
+    uint32_t offsetSec;
+};
+
+struct CamHijackPacket
+{
+    uint32_t camId;
+    uint32_t peerId;
+};
+
+struct CamFrameStartPacket
+{
+    uint32_t camId;
+};
+
+struct CarryBeginPacket
+{
+    uint32_t carrierId;
+    uint32_t entityId;
+};
+
+struct CarrySnapPacket
+{
+    uint32_t entityId;
+    RED4ext::Vector3 pos;
+    RED4ext::Vector3 vel;
+};
+
+struct CarryEndPacket
+{
+    uint32_t entityId;
+    RED4ext::Vector3 pos;
+    RED4ext::Vector3 vel;
+};
+
+struct GrenadePrimePacket
+{
+    uint32_t entityId;
+    uint32_t startTick;
+};
+
+struct GrenadeSnapPacket
+{
+    uint32_t entityId;
+    RED4ext::Vector3 pos;
+    RED4ext::Vector3 vel;
+};
+
+struct SmartCamStartPacket
+{
+    uint32_t projId;
+};
+
+struct SmartCamEndPacket
+{
+    uint32_t projId;
 };
 
 } // namespace CoopNet

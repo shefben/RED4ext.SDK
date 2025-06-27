@@ -2,6 +2,7 @@
 public struct WorldState {
     public var sunAngleDeg: Uint16;   // rounded degrees
     public var weatherId: Uint8;
+    public var particleSeed: Uint16;
 }
 
 public class WeatherSync {
@@ -20,5 +21,6 @@ public class WeatherSync {
         ts.SetSunRotation(Cast<Float>(state.sunAngleDeg));
         let ws = GameInstance.GetWeatherSystem(GetGame());
         ws.SetWeather(state.weatherId);
+        ParticleSystem.SpawnWeatherFX(state.particleSeed);
     }
 }

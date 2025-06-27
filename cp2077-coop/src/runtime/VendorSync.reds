@@ -21,4 +21,9 @@ public class VendorSync {
             };
         };
     }
+
+    public static func OnRefresh(vendorId: Uint32) -> Void {
+        let key: Uint64 = ShiftLeft(Cast<Uint64>(vendorId), 32u) | Cast<Uint64>(QuestSync.localPhase);
+        stock.Remove(key);
+    }
 }
