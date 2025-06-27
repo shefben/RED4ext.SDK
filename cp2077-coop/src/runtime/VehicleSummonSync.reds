@@ -1,6 +1,6 @@
 public class VehicleSummonSync {
     public static func OnSummon(pkt: ref<VehicleSummonPacket>) -> Void {
-        VehicleProxy_Spawn(pkt^.vehId, &pkt^.pos);
+        VehicleProxy_Spawn(pkt^.vehId, &pkt^.pos, 0u);
     }
 }
 

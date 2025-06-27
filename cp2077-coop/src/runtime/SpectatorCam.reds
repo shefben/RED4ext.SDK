@@ -6,6 +6,7 @@ public class SpectatorCam {
     private static let blend: Float;
     private static let blendPos: Vector3;
     private static let blendRot: Quaternion;
+    public static var spectatePhase: Uint32 = QuestSync.localPhase;
     // Switches the local player into spectator mode and disables standard HUD.
     public static func Enter(peerId: Uint32) -> Void {
         GameModeManager.current = GameModeManager.GameMode.Spectate;
@@ -105,6 +106,21 @@ public class SpectatorCam {
 // Console command: /spectate <peerId>
 public static exec func Spectate(peerId: Int32) -> Void {
     Net_SendSpectateRequest(Cast<Uint32>(peerId));
+}
+
+// Console command: /assist <peerId|off>
+public static exec func Assist(arg: String) -> Void {
+    let player = GameInstance.GetPlayerSystem(GetGame()).GetLocalPlayerMainGameObject();
+    if IsDefined(player) && HasMethod(player, n"IsInCombat") {
+        if player.IsInCombat() { return; };
+    };
+    if arg == "off" {
+        spectatePhase = QuestSync.localPhase;
+    } else {
+        let id = StringToInt(arg);
+        spectatePhase = Cast<Uint32>(id);
+        CoopNotice.Show("Assisting " + arg);
+    };
 }
 
 public static func SpectatorCam_Enter(peerId: Uint32) -> Void {

@@ -109,6 +109,15 @@ struct ItemSnap
 static_assert(sizeof(ItemSnap) % 4 == 0, "ItemSnap must align to 4 bytes");
 static_assert(std::is_trivially_copyable_v<ItemSnap>, "ItemSnap must be trivial");
 
+// Vehicle state replicated from the server (VT-1)
+struct VehicleSnap
+{
+    TransformSnap transform;
+    float leanAngle; // bike tilt in degrees
+};
+static_assert(sizeof(VehicleSnap) % 4 == 0, "VehicleSnap must align to 4 bytes");
+static_assert(std::is_trivially_copyable_v<VehicleSnap>, "VehicleSnap must be trivial");
+
 // Writes snapshot data into a buffer with dirty-bit tracking.
 // Begin() resets internal state with the target header.
 // Write<T>() serializes a field and marks the bit in SnapshotFieldFlags.

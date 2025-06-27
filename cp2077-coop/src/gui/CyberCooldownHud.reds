@@ -3,6 +3,7 @@ public class CyberCooldownHud extends inkHUDLayer {
     private let canvas: ref<inkCanvas>;
     private let bars: array<ref<inkCircleProgress>>;
     private let times: array<Float>;
+    private let maxTimes: array<Float>;
 
     public static func Instance() -> ref<CyberCooldownHud> {
         if !IsDefined(s_instance) {
@@ -16,6 +17,7 @@ public class CyberCooldownHud extends inkHUDLayer {
         let inst = Instance();
         inst.EnsureUI(slot);
         inst.times[slot] = sec;
+        inst.maxTimes[slot] = sec;
         inst.bars[slot].SetValue(1.0);
     }
 
@@ -35,6 +37,7 @@ public class CyberCooldownHud extends inkHUDLayer {
             canvas.AddChild(bar);
             bars.Push(bar);
             times.Push(0.0);
+            maxTimes.Push(1.0);
         };
     }
 
@@ -45,13 +48,16 @@ public class CyberCooldownHud extends inkHUDLayer {
                 times[i] -= dt;
                 if times[i] <= 0.0 {
                     times[i] = 0.0;
-                    bars[i].SetTintColor(new HDRColor(0.2,1.0,0.2,1.0));
+                    bars[i].SetTintColor(new HDRColor(0.2, 1.0, 0.2, 1.0));
                     bars[i].SetValue(0.0);
                 } else {
-                    bars[i].SetValue(times[i] / MaxF(times[i], 0.001));
+                    let base = MaxF(maxTimes[i], 0.001);
+                    bars[i].SetValue((base - times[i]) / base);
+                    bars[i].SetTintColor(new HDRColor(0.4, 0.4, 0.4, 1.0));
                 };
             } else {
-                bars[i].SetTintColor(new HDRColor(0.2,1.0,0.2,1.0));
+                let pulse = (Sin(GameInstance.GetSimTime(GetGame()) * 4.0) + 1.0) * 0.5;
+                bars[i].SetTintColor(new HDRColor(0.1 + pulse * 0.3, 1.0, 0.1 + pulse * 0.3, 1.0));
             };
             i += 1;
         };

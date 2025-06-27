@@ -4,6 +4,13 @@ public class VehicleProxy extends gameObject {
     public var damage: Uint16;
     public var state: TransformSnap;
     public var destroyed: Bool;
+    public var phaseId: Uint32;
+    public var leanAngle: Float;
+    private var targetLean: Float;
+    public var turretYaw: Float;
+    public var turretPitch: Float;
+    public var paintId: Uint32;
+    public var plateText: String;
     private var despawnDelay: Float;
     private var lastVel: Vector3;
     private var lastAccel: Vector3;
@@ -15,9 +22,16 @@ public class VehicleProxy extends gameObject {
         return null;
     }
 
-    public func Spawn(id: Uint32, transform: ref<TransformSnap>) -> Void {
+    public func Spawn(id: Uint32, phase: Uint32, transform: ref<TransformSnap>) -> Void {
         vehicleId = id;
-        // Apply transform in future when physics hooks exist
+        phaseId = phase;
+        state = transform^;
+        leanAngle = 0.0;
+        targetLean = 0.0;
+        turretYaw = 0.0;
+        turretPitch = 0.0;
+        paintId = 0u;
+        plateText = "";
         LogChannel(n"DEBUG", "Vehicle spawned: " + IntToString(vehicleId));
     }
 
@@ -25,6 +39,11 @@ public class VehicleProxy extends gameObject {
         state = snap^;
         lastVel = snap^.vel;
         // Acceleration will be derived from physics later
+    }
+
+    public func UpdateSnapshot(snap: ref<VehicleSnap>) -> Void {
+        UpdateAuthoritative(&snap^.transform);
+        targetLean = ClampF(snap^.leanAngle, -45.0, 45.0);
     }
 
     // SeatIdx range 0-3
@@ -119,6 +138,7 @@ public class VehicleProxy extends gameObject {
             lastVel = newVel;
         } else {
             ClientPredict(dtMs);
+            leanAngle += (targetLean - leanAngle) * MinF(dtMs / 100.0, 1.0);
         };
         if destroyed {
             despawnDelay -= dtMs / 1000.0;
@@ -134,17 +154,31 @@ public class VehicleProxy extends gameObject {
             };
         };
         LogChannel(n"DEBUG", "Vehicle tick " + IntToString(vehicleId));
+        ApplyLean();
     }
 
     private func ClientPredict(dtMs: Float) -> Void {
         state.pos += lastVel * (dtMs / 1000.0);
         state.vel += lastAccel * (dtMs / 1000.0);
     }
+
+    private func ApplyLean() -> Void {
+        if HasMethod(this, n"SetBikeLean") {
+            this.SetBikeLean(leanAngle);
+        };
+    }
+
+    public func SetTurretAim(yaw: Float, pitch: Float) -> Void {
+        turretYaw = yaw;
+        turretPitch = pitch;
+        if HasMethod(this, n"SetTurretYaw") { this.SetTurretYaw(yaw); };
+        if HasMethod(this, n"SetTurretPitch") { this.SetTurretPitch(pitch); };
+    }
 }
 
-public static func VehicleProxy_Spawn(id: Uint32, transform: ref<TransformSnap>) -> Void {
+public static func VehicleProxy_Spawn(id: Uint32, transform: ref<TransformSnap>, phase: Uint32) -> Void {
     let v = new VehicleProxy();
-    v.Spawn(id, transform);
+    v.Spawn(id, phase, transform);
     VehicleProxy.proxies.PushBack(v);
 }
 
@@ -166,4 +200,31 @@ public static func VehicleProxy_EnterSeat(peerId: Uint32, seat: Uint8) -> Void {
 public static func VehicleProxy_ApplyDamage(id: Uint32, d: Uint16, side: Bool) -> Void {
     let v = VehicleProxy.FindProxy(id);
     if IsDefined(v) { v.ApplyDamage(d, side); };
+}
+
+public static func VehicleProxy_UpdateSnap(id: Uint32, snap: ref<VehicleSnap>) -> Void {
+    let v = VehicleProxy.FindProxy(id);
+    if IsDefined(v) { v.UpdateSnapshot(snap); };
+}
+
+public static func VehicleProxy_SetTurretAim(id: Uint32, yaw: Float, pitch: Float) -> Void {
+    let v = VehicleProxy.FindProxy(id);
+    if IsDefined(v) { v.SetTurretAim(yaw, pitch); };
+}
+
+public static func VehicleProxy_ApplyPaint(id: Uint32, color: Uint32, plate: String) -> Void {
+    let v = VehicleProxy.FindProxy(id);
+    if IsDefined(v) {
+        v.paintId = color;
+        v.plateText = plate;
+        if HasMethod(v, n"SetPaint") { v.SetPaint(color); };
+        if HasMethod(v, n"SetPlateText") { v.SetPlateText(plate); };
+    };
+}
+
+public static exec func UnstuckCar() -> Void {
+    let player = GameInstance.GetPlayerSystem(GetGame()).GetLocalPlayerMainGameObject();
+    if IsDefined(player) {
+        CoopNet.Net_SendVehicleTowRequest(player.GetWorldPosition());
+    };
 }

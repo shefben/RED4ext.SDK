@@ -99,7 +99,15 @@ public class QuickhackSync {
     }
 
     public static func OnPingOutline(peerId: Uint32, ids: array<Uint32>, dur: Uint16) -> Void {
-        for id in ids { LogChannel(n"ping", "outline " + IntToString(id)); };
+        for id in ids {
+            OutlineHelper.AddPing(id, dur);
+        };
+    }
+
+    public static func SendPingOutline(ids: array<Uint32>, dur: Uint16) -> Void {
+        if Net_IsAuthoritative() {
+            CoopNet.Net_BroadcastPingOutline(Net_GetPeerId(), dur, ids);
+        };
     }
 }
 
