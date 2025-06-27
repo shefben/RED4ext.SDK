@@ -34,8 +34,7 @@ public class Respawn {
             avatar.health = 100u;
             avatar.armor = 100u;
             avatar.OnVitalsChanged();
-            if HasMethod(avatar, n"SetGodMode") { avatar.SetGodMode(true); };
-            GameInstance.GetDelaySystem(GetGame()).DelayCallback(avatar, n"ClearInvuln", 2.0);
+            avatar.StartSpawnProtection(5000u);
         }
         let board = DMScoreboard.Instance();
         board.deaths += 1u;

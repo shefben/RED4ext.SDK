@@ -1,8 +1,9 @@
 #include "SaveFork.hpp"
-#include <iostream>
+// Saves are written with Content-Encoding: zstd
+#include "../third_party/zstd/zstd.h"
 #include <filesystem>
 #include <fstream>
-
+#include <iostream>
 
 namespace CoopNet
 {
@@ -14,39 +15,72 @@ std::string GetSessionSavePath(uint32_t sessionId)
 
 void EnsureCoopSaveDirs()
 {
-    try {
+    try
+    {
         std::filesystem::path base(kCoopSavePath);
-        if (std::filesystem::create_directories(base)) {
+        if (std::filesystem::create_directories(base))
+        {
             std::cout << "Created save directory: " << base << std::endl;
         }
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cerr << "Failed to create save directory " << kCoopSavePath << ": " << e.what() << std::endl;
     }
 }
 
 void SaveSession(uint32_t sessionId, const std::string& jsonBlob)
 {
-    try {
+    try
+    {
         EnsureCoopSaveDirs();
-        const std::filesystem::path file =
-            std::filesystem::path(kCoopSavePath) / (std::to_string(sessionId) + ".json");
+        namespace fs = std::filesystem;
+        fs::path dir(kCoopSavePath);
+        fs::path file = dir / (std::to_string(sessionId) + ".json.zst");
+
+        std::vector<char> buf(ZSTD_compressBound(jsonBlob.size()));
+        size_t z = ZSTD_compress(buf.data(), buf.size(), jsonBlob.data(), jsonBlob.size(), 3);
+        if (ZSTD_isError(z))
+            z = 0;
+        buf.resize(z);
+
+        for (int i = 5; i >= 1; --i)
+        {
+            fs::path prev = dir / (std::to_string(sessionId) + ".json.zst." + std::to_string(i));
+            if (i == 5 && fs::exists(prev))
+                fs::remove(prev);
+            if (i > 1)
+            {
+                fs::path older = dir / (std::to_string(sessionId) + ".json.zst." + std::to_string(i - 1));
+                if (fs::exists(older))
+                    fs::rename(older, prev);
+            }
+        }
+        if (fs::exists(file))
+            fs::rename(file, dir / (std::to_string(sessionId) + ".json.zst.1"));
 
         std::ofstream out(file, std::ios::binary | std::ios::trunc);
-        if (!out.is_open()) {
+        if (!out.is_open())
+        {
             std::cerr << "Failed to open session file " << file << std::endl;
             return;
         }
 
-        out << jsonBlob;
+        out.write(buf.data(), buf.size());
         out.close();
 
-        if (out.good()) {
+        if (out.good())
+        {
             std::cout << "Saved session to " << file << std::endl;
-        } else {
+        }
+        else
+        {
             std::cerr << "Failed to write session file " << file << std::endl;
         }
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cerr << "Error saving session: " << e.what() << std::endl;
     }
 }
-}
+} // namespace CoopNet

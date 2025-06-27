@@ -1,15 +1,22 @@
 #include "../core/GameClock.hpp"
-#include "../core/SessionState.hpp"
 #include "../core/SaveMigration.hpp"
+#include "../core/SessionState.hpp"
 #include "../net/Net.hpp"
+#include "AdminController.hpp"
 #include "BreachController.hpp"
 #include "ElevatorController.hpp"
-#include "NpcController.hpp"
-#include "VehicleController.hpp"
-#include "AdminController.hpp"
-#include "Heartbeat.hpp"
-#include "WebDash.hpp"
 #include "GlobalEventController.hpp"
+#include "Heartbeat.hpp"
+#include "NpcController.hpp"
+#include "PoliceDispatch.hpp"
+#include "ServerConfig.hpp"
+#include "SnapshotHeap.hpp"
+#include "StatusController.hpp"
+#include "TextureGuard.hpp"
+#include "TrafficController.hpp"
+#include "VehicleController.hpp"
+#include "WebDash.hpp"
+#include <cmath>
 #include <cstring>
 #include <iostream>
 #include <thread>
@@ -24,9 +31,11 @@ int main(int argc, char** argv)
         }
     }
 
+    CoopNet::ServerConfig_Load();
+    CoopNet::QuestWatchdog_LoadCritical();
     Net_Init();
     CoopNet::MigrateSinglePlayerSave();
-    CoopNet::TransformSnap vs{ {0.f,0.f,0.f}, {0.f,0.f,0.f,1.f}, {0.f,0.f,0.f} };
+    CoopNet::TransformSnap vs{{0.f, 0.f, 0.f}, {0.f, 0.f, 0.f, 1.f}, {0.f, 0.f, 0.f}};
     CoopNet::VehicleController_Spawn(CoopNet::Fnv1a32("vehicle_caliburn"), 0u, vs);
     CoopNet::WebDash_Start();
     CoopNet::AdminController_Start();
@@ -38,6 +47,8 @@ int main(int argc, char** argv)
     uint8_t weatherId = 0u;
     uint8_t bdPhase = 0u;
     float worldTimer = 0.f;
+    uint16_t lastSunDeg = 0u;
+    uint8_t lastWeather = weatherId;
 
     // Main server loop
     bool running = true;
@@ -46,6 +57,7 @@ int main(int argc, char** argv)
     int frameCount = 0;
     float goodTime = 0.f;
     float hbTimer = 0.f;
+    float memTimer = 0.f;
     float tickMs = CoopNet::GameClock::GetTickMs();
     bool validated = false;
     auto last = std::chrono::steady_clock::now();
@@ -65,10 +77,16 @@ int main(int argc, char** argv)
         worldClock += static_cast<uint64_t>(tickMs);
         sunAngle = (sunAngle + static_cast<uint32_t>(tickMs)) % 36000;
         worldTimer += tickMs / 1000.f;
-        if (worldTimer >= 5.f)
+        uint16_t deg = static_cast<uint16_t>((sunAngle + 50) / 100);
+        if (deg >= 360)
+            deg = 0;
+        bool changed = std::abs(static_cast<int>(deg) - static_cast<int>(lastSunDeg)) >= 5 || weatherId != lastWeather;
+        if (worldTimer >= 30.f || changed)
         {
             worldTimer = 0.f;
-            Net_BroadcastWorldState(worldClock, sunAngle, weatherId, weatherSeed, bdPhase);
+            lastSunDeg = deg;
+            lastWeather = weatherId;
+            Net_BroadcastWorldState(deg, weatherId);
         }
         CoopNet::ElevatorController_ServerTick(tickMs);
         if (!CoopNet::ElevatorController_IsPaused())
@@ -77,11 +95,17 @@ int main(int argc, char** argv)
             CoopNet::VehicleController_ServerTick(tickMs);
             CoopNet::BreachController_ServerTick(tickMs);
             CoopNet::VendorController_Tick(tickMs);
+            CoopNet::PoliceDispatch_Tick(tickMs);
+            CoopNet::StatusController_Tick(tickMs);
+            CoopNet::TrafficController_Tick(tickMs);
             RED4ext::ExecuteFunction("GameModeManager", "TickDM", nullptr, static_cast<uint32_t>(tickMs));
         }
         Net_Poll(static_cast<uint32_t>(tickMs));
+        CoopNet::QuestWatchdog_Tick(tickMs);
         CoopNet::AdminController_PollCommands();
         hbTimer += tickMs / 1000.f;
+        memTimer += tickMs / 1000.f;
+        CoopNet::TextureGuard_Tick(tickMs / 1000.f);
         if (hbTimer >= 30.f)
         {
             hbTimer = 0.f;
@@ -89,6 +113,11 @@ int main(int argc, char** argv)
             uint32_t id = CoopNet::SessionState_GetId();
             std::string json = "{\"players\":" + std::to_string(count) + ",\"hash\":" + std::to_string(id) + "}";
             CoopNet::Heartbeat_Announce(json);
+        }
+        if (memTimer >= 60.f)
+        {
+            memTimer = 0.f;
+            CoopNet::SnapshotMemCheck();
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(tickMs)));
 

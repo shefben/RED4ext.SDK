@@ -5,12 +5,18 @@ public class HeatSync {
     public static let damageScale: Float = 1.0;
 
     public static func BroadcastHeat(level: Uint8) -> Void {
+        if level > heatLevel {
+            PoliceDispatch.OnHeat(level);
+        };
         heatLevel = level;
         Net_BroadcastHeat(level);
         LogChannel(n"DEBUG", "BroadcastHeat " + IntToString(level));
     }
 
     public static func ApplyHeat(level: Uint8) -> Void {
+        if level > heatLevel {
+            PoliceDispatch.OnHeat(level);
+        };
         heatLevel = level;
         LogChannel(n"DEBUG", "ApplyHeat " + IntToString(level));
     }

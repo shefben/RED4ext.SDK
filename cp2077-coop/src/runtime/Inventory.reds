@@ -46,7 +46,7 @@ public class Inventory {
         } else {
             LogChannel(n"DEBUG", "Purchase failed " + Uint64ToString(itemId));
         };
-        // FIXME(next ticket): update wallet UI
+        Vendor.OnPurchaseResult(itemId, balance, success);
     }
 
     public static func RequestCraft(recipeId: Uint32) -> Void {

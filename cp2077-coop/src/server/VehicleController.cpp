@@ -1,14 +1,16 @@
 #include "VehicleController.hpp"
+#include "../core/GameClock.hpp"
+#include "../core/Hash.hpp"
+#include "../net/Connection.hpp"
 #include "../net/Net.hpp"
 #include "../net/Packets.hpp"
-#include "../net/Connection.hpp"
-#include "../core/Hash.hpp"
-#include "../core/GameClock.hpp"
 #include <cmath>
 #include <iostream>
 
-namespace CoopNet {
-struct VehicleState {
+namespace CoopNet
+{
+struct VehicleState
+{
     uint32_t id = 1;
     uint32_t archetype = 0;
     uint32_t paint = 0;
@@ -17,7 +19,7 @@ struct VehicleState {
     RED4ext::Vector3 prevVel{};
     bool destroyed = false;
     float despawn = 0.f;
-    uint32_t seat[4] = {0,0,0,0};
+    uint32_t seat[4] = {0, 0, 0, 0};
     float lastHit = 0.f;
 };
 
@@ -47,7 +49,7 @@ void VehicleController_ApplyDamage(uint16_t dmg, bool side)
     g_vehicle.damage += dmg;
     if (side && dmg > 300u)
     {
-        VehiclePartDetachPacket pkt{g_vehicle.id, 0, {0,0,0}};
+        VehiclePartDetachPacket pkt{g_vehicle.id, 0, {0, 0, 0}};
         Net_Broadcast(EMsg::VehiclePartDetach, &pkt, sizeof(pkt));
     }
     if (!g_vehicle.destroyed && g_vehicle.damage >= 1000u)
@@ -89,6 +91,25 @@ void VehicleController_HandleHit(uint32_t vehicleId, uint16_t dmg, bool side)
     VehicleController_ApplyDamage(dmg, side);
     VehicleHitPacket pkt{vehicleId, dmg, side ? 1 : 0, 0};
     Net_Broadcast(EMsg::VehicleHit, &pkt, sizeof(pkt));
+}
+
+void VehicleController_HandleSummon(CoopNet::Connection* c, uint32_t vehId, const TransformSnap& t)
+{
+    if (g_vehicle.id == vehId && !g_vehicle.destroyed)
+    {
+        if (g_vehicle.damage >= 500u)
+            return; // in combat or heavily damaged
+        g_vehicle.snap = t;
+    }
+    else
+    {
+        g_vehicle.id = vehId;
+        g_vehicle.snap = t;
+        g_vehicle.damage = 0;
+        g_vehicle.destroyed = false;
+    }
+    VehicleSummonPacket pkt{vehId, c->peerId, t};
+    Net_Broadcast(EMsg::VehicleSummon, &pkt, sizeof(pkt));
 }
 
 void VehicleController_RemovePeer(uint32_t peerId)

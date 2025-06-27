@@ -1,3 +1,4 @@
+#include "../third_party/zstd/zstd.h"
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -24,10 +25,18 @@ struct SingleSave
 
 static bool LoadJson(const std::string& path, Document& doc)
 {
-    std::ifstream in(path);
+    std::ifstream in(path, std::ios::binary);
     if (!in.is_open())
         return false;
     std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    if (path.size() > 4 && path.substr(path.size() - 4) == ".zst")
+    {
+        std::vector<char> outBuf(1 << 20);
+        size_t outSize = ZSTD_decompress(outBuf.data(), outBuf.size(), data.data(), data.size());
+        if (ZSTD_isError(outSize))
+            return false;
+        data.assign(outBuf.data(), outSize);
+    }
     doc.Parse(data.c_str());
     return !doc.HasParseError();
 }
@@ -87,7 +96,8 @@ static void MergeSaves(const Document& coop, const SingleSave& sp, Document& out
             {
                 if (item.quantity != qty)
                 {
-                    std::string desc = "Item " + std::to_string(id) + " qty " + std::to_string(item.quantity) + " vs " + std::to_string(qty);
+                    std::string desc = "Item " + std::to_string(id) + " qty " + std::to_string(item.quantity) + " vs " +
+                                       std::to_string(qty);
                     conflicts.PushBack(Value(desc.c_str(), alloc), alloc);
                 }
                 merged = true;

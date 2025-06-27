@@ -1,12 +1,13 @@
 #include "SessionState.hpp"
 #include "SaveFork.hpp"
 #include "SaveMigration.hpp"
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
-#include <fstream>
-#include <filesystem>
 
 namespace CoopNet
 {
@@ -15,6 +16,7 @@ struct PartyMember
 {
     uint32_t peerId;
     uint32_t xp;
+    std::unordered_map<uint32_t, uint8_t> perks;
 };
 
 static std::vector<PartyMember> g_party;                            // PP-1: populated via lobby sync
@@ -36,7 +38,7 @@ uint32_t SessionState_SetParty(const std::vector<uint32_t>& peerIds)
             hash ^= b[i];
             hash *= 16777619u;
         }
-        g_party.push_back({id, 0});
+        g_party.push_back({id, 0, {}});
     }
     g_sessionId = hash;
     return g_sessionId;
@@ -49,7 +51,15 @@ void SaveSessionState(uint32_t sessionId)
     for (size_t i = 0; i < g_party.size(); ++i)
     {
         const auto& p = g_party[i];
-        ss << "{\"peerId\":" << p.peerId << ",\"xp\":" << p.xp << "}";
+        ss << "{\"peerId\":" << p.peerId << ",\"xp\":" << p.xp << ",\"perks\":{";
+        size_t pc = 0;
+        for (auto& kv : p.perks)
+        {
+            ss << "\"" << kv.first << "\":" << static_cast<int>(kv.second);
+            if (++pc < p.perks.size())
+                ss << ",";
+        }
+        ss << "}}";
         if (i + 1 < g_party.size())
             ss << ",";
     }
@@ -78,10 +88,10 @@ void SaveSessionState(uint32_t sessionId)
 
 void SaveMergeResolution(bool acceptAll)
 {
-    try {
+    try
+    {
         EnsureCoopSaveDirs();
-        const std::filesystem::path file =
-            std::filesystem::path(kCoopSavePath) / "merged.dat";
+        const std::filesystem::path file = std::filesystem::path(kCoopSavePath) / "merged.dat";
         std::ofstream out(file, std::ios::app);
         if (!out.is_open())
         {
@@ -89,7 +99,9 @@ void SaveMergeResolution(bool acceptAll)
             return;
         }
         out << "resolution=" << (acceptAll ? "acceptAll" : "skipEach") << "\n";
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cerr << "SaveMergeResolution error: " << e.what() << std::endl;
     }
 }
@@ -97,6 +109,45 @@ void SaveMergeResolution(bool acceptAll)
 uint32_t SessionState_GetId()
 {
     return g_sessionId;
+}
+
+void SessionState_SetPerk(uint32_t peerId, uint32_t perkId, uint8_t rank)
+{
+    for (auto& p : g_party)
+    {
+        if (p.peerId == peerId)
+        {
+            p.perks[perkId] = rank;
+            return;
+        }
+    }
+}
+
+void SessionState_ClearPerks(uint32_t peerId)
+{
+    for (auto& p : g_party)
+    {
+        if (p.peerId == peerId)
+        {
+            p.perks.clear();
+            return;
+        }
+    }
+}
+
+float SessionState_GetPerkHealthMult(uint32_t peerId)
+{
+    for (auto& p : g_party)
+    {
+        if (p.peerId == peerId)
+        {
+            float m = 1.f;
+            for (auto& kv : p.perks)
+                m *= 1.f + 0.05f * static_cast<float>(kv.second);
+            return m;
+        }
+    }
+    return 1.f;
 }
 
 } // namespace CoopNet

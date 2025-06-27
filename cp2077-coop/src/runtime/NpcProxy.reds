@@ -4,6 +4,7 @@ public class NpcProxy extends gameObject {
     public var pos: Vector3;
     public var rot: Quaternion;
     public var state: NpcState;
+    public var aiState: PoliceAIState;
     public var health: Uint16;
     public var appearanceSeed: Uint8;
     public var sectorHash: Uint64;
@@ -16,6 +17,7 @@ public class NpcProxy extends gameObject {
         pos = snap.pos;
         rot = snap.rot;
         state = snap.state;
+        aiState = Cast<PoliceAIState>(snap.aiState);
         health = snap.health;
         LogChannel(n"DEBUG", "NpcProxy.Spawn " + IntToString(npcId) + " tpl=" + IntToString(templateId));
         // Placeholder mesh spawn
@@ -26,6 +28,7 @@ public class NpcProxy extends gameObject {
         pos = snap.pos;
         rot = snap.rot;
         state = snap.state;
+        aiState = Cast<PoliceAIState>(snap.aiState);
         health = snap.health;
         sectorHash = snap.sectorHash;
         switch state {
@@ -58,6 +61,11 @@ public class NpcProxy extends gameObject {
 
     public func Despawn() -> Void {
         LogChannel(n"DEBUG", "NpcProxy.Despawn " + IntToString(npcId));
+    }
+
+    public func OnAIState(stateVal: Uint8) -> Void {
+        aiState = Cast<PoliceAIState>(stateVal);
+        LogChannel(n"ncpd", "AIState " + IntToString(Cast<Int32>(stateVal)));
     }
 
     private func SetAnimation(name: CName) -> Void {
