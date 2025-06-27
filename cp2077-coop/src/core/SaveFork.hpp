@@ -27,4 +27,6 @@ struct CarParking
 
 bool LoadCarParking(uint32_t sessionId, uint32_t peerId, CarParking& out);
 void SaveCarParking(uint32_t sessionId, uint32_t peerId, const CarParking& cp);
+bool LoadArcadeHighScore(uint32_t cabId, uint32_t& peerId, uint32_t& score);
+void SaveArcadeHighScore(uint32_t cabId, uint32_t peerId, uint32_t score);
 } // namespace CoopNet

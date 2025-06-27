@@ -183,6 +183,11 @@ static void VendorSync_OnStockUpdate(const CoopNet::VendorStockUpdatePacket& pkt
     RED4ext::ExecuteFunction("VendorSync", "OnStockUpdate", nullptr, &pkt);
 }
 
+static void VendorSync_OnRefresh(uint32_t vendorId)
+{
+    RED4ext::ExecuteFunction("VendorSync", "OnRefresh", nullptr, &vendorId);
+}
+
 static void HeatSync_Apply(uint8_t level)
 {
     std::cout << "Heat level " << static_cast<int>(level) << std::endl;
@@ -301,6 +306,16 @@ static void PropSync_OnIgnite(uint32_t id, uint16_t delay)
     RED4ext::ExecuteFunction("PropSync", "OnIgnite", nullptr, id, delay);
 }
 
+static void CrowdCfgSync_OnApply(uint8_t density)
+{
+    RED4ext::ExecuteFunction("CrowdCfgSync", "OnApply", nullptr, density);
+}
+
+static void CrowdCfgSync_OnRestore()
+{
+    RED4ext::ExecuteFunction("CrowdCfgSync", "OnRestore", nullptr);
+}
+
 static void VoiceOverQueue_OnPlay(uint32_t lineId)
 {
     RED4ext::ExecuteFunction("VoiceOverQueue", "OnPlay", nullptr, lineId);
@@ -339,6 +354,7 @@ Connection::Connection()
     , rttHist{}
     , rttIndex(0)
 {
+    crypto_kx_keypair(pubKey.data(), privKey.data());
 }
 
 void Connection::SendSectorChange(uint64_t hash)
@@ -346,6 +362,7 @@ void Connection::SendSectorChange(uint64_t hash)
     SectorChangePacket pkt{0u, hash};
     Net_Send(this, EMsg::SectorChange, &pkt, sizeof(pkt));
     CoopNet::NpcController_OnPlayerEnterSector(peerId, hash);
+    CoopNet::BillboardController_OnSectorLoad(peerId, hash);
     sectorReady = false;
     currentSector = hash;
     lastSectorChangeTick = CoopNet::GameClock::GetCurrentTick();
@@ -362,6 +379,9 @@ void Connection::SendSectorReady(uint64_t hash)
 void Connection::StartHandshake()
 {
     Transition(ConnectionState::Handshaking);
+    HelloPacket pkt{};
+    memcpy(pkt.pub, pubKey.data(), crypto_kx_PUBLICKEYBYTES);
+    Net_Send(this, EMsg::Hello, &pkt, sizeof(pkt));
 }
 
 void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint16_t size)
@@ -370,6 +390,19 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
     (void)size;
     switch (static_cast<EMsg>(hdr.type))
     {
+    case EMsg::Hello:
+        if (size >= sizeof(HelloPacket))
+        {
+            const HelloPacket* pkt = reinterpret_cast<const HelloPacket*>(payload);
+            unsigned char sec[crypto_scalarmult_BYTES];
+            crypto_scalarmult(sec, privKey.data(), pkt->pub);
+            crypto_generichash(key.data(), key.size(), sec, sizeof(sec), nullptr, 0);
+            hasKey = true;
+            WelcomePacket ack{};
+            memcpy(ack.pub, pubKey.data(), crypto_kx_PUBLICKEYBYTES);
+            Net_Send(this, EMsg::Welcome, &ack, sizeof(ack));
+        }
+        break;
     case EMsg::Ping:
         if (size >= sizeof(PingPacket))
         {
@@ -389,9 +422,15 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         }
         break;
     case EMsg::Welcome:
-        if (state == ConnectionState::Handshaking)
+        if (size >= sizeof(WelcomePacket))
         {
-            Transition(ConnectionState::Lobby);
+            const WelcomePacket* pkt = reinterpret_cast<const WelcomePacket*>(payload);
+            unsigned char sec[crypto_scalarmult_BYTES];
+            crypto_scalarmult(sec, privKey.data(), pkt->pub);
+            crypto_generichash(key.data(), key.size(), sec, sizeof(sec), nullptr, 0);
+            hasKey = true;
+            if (state == ConnectionState::Handshaking)
+                Transition(ConnectionState::Lobby);
         }
         break;
     case EMsg::JoinAccept:
@@ -411,6 +450,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         Killfeed_Push("0 disconnected");
         CoopNet::VehicleController_RemovePeer(peerId);
         Transition(ConnectionState::Disconnected);
+        CrowdCfgSync_OnRestore();
         CoopNet::SaveSessionState(CoopNet::SessionState_GetId());
         break;
     case EMsg::AvatarSpawn:
@@ -870,17 +910,17 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         }
         break;
     case EMsg::HoloCallStart:
-        if (size >= sizeof(HoloCallPacket))
+        if (size >= sizeof(HolocallStartPacket))
         {
-            const HoloCallPacket* pkt = reinterpret_cast<const HoloCallPacket*>(payload);
-            UIPauseAudit_OnHoloStart(pkt->peerId);
+            const HolocallStartPacket* pkt = reinterpret_cast<const HolocallStartPacket*>(payload);
+            RED4ext::ExecuteFunction("HoloCallSync", "OnStart", nullptr, pkt);
         }
         break;
     case EMsg::HoloCallEnd:
-        if (size >= sizeof(HoloCallPacket))
+        if (size >= sizeof(HolocallEndPacket))
         {
-            const HoloCallPacket* pkt = reinterpret_cast<const HoloCallPacket*>(payload);
-            UIPauseAudit_OnHoloEnd(pkt->peerId);
+            const HolocallEndPacket* pkt = reinterpret_cast<const HolocallEndPacket*>(payload);
+            RED4ext::ExecuteFunction("HoloCallSync", "OnEnd", nullptr, &pkt->callId);
         }
         break;
     case EMsg::SpectateRequest:
@@ -942,11 +982,13 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             const VoicePacket* pkt = reinterpret_cast<const VoicePacket*>(payload);
             if (Net_IsAuthoritative())
             {
-                Net_BroadcastVoice(peerId, pkt->data, pkt->size, pkt->seq);
+                if (!voiceMuted)
+                    Net_BroadcastVoice(peerId, pkt->data, pkt->size, pkt->seq);
             }
             else
             {
-                CoopVoice::PushPacket(pkt->seq, pkt->data, pkt->size);
+                if (!voiceMuted)
+                    CoopVoice::PushPacket(pkt->seq, pkt->data, pkt->size);
                 voiceRecv++;
             }
         }
@@ -1001,6 +1043,13 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             VendorSync_OnStockUpdate(*pkt);
         }
         break;
+    case EMsg::VendorRefresh:
+        if (size >= sizeof(VendorRefreshPacket))
+        {
+            const VendorRefreshPacket* pkt = reinterpret_cast<const VendorRefreshPacket*>(payload);
+            VendorSync_OnRefresh(pkt->vendorId);
+        }
+        break;
     case EMsg::PingOutline:
         if (size >= sizeof(PingOutlinePacket))
         {
@@ -1033,6 +1082,11 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const AdminCmdPacket* pkt = reinterpret_cast<const AdminCmdPacket*>(payload);
             std::cout << "AdminCmd type=" << static_cast<int>(pkt->cmdType) << " param=" << pkt->param << std::endl;
+            if (pkt->cmdType == static_cast<uint8_t>(AdminCmdType::Mute))
+            {
+                voiceMuted = pkt->param != 0;
+                RED4ext::ExecuteFunction("MicIcon", "SetMuted", nullptr, voiceMuted);
+            }
         }
         break;
     case EMsg::TickRateChange:
@@ -1217,11 +1271,28 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             WeaponSync_OnFinisherEnd(pkt->actorId);
         }
         break;
+    case EMsg::SlowMoFinisher:
+        if (size >= sizeof(SlowMoFinisherPacket))
+        {
+            const SlowMoFinisherPacket* pkt = reinterpret_cast<const SlowMoFinisherPacket*>(payload);
+            if (Net_IsAuthoritative())
+                Net_BroadcastSlowMoFinisher(pkt->peerId, pkt->targetId, pkt->durationMs);
+            else
+                RED4ext::ExecuteFunction("SlowMoFinisherSync", "OnStart", nullptr, pkt);
+        }
+        break;
     case EMsg::TextureBiasChange:
         if (size >= sizeof(TextureBiasPacket))
         {
             const TextureBiasPacket* pkt = reinterpret_cast<const TextureBiasPacket*>(payload);
             TextureBiasSync_OnChange(pkt->bias);
+        }
+        break;
+    case EMsg::CrowdCfg:
+        if (size >= sizeof(CrowdCfgPacket))
+        {
+            const CrowdCfgPacket* pkt = reinterpret_cast<const CrowdCfgPacket*>(payload);
+            CrowdCfgSync_OnApply(pkt->density);
         }
         break;
     case EMsg::CriticalVoteStart:
@@ -1274,6 +1345,265 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             Inventory_OnPurchaseResult(pkt->itemId, pkt->balance, pkt->success != 0);
         }
         break;
+    case EMsg::Emote:
+        if (size >= sizeof(EmotePacket))
+        {
+            const EmotePacket* pkt = reinterpret_cast<const EmotePacket*>(payload);
+            EmoteSync_Play(pkt->peerId, pkt->emoteId);
+        }
+        break;
+    case EMsg::CrowdChatterStart:
+        if (size >= sizeof(CrowdChatterStartPacket))
+        {
+            const CrowdChatterStartPacket* pkt = reinterpret_cast<const CrowdChatterStartPacket*>(payload);
+            CrowdChatterSync_OnStart(pkt->npcA, pkt->npcB, pkt->lineId, pkt->seed);
+        }
+        break;
+    case EMsg::CrowdChatterEnd:
+        if (size >= sizeof(CrowdChatterEndPacket))
+        {
+            const CrowdChatterEndPacket* pkt = reinterpret_cast<const CrowdChatterEndPacket*>(payload);
+            CrowdChatterSync_OnEnd(pkt->convId);
+        }
+        break;
+    case EMsg::HoloSeed:
+        if (size >= sizeof(HoloSeedPacket))
+        {
+            const HoloSeedPacket* pkt = reinterpret_cast<const HoloSeedPacket*>(payload);
+            BillboardSync_OnSeed(pkt->sectorHash, pkt->seed64);
+        }
+        break;
+    case EMsg::HoloNextAd:
+        if (size >= sizeof(HoloNextAdPacket))
+        {
+            const HoloNextAdPacket* pkt = reinterpret_cast<const HoloNextAdPacket*>(payload);
+            BillboardSync_OnNextAd(pkt->sectorHash, pkt->adId);
+        }
+        break;
+    case EMsg::DoorBreachStart:
+        if (size >= sizeof(DoorBreachStartPacket))
+        {
+            const DoorBreachStartPacket* pkt = reinterpret_cast<const DoorBreachStartPacket*>(payload);
+            DoorBreachSync_OnStart(pkt->doorId, pkt->phaseId, pkt->seed);
+        }
+        break;
+    case EMsg::DoorBreachTick:
+        if (size >= sizeof(DoorBreachTickPacket))
+        {
+            const DoorBreachTickPacket* pkt = reinterpret_cast<const DoorBreachTickPacket*>(payload);
+            DoorBreachSync_OnTick(pkt->doorId, pkt->percent);
+        }
+        break;
+    case EMsg::DoorBreachSuccess:
+        if (size >= sizeof(DoorBreachSuccessPacket))
+        {
+            const DoorBreachSuccessPacket* pkt = reinterpret_cast<const DoorBreachSuccessPacket*>(payload);
+            DoorBreachSync_OnSuccess(pkt->doorId);
+        }
+        break;
+    case EMsg::DoorBreachAbort:
+        if (size >= sizeof(DoorBreachAbortPacket))
+        {
+            const DoorBreachAbortPacket* pkt = reinterpret_cast<const DoorBreachAbortPacket*>(payload);
+            DoorBreachSync_OnAbort(pkt->doorId);
+        }
+        break;
+    case EMsg::HTableOpen:
+        if (size >= sizeof(HTableOpenPacket))
+        {
+            const HTableOpenPacket* pkt = reinterpret_cast<const HTableOpenPacket*>(payload);
+            RED4ext::ExecuteFunction("HoloTableSync", "OnOpen", nullptr, &pkt->sceneId);
+        }
+        break;
+    case EMsg::HTableScrub:
+        if (size >= sizeof(HTableScrubPacket))
+        {
+            const HTableScrubPacket* pkt = reinterpret_cast<const HTableScrubPacket*>(payload);
+            RED4ext::ExecuteFunction("HoloTableSync", "OnScrub", nullptr, &pkt->timestampMs);
+        }
+        break;
+    case EMsg::QuestGadgetFire:
+        if (size >= sizeof(QuestGadgetFirePacket))
+        {
+            const QuestGadgetFirePacket* pkt = reinterpret_cast<const QuestGadgetFirePacket*>(payload);
+            if (Net_IsAuthoritative())
+                CoopNet::QuestGadget_HandleFire(this, *pkt);
+            else
+                RED4ext::ExecuteFunction("QuestGadgetSync", "OnFire", nullptr, pkt);
+        }
+        break;
+    case EMsg::ItemGrab:
+        if (size >= sizeof(ItemGrabPacket))
+        {
+            const ItemGrabPacket* pkt = reinterpret_cast<const ItemGrabPacket*>(payload);
+            if (Net_IsAuthoritative())
+                Net_BroadcastItemGrab(pkt->peerId, pkt->itemId);
+            else
+                RED4ext::ExecuteFunction("ItemGrabSync", "OnGrab", nullptr, pkt);
+        }
+        break;
+    case EMsg::ItemDrop:
+        if (size >= sizeof(ItemDropPacket))
+        {
+            const ItemDropPacket* pkt = reinterpret_cast<const ItemDropPacket*>(payload);
+            if (Net_IsAuthoritative())
+                Net_BroadcastItemDrop(pkt->peerId, pkt->itemId, pkt->pos);
+            else
+                RED4ext::ExecuteFunction("ItemGrabSync", "OnDrop", nullptr, pkt);
+        }
+        break;
+    case EMsg::ItemStore:
+        if (size >= sizeof(ItemStorePacket))
+        {
+            const ItemStorePacket* pkt = reinterpret_cast<const ItemStorePacket*>(payload);
+            if (Net_IsAuthoritative())
+                Net_BroadcastItemStore(pkt->peerId, pkt->itemId);
+            else
+                RED4ext::ExecuteFunction("ItemGrabSync", "OnStore", nullptr, pkt);
+        }
+        break;
+    case EMsg::MetroBoard:
+        if (size >= sizeof(MetroBoardPacket))
+        {
+            const MetroBoardPacket* pkt = reinterpret_cast<const MetroBoardPacket*>(payload);
+            if (Net_IsAuthoritative())
+                Net_BroadcastMetroBoard(pkt->peerId, pkt->lineId, pkt->carIdx);
+            else
+                RED4ext::ExecuteFunction("TransitSystem", "OnBoard", nullptr, pkt);
+        }
+        break;
+    case EMsg::MetroArrive:
+        if (size >= sizeof(MetroArrivePacket))
+        {
+            const MetroArrivePacket* pkt = reinterpret_cast<const MetroArrivePacket*>(payload);
+            if (Net_IsAuthoritative())
+                Net_BroadcastMetroArrive(pkt->peerId, pkt->stationId);
+            else
+                RED4ext::ExecuteFunction("TransitSystem", "OnArrive", nullptr, pkt);
+        }
+        break;
+    case EMsg::RadioChange:
+        if (size >= sizeof(RadioChangePacket))
+        {
+            const RadioChangePacket* pkt = reinterpret_cast<const RadioChangePacket*>(payload);
+            if (Net_IsAuthoritative())
+                Net_BroadcastRadioChange(pkt->vehId, pkt->stationId, pkt->offsetSec);
+            else
+                RED4ext::ExecuteFunction("RadioSync", "OnChange", nullptr, pkt);
+        }
+        break;
+    case EMsg::CamHijack:
+        if (size >= sizeof(CamHijackPacket))
+        {
+            const CamHijackPacket* pkt = reinterpret_cast<const CamHijackPacket*>(payload);
+            if (Net_IsAuthoritative())
+                Net_BroadcastCamHijack(pkt->camId, pkt->peerId);
+            else
+                RED4ext::ExecuteFunction("CamSync", "OnHijack", nullptr, pkt);
+        }
+        break;
+    case EMsg::CamFrameStart:
+        if (size >= sizeof(CamFrameStartPacket))
+        {
+            const CamFrameStartPacket* pkt = reinterpret_cast<const CamFrameStartPacket*>(payload);
+            RED4ext::ExecuteFunction("CamSync", "OnFrame", nullptr, &pkt->camId);
+        }
+        break;
+    case EMsg::CarryBegin:
+        if (size >= sizeof(CarryBeginPacket))
+        {
+            const CarryBeginPacket* pkt = reinterpret_cast<const CarryBeginPacket*>(payload);
+            if (Net_IsAuthoritative())
+                Net_BroadcastCarryBegin(pkt->carrierId, pkt->entityId);
+            else
+                RED4ext::ExecuteFunction("CarrySync", "OnBegin", nullptr, pkt);
+        }
+        break;
+    case EMsg::CarrySnap:
+        if (size >= sizeof(CarrySnapPacket))
+        {
+            const CarrySnapPacket* pkt = reinterpret_cast<const CarrySnapPacket*>(payload);
+            if (Net_IsAuthoritative())
+                Net_BroadcastCarrySnap(pkt->entityId, pkt->pos, pkt->vel);
+            else
+                RED4ext::ExecuteFunction("CarrySync", "OnSnap", nullptr, pkt);
+        }
+        break;
+    case EMsg::CarryEnd:
+        if (size >= sizeof(CarryEndPacket))
+        {
+            const CarryEndPacket* pkt = reinterpret_cast<const CarryEndPacket*>(payload);
+            if (Net_IsAuthoritative())
+                Net_BroadcastCarryEnd(pkt->entityId, pkt->pos, pkt->vel);
+            else
+                RED4ext::ExecuteFunction("CarrySync", "OnEnd", nullptr, pkt);
+        }
+        break;
+    case EMsg::GrenadePrime:
+        if (size >= sizeof(GrenadePrimePacket))
+        {
+            const GrenadePrimePacket* pkt = reinterpret_cast<const GrenadePrimePacket*>(payload);
+            if (Net_IsAuthoritative())
+                Net_BroadcastGrenadePrime(pkt->entityId, pkt->startTick);
+            else
+                RED4ext::ExecuteFunction("GrenadeSync", "OnPrime", nullptr, pkt);
+        }
+        break;
+    case EMsg::GrenadeSnap:
+        if (size >= sizeof(GrenadeSnapPacket))
+        {
+            const GrenadeSnapPacket* pkt = reinterpret_cast<const GrenadeSnapPacket*>(payload);
+            if (Net_IsAuthoritative())
+                Net_BroadcastGrenadeSnap(pkt->entityId, pkt->pos, pkt->vel);
+            else
+                RED4ext::ExecuteFunction("GrenadeSync", "OnSnap", nullptr, pkt);
+        }
+        break;
+    case EMsg::SmartCamStart:
+        if (size >= sizeof(SmartCamStartPacket))
+        {
+            const SmartCamStartPacket* pkt = reinterpret_cast<const SmartCamStartPacket*>(payload);
+            if (Net_IsAuthoritative())
+                Net_BroadcastSmartCamStart(pkt->projId);
+            else
+                RED4ext::ExecuteFunction("SmartCamSync", "OnStart", nullptr, &pkt->projId);
+        }
+        break;
+    case EMsg::SmartCamEnd:
+        if (size >= sizeof(SmartCamEndPacket))
+        {
+            const SmartCamEndPacket* pkt = reinterpret_cast<const SmartCamEndPacket*>(payload);
+            if (Net_IsAuthoritative())
+                Net_BroadcastSmartCamEnd(pkt->projId);
+            else
+                RED4ext::ExecuteFunction("SmartCamSync", "OnEnd", nullptr, &pkt->projId);
+        }
+        break;
+    case EMsg::ArcadeStart:
+        if (size >= sizeof(ArcadeStartPacket))
+        {
+            const ArcadeStartPacket* pkt = reinterpret_cast<const ArcadeStartPacket*>(payload);
+            if (Net_IsAuthoritative())
+                CoopNet::Arcade_Start(pkt->cabId, pkt->peerId, pkt->seed);
+            else
+                RED4ext::ExecuteFunction("ArcadeSync", "OnStart", nullptr, pkt);
+        }
+        break;
+    case EMsg::ArcadeInput:
+        if (size >= sizeof(ArcadeInputPacket))
+        {
+            const ArcadeInputPacket* pkt = reinterpret_cast<const ArcadeInputPacket*>(payload);
+            if (Net_IsAuthoritative())
+                CoopNet::Arcade_Input(pkt->frame, pkt->buttonMask);
+        }
+        break;
+    case EMsg::ArcadeScore:
+        if (size >= sizeof(ArcadeScorePacket))
+        {
+            const ArcadeScorePacket* pkt = reinterpret_cast<const ArcadeScorePacket*>(payload);
+            RED4ext::ExecuteFunction("ArcadeSync", "OnScore", nullptr, pkt);
+        }
+        break;
     default:
         break;
     }
@@ -1281,6 +1611,12 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
 
 void Connection::Update(uint64_t nowMs)
 {
+    if (voiceMuted && voiceMuteEndMs > 0 && nowMs >= voiceMuteEndMs)
+    {
+        voiceMuted = false;
+        voiceMuteEndMs = 0;
+        RED4ext::ExecuteFunction("MicIcon", "SetMuted", nullptr, false);
+    }
     if (nowMs - lastPingSent >= 5000)
     {
         PingPacket ping{static_cast<uint32_t>(nowMs & 0xFFFFFFFFu)};
@@ -1332,8 +1668,21 @@ void Connection::Update(uint64_t nowMs)
 
 void Connection::EnqueuePacket(const RawPacket& pkt)
 {
+    uint64_t now = GameClock::GetTimeMs();
+    if (pkt.hdr.type != static_cast<uint16_t>(EMsg::Voice))
+    {
+        float dt = static_cast<float>(now - rateLastMs) / 1000.f;
+        rateTokens = std::min(30.f, rateTokens + dt * 20.f);
+        rateLastMs = now;
+        if (rateTokens < 1.f)
+        {
+            std::cout << "WARN: rate limit drop peer=" << peerId << std::endl;
+            return;
+        }
+        rateTokens -= 1.f;
+    }
     m_incoming.Push(pkt);
-    lastRecvTime = 0; // NT-2: track activity time
+    lastRecvTime = 0;
 }
 
 bool Connection::PopPacket(RawPacket& out)

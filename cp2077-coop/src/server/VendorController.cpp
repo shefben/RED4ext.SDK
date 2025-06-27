@@ -1,6 +1,8 @@
 #include "VendorController.hpp"
+#include "../core/GameClock.hpp"
 #include "../net/Net.hpp"
 #include "InventoryController.hpp"
+#include "Journal.hpp"
 #include "LedgerService.hpp"
 #include <algorithm>
 #include <cstring>
@@ -18,38 +20,25 @@ struct VendorItem
 // vendorId -> phaseId -> itemId
 static std::unordered_map<uint32_t, std::unordered_map<uint32_t, std::unordered_map<uint32_t, VendorItem>>>
     g_stock; // PX-8
-static std::unordered_map<uint32_t, float> g_timer;
-
-void VendorController_Tick(float dt)
+static std::unordered_map<uint32_t, uint64_t> g_lastDay;
+void VendorController_Tick(float dt, uint64_t worldClock)
 {
-    for (auto& kv : g_timer)
+    uint64_t day = worldClock / 36000;
+    uint32_t tod = static_cast<uint32_t>(worldClock % 36000);
+    if (tod < 6000)
+        return;
+    for (auto& kv : g_stock)
     {
-        kv.second += dt;
-        if (kv.second >= 3600.f)
+        if (g_lastDay[kv.first] >= day)
+            continue;
+        auto& phases = kv.second;
+        for (auto& ph : phases)
         {
-            kv.second = 0.f;
-            auto& phases = g_stock[kv.first];
-            for (auto& ph : phases)
-            {
-                ph.second.clear();
-                VendorItem item{1000, 5};
-                ph.second[kv.first * 10 + 1] = item;
-                VendorStockPacket pkt{};
-                pkt.vendorId = kv.first;
-                pkt.phaseId = ph.first;
-                pkt.count = 0;
-                for (auto& it : ph.second)
-                {
-                    if (pkt.count >= 8)
-                        break;
-                    pkt.items[pkt.count].itemId = it.first;
-                    pkt.items[pkt.count].price = it.second.price;
-                    pkt.items[pkt.count].qty = it.second.qty;
-                    ++pkt.count;
-                }
-                Net_BroadcastVendorStock(pkt);
-            }
+            ph.second.clear();
+            VendorRefreshPacket ref{kv.first, ph.first};
+            Net_BroadcastVendorRefresh(ref);
         }
+        g_lastDay[kv.first] = day;
     }
 }
 
@@ -92,6 +81,7 @@ void VendorController_HandlePurchase(Connection* conn, uint32_t vendorId, uint32
     ItemSnapPacket pkt{snap};
     Net_Send(conn, EMsg::ItemSnap, &pkt, sizeof(pkt));
     PurchaseResultPacket res{vendorId, itemId, balance, 1, {0, 0, 0}};
+    Journal_Log(GameClock::GetCurrentTick(), conn->peerId, "purchase", itemId, -static_cast<int32_t>(price));
     Net_Send(conn, EMsg::PurchaseResult, &res, sizeof(res));
     if (itemIt->second.qty > 0)
         itemIt->second.qty -= 1;

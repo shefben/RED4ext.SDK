@@ -188,6 +188,7 @@ public class AvatarProxy extends gameObject {
         LogChannel(n"DEBUG", "Streaming done sector=" + IntToString(Cast<Int32>(hash)));
         Net_SendSectorReady(hash);
         ElevatorSync.OnStreamingDone(hash);
+        TransitSystem.OnStreamingDone(hash);
     }
 
     public static func SpawnRemote(peerId: Uint32, local: Bool, snap: ref<TransformSnap>) -> Void {

@@ -63,6 +63,27 @@ void SaveCarParking(uint32_t sessionId, uint32_t peerId, const CarParking& cp)
     SavePhase(sessionId, peerId, ss.str());
 }
 
+bool LoadArcadeHighScore(uint32_t cabId, uint32_t& peerId, uint32_t& score)
+{
+    namespace fs = std::filesystem;
+    fs::path file = fs::path(kCoopSavePath) / ("arcade_" + std::to_string(cabId) + ".txt");
+    std::ifstream in(file);
+    if (!in.is_open())
+        return false;
+    in >> peerId >> score;
+    return in.good();
+}
+
+void SaveArcadeHighScore(uint32_t cabId, uint32_t peerId, uint32_t score)
+{
+    EnsureCoopSaveDirs();
+    namespace fs = std::filesystem;
+    fs::path file = fs::path(kCoopSavePath) / ("arcade_" + std::to_string(cabId) + ".txt");
+    std::ofstream out(file, std::ios::trunc);
+    if (out.is_open())
+        out << peerId << ' ' << score;
+}
+
 void SaveSession(uint32_t sessionId, const std::string& jsonBlob)
 {
     try
