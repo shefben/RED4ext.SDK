@@ -29,6 +29,7 @@ cmake_minimum_required(VERSION 3.21) project(cp2077 - coop)
                                          PoliceDispatch.cpp src / server / LedgerService.cpp src / server /
                                          WebDash.cpp src / voice / VoiceEncoder.cpp src / voice / VoiceDecoder.cpp)
 
+
                     target_include_directories(cp2077 - coop PRIVATE "${PROJECT_SOURCE_DIR}/third_party/enet/include"
                                                                      "${PROJECT_SOURCE_DIR}/third_party"
                                                                      "${PROJECT_SOURCE_DIR}/third_party/zstd")

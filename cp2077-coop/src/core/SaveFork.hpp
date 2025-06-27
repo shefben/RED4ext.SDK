@@ -4,6 +4,7 @@
 
 #include <RED4ext/Scripting/Natives/Generated/Quaternion.hpp>
 #include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
+
 #include <cstdint>
 #include <string>
 
