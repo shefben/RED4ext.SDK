@@ -34,7 +34,8 @@ void Net_SendBreachInput(uint8_t index);
 void Net_BroadcastVehicleExplode(uint32_t vehicleId, uint32_t vfxId, uint32_t seed);
 void Net_BroadcastPartDetach(uint32_t vehicleId, uint8_t partId);
 void Net_BroadcastEject(uint32_t peerId, const RED4ext::Vector3& vel);
-void Net_BroadcastVehicleSpawn(uint32_t vehicleId, uint32_t archetypeId, uint32_t paintId, const TransformSnap& t);
+void Net_BroadcastVehicleSpawn(uint32_t vehicleId, uint32_t archetypeId, uint32_t paintId, uint32_t phaseId,
+                               const TransformSnap& t);
 void Net_SendSeatRequest(uint32_t vehicleId, uint8_t seatIdx);
 void Net_BroadcastSeatAssign(uint32_t peerId, uint32_t vehicleId, uint8_t seatIdx);
 void Net_SendVehicleHit(uint32_t vehicleId, uint16_t dmg, bool side);
@@ -91,6 +92,8 @@ void Net_SendPerkUnlock(uint32_t perkId, uint8_t rank);
 void Net_BroadcastPerkUnlock(uint32_t peerId, uint32_t perkId, uint8_t rank);
 void Net_SendPerkRespecRequest();
 void Net_SendPerkRespecAck(CoopNet::Connection* conn, uint16_t newPoints);
+void Net_SendSkillXP(uint16_t skillId, int16_t deltaXP);                       // SX-1
+void Net_BroadcastSkillXP(uint32_t peerId, uint16_t skillId, int16_t deltaXP); // SX-1
 void Net_BroadcastStatusApply(uint32_t targetId, uint8_t effectId, uint16_t durMs, uint8_t amp);
 void Net_BroadcastStatusTick(uint32_t targetId, int16_t hpDelta);
 void Net_BroadcastTrafficSeed(uint64_t sectorHash, uint64_t seed);
@@ -108,8 +111,9 @@ void Net_BroadcastPingOutline(uint32_t peerId, uint16_t durationMs, const std::v
 void Net_BroadcastLootRoll(uint32_t containerId, uint32_t seed);
 void Net_SendDealerBuy(uint32_t vehicleTpl, uint32_t price);
 void Net_BroadcastVehicleUnlock(uint32_t peerId, uint32_t vehicleTpl);
+void Net_BroadcastVehicleHitHighSpeed(uint32_t vehA, uint32_t vehB, const RED4ext::Vector3& delta);
 void Net_BroadcastWeaponInspect(uint32_t peerId, uint16_t animId);
-void Net_BroadcastFinisherStart(uint32_t actorId, uint32_t victimId, uint16_t animId);
+void Net_BroadcastFinisherStart(uint32_t actorId, uint32_t victimId, uint8_t finisherType);
 void Net_BroadcastFinisherEnd(uint32_t actorId);
 void Net_BroadcastTextureBiasChange(uint8_t bias);
 void Net_BroadcastCriticalVoteStart(uint32_t questHash);                                                 // PX-6
@@ -118,3 +122,34 @@ void Net_SendPhaseBundle(CoopNet::Connection* conn, uint32_t phaseId, const std:
 std::vector<uint32_t> QuestWatchdog_ListPhases();                                                        // PX-7 helper
 std::vector<uint8_t> BuildPhaseBundle(uint32_t phaseId);                                                 // PX-7
 void ApplyPhaseBundle(uint32_t phaseId, const uint8_t* buf, size_t len);                                 // PX-7
+void Net_SendAptPurchase(uint32_t aptId);
+void Net_SendAptEnterReq(uint32_t aptId, uint32_t ownerPhaseId);
+void Net_SendAptPermChange(uint32_t aptId, uint32_t targetPeerId, bool allow);
+void Net_BroadcastAptPermChange(uint32_t aptId, uint32_t targetPeerId, bool allow);
+void Net_SendAptPurchaseAck(CoopNet::Connection* conn, uint32_t aptId, bool success, uint64_t balance);
+void Net_SendAptEnterAck(CoopNet::Connection* conn, bool allow, uint32_t phaseId, uint32_t interiorSeed);
+void Net_SendVehicleTowRequest(const RED4ext::Vector3& pos);
+void Net_SendVehicleTowAck(CoopNet::Connection* conn, uint32_t ownerId, bool ok);
+void Net_SendReRollRequest(uint64_t itemId, uint32_t seed);                 // WM-1
+void Net_SendReRollResult(CoopNet::Connection* conn, const ItemSnap& snap); // WM-1
+void Net_SendRipperInstallRequest(uint8_t slotId);
+void Net_SendTileSelect(uint8_t row, uint8_t col);                // MG-1
+void Net_BroadcastTileGameStart(uint32_t phaseId, uint32_t seed); // MG-1
+void Net_BroadcastTileSelect(uint32_t peerId, uint32_t phaseId, uint8_t row,
+                             uint8_t col);                          // MG-1
+void Net_BroadcastShardProgress(uint32_t phaseId, uint8_t percent); // MG-2
+void Net_SendTradeInit(uint32_t targetPeerId);                      // TRD-1
+void Net_SendTradeOffer(const ItemSnap* items, uint8_t count,
+                        uint32_t eddies);                                                  // TRD-1
+void Net_SendTradeAccept(bool accept);                                                     // TRD-1
+void Net_BroadcastTradeFinalize(bool success);                                             // TRD-1
+void Net_BroadcastEndingVoteStart(uint32_t questHash);                                     // EG-1
+void Net_SendEndingVoteCast(bool yes);                                                     // EG-1
+void Net_BroadcastVehicleSnap(const VehicleSnap& snap);                                    // VT-1
+void Net_BroadcastTurretAim(uint32_t vehId, float yaw, float pitch);                       // VT-2
+void Net_BroadcastAirVehSpawn(uint32_t vehId, const RED4ext::Vector3* pts, uint8_t count); // VT-3
+void Net_BroadcastAirVehUpdate(uint32_t vehId, const TransformSnap& t);                    // VT-3
+void Net_BroadcastVehiclePaintChange(uint32_t vehId, uint32_t colorId, const char* plate); // VT-4
+void Net_BroadcastPanicEvent(const RED4ext::Vector3& pos, uint32_t seed);                  // AI-1
+void Net_BroadcastAIHack(uint32_t targetId, uint8_t effectId);                             // AI-2
+void Net_BroadcastBossPhase(uint32_t npcId, uint8_t phaseIdx);                             // AI-3

@@ -1,8 +1,10 @@
 #include "../core/GameClock.hpp"
+#include "../core/SaveFork.hpp"
 #include "../core/SaveMigration.hpp"
 #include "../core/SessionState.hpp"
 #include "../net/Net.hpp"
 #include "AdminController.hpp"
+#include "ApartmentController.hpp"
 #include "BreachController.hpp"
 #include "ElevatorController.hpp"
 #include "GlobalEventController.hpp"
@@ -33,11 +35,24 @@ int main(int argc, char** argv)
     }
 
     CoopNet::ServerConfig_Load();
+    CoopNet::ApartmentController_Load();
     CoopNet::QuestWatchdog_LoadCritical();
+    CoopNet::QuestWatchdog_LoadRomance();
     Net_Init();
     CoopNet::MigrateSinglePlayerSave();
+    CoopNet::CarParking park{};
     CoopNet::TransformSnap vs{{0.f, 0.f, 0.f}, {0.f, 0.f, 0.f, 1.f}, {0.f, 0.f, 0.f}};
-    CoopNet::VehicleController_Spawn(CoopNet::Fnv1a32("vehicle_caliburn"), 0u, vs);
+    if (CoopNet::LoadCarParking(CoopNet::SessionState_GetId(), 1u, park) && park.health > 0)
+    {
+        vs.pos = park.pos;
+        vs.rot = park.rot;
+        vs.health = park.health;
+        CoopNet::VehicleController_SpawnPhaseVehicle(park.vehTpl, 0u, vs, 0u);
+    }
+    else
+    {
+        CoopNet::VehicleController_SpawnPhaseVehicle(CoopNet::Fnv1a32("vehicle_caliburn"), 0u, vs, 0u);
+    }
     CoopNet::WebDash_Start();
     CoopNet::AdminController_Start();
     std::cout << "Dedicated up" << std::endl;
@@ -95,6 +110,7 @@ int main(int argc, char** argv)
             CoopNet::NpcController_ServerTick(tickMs);
             CoopNet::VehicleController_ServerTick(tickMs);
             CoopNet::BreachController_ServerTick(tickMs);
+            CoopNet::ShardController_ServerTick(tickMs);
             CoopNet::VendorController_Tick(tickMs);
             CoopNet::PoliceDispatch_Tick(tickMs);
             CoopNet::StatusController_Tick(tickMs);

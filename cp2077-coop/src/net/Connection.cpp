@@ -3,8 +3,10 @@
 #include "../core/Hash.hpp"
 #include "../core/SessionState.hpp"
 #include "../runtime/GameModeManager.reds"
+#include "../runtime/TileGameSync.reds"
 #include "../server/BreachController.hpp"
 #include "../server/NpcController.hpp"
+#include "../server/QuestWatchdog.hpp"
 #include "../server/StatusController.hpp"
 #include "../server/TrafficController.hpp"
 #include "../voice/VoiceDecoder.hpp"
@@ -105,9 +107,19 @@ static void Inventory_OnAttachResult(const CoopNet::ItemSnap& snap, bool success
     std::cout << "AttachResult item=" << snap.itemId << " success=" << success << std::endl;
 }
 
+static void Inventory_OnReRollResult(const CoopNet::ItemSnap& snap)
+{
+    RED4ext::ExecuteFunction("Inventory", "OnReRollResult", nullptr, &snap);
+}
+
 static void Inventory_OnPurchaseResult(uint64_t itemId, uint64_t balance, bool success)
 {
     RED4ext::ExecuteFunction("Inventory", "OnPurchaseResult", nullptr, &itemId, &balance, &success);
+}
+
+static void Apartments_OnPurchaseAck(uint32_t aptId, uint64_t balance, bool success)
+{
+    RED4ext::ExecuteFunction("Apartments", "OnPurchaseAck", nullptr, &aptId, &success, &balance);
 }
 
 static void AvatarProxy_OnSectorChange(uint32_t peerId, uint64_t hash)
@@ -144,6 +156,21 @@ static void BreachHud_Input(uint32_t peerId, uint8_t idx)
 static void Quickhack_BreachResult(uint32_t peerId, uint8_t mask)
 {
     std::cout << "Breach result mask=" << static_cast<int>(mask) << std::endl;
+}
+
+static void TileGameSync_Start(uint32_t phaseId, uint32_t seed)
+{
+    RED4ext::ExecuteFunction("TileGameSync", "OnStart", nullptr, &phaseId, &seed);
+}
+
+static void TileGameSync_Select(uint32_t peerId, uint8_t row, uint8_t col)
+{
+    RED4ext::ExecuteFunction("TileGameSync", "OnSelect", nullptr, &peerId, &row, &col);
+}
+
+static void TileGameSync_Progress(uint8_t percent)
+{
+    RED4ext::ExecuteFunction("TileGameSync", "OnProgress", nullptr, &percent);
 }
 
 static void VendorSync_OnStock(const CoopNet::VendorStockPacket& pkt)
@@ -229,6 +256,11 @@ static void StatusEffectSync_OnTick(uint32_t targetId, int16_t delta)
     RED4ext::ExecuteFunction("StatusEffectSync", "OnTick", nullptr, targetId, delta);
 }
 
+static void SkillSync_OnXP(uint32_t peerId, uint16_t skillId, int16_t delta)
+{
+    RED4ext::ExecuteFunction("SkillSync", "OnXP", nullptr, peerId, skillId, delta);
+}
+
 static void TrafficSync_OnSeed(uint64_t hash, uint64_t seed)
 {
     RED4ext::ExecuteFunction("TrafficSync", "OnSeed", nullptr, hash, seed);
@@ -242,6 +274,21 @@ static void TrafficSync_OnDespawn(uint32_t id)
 static void CrimeSpawner_OnEvent(const CoopNet::CrimeEventSpawnPacket& pkt)
 {
     RED4ext::ExecuteFunction("CrimeSpawner", "OnEvent", nullptr, &pkt);
+}
+
+static void PanicSync_OnEvent(const CoopNet::PanicEventPacket& pkt)
+{
+    RED4ext::ExecuteFunction("PanicSync", "OnEvent", nullptr, &pkt);
+}
+
+static void AIHackSync_OnHack(uint32_t target, uint8_t effectId)
+{
+    RED4ext::ExecuteFunction("AIHackSync", "OnHack", nullptr, target, effectId);
+}
+
+static void BossPhaseSync_OnSwitch(uint32_t npcId, uint8_t phase)
+{
+    RED4ext::ExecuteFunction("BossPhaseSync", "OnSwitch", nullptr, npcId, phase);
 }
 
 static void PropSync_OnBreak(uint32_t id, uint32_t seed)
@@ -474,6 +521,20 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             CrimeSpawner_OnEvent(*pkt);
         }
         break;
+    case EMsg::PanicEvent:
+        if (size >= sizeof(PanicEventPacket))
+        {
+            const PanicEventPacket* pkt = reinterpret_cast<const PanicEventPacket*>(payload);
+            PanicSync_OnEvent(*pkt);
+        }
+        break;
+    case EMsg::BossPhase:
+        if (size >= sizeof(BossPhasePacket))
+        {
+            const BossPhasePacket* pkt = reinterpret_cast<const BossPhasePacket*>(payload);
+            BossPhaseSync_OnSwitch(pkt->npcId, pkt->phaseIdx);
+        }
+        break;
     case EMsg::GigSpawn:
         if (size >= sizeof(GigSpawnPacket))
         {
@@ -518,6 +579,16 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             PerkSync_OnRespecAck(pkt->peerId, pkt->newPoints);
         }
         break;
+    case EMsg::SkillXP:
+        if (size >= sizeof(SkillXPPacket))
+        {
+            const SkillXPPacket* pkt = reinterpret_cast<const SkillXPPacket*>(payload);
+            if (Net_IsAuthoritative())
+                CoopNet::SkillController_HandleXP(this, pkt->skillId, pkt->deltaXP);
+            else
+                SkillSync_OnXP(pkt->peerId, pkt->skillId, pkt->deltaXP);
+        }
+        break;
     case EMsg::StatusApply:
         if (size >= sizeof(StatusApplyPacket))
         {
@@ -533,6 +604,13 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const StatusTickPacket* pkt = reinterpret_cast<const StatusTickPacket*>(payload);
             StatusEffectSync_OnTick(pkt->targetId, pkt->hpDelta);
+        }
+        break;
+    case EMsg::AIHack:
+        if (size >= sizeof(AIHackPacket))
+        {
+            const AIHackPacket* pkt = reinterpret_cast<const AIHackPacket*>(payload);
+            AIHackSync_OnHack(pkt->targetId, pkt->effectId);
         }
         break;
     case EMsg::TrafficSeed:
@@ -603,6 +681,13 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             Inventory_OnAttachResult(pkt->item, pkt->success != 0);
         }
         break;
+    case EMsg::ReRollResult:
+        if (size >= sizeof(ReRollResultPacket))
+        {
+            const ReRollResultPacket* pkt = reinterpret_cast<const ReRollResultPacket*>(payload);
+            Inventory_OnReRollResult(pkt->snap);
+        }
+        break;
     case EMsg::HeatSync:
         if (size >= sizeof(HeatPacket))
         {
@@ -653,7 +738,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(VehicleSpawnPacket))
         {
             const VehicleSpawnPacket* pkt = reinterpret_cast<const VehicleSpawnPacket*>(payload);
-            VehicleProxy_Spawn(pkt->vehicleId, &pkt->transform);
+            VehicleProxy_Spawn(pkt->vehicleId, &pkt->transform, pkt->phaseId);
         }
         break;
     case EMsg::SeatAssign:
@@ -668,6 +753,14 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const VehicleHitPacket* pkt = reinterpret_cast<const VehicleHitPacket*>(payload);
             VehicleProxy_ApplyDamage(pkt->vehicleId, pkt->dmg, pkt->side != 0);
+        }
+        break;
+    case EMsg::VehicleHitHighSpeed:
+        if (size >= sizeof(VehicleHitHighSpeedPacket))
+        {
+            const VehicleHitHighSpeedPacket* pkt = reinterpret_cast<const VehicleHitHighSpeedPacket*>(payload);
+            VehicleProxy_ApplyDamage(pkt->vehA, 0, false); // damage handled server-side
+            VehicleProxy_ApplyDamage(pkt->vehB, 0, false);
         }
         break;
     case EMsg::SeatRequest:
@@ -688,7 +781,21 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(VehicleSummonPacket))
         {
             const VehicleSummonPacket* pkt = reinterpret_cast<const VehicleSummonPacket*>(payload);
-            VehicleProxy_Spawn(pkt->vehId, &pkt->pos);
+            VehicleProxy_Spawn(pkt->vehId, &pkt->pos, 0u);
+        }
+        break;
+    case EMsg::VehicleTowRequest:
+        if (size >= sizeof(VehicleTowRequestPacket) && Net_IsAuthoritative())
+        {
+            const VehicleTowRequestPacket* pkt = reinterpret_cast<const VehicleTowRequestPacket*>(payload);
+            CoopNet::VehicleController_HandleTowRequest(this, pkt->pos);
+        }
+        break;
+    case EMsg::VehicleTowAck:
+        if (size >= sizeof(VehicleTowAckPacket) && !Net_IsAuthoritative())
+        {
+            const VehicleTowAckPacket* pkt = reinterpret_cast<const VehicleTowAckPacket*>(payload);
+            ChatOverlay_Push(pkt->ok ? "[Tow] Car returned" : "[Tow] Failed");
         }
         break;
     case EMsg::Appearance:
@@ -804,7 +911,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             const CineStartPacket* pkt = reinterpret_cast<const CineStartPacket*>(payload);
             if (pkt->solo && pkt->phaseId != peerId)
             {
-                std::cout << "Teammate cinematic" << std::endl;
+                BusyOverlay_Show("Teammate busy");
             }
             else
             {
@@ -956,6 +1063,80 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             CoopNet::Inventory_HandleAttachRequest(this, pkt->itemId, pkt->slotIdx, pkt->attachmentId);
         }
         break;
+    case EMsg::ReRollRequest:
+        if (size >= sizeof(ReRollRequestPacket) && Net_IsAuthoritative())
+        {
+            const ReRollRequestPacket* pkt = reinterpret_cast<const ReRollRequestPacket*>(payload);
+            CoopNet::Inventory_HandleReRollRequest(this, pkt->itemId, pkt->seed);
+        }
+        break;
+    case EMsg::RipperInstallRequest:
+        if (size >= sizeof(RipperInstallRequestPacket) && Net_IsAuthoritative())
+        {
+            const RipperInstallRequestPacket* pkt = reinterpret_cast<const RipperInstallRequestPacket*>(payload);
+            Net_BroadcastCineStart(CoopNet::Fnv1a32("ripper_chair"), 0u, peerId, true);
+        }
+        break;
+    case EMsg::TileGameStart:
+        if (size >= sizeof(TileGameStartPacket))
+        {
+            const TileGameStartPacket* pkt = reinterpret_cast<const TileGameStartPacket*>(payload);
+            TileGameSync_OnStart(pkt->phaseId, pkt->seed);
+        }
+        break;
+    case EMsg::TileSelect:
+        if (size >= sizeof(TileSelectPacket))
+        {
+            const TileSelectPacket* pkt = reinterpret_cast<const TileSelectPacket*>(payload);
+            TileGameSync_OnSelect(pkt->peerId, pkt->row, pkt->col);
+            if (Net_IsAuthoritative())
+                CoopNet::ShardController_HandleSelect(pkt->peerId, pkt->row, pkt->col);
+        }
+        break;
+    case EMsg::ShardProgress:
+        if (size >= sizeof(ShardProgressPacket))
+        {
+            const ShardProgressPacket* pkt = reinterpret_cast<const ShardProgressPacket*>(payload);
+            TileGameSync_OnProgress(pkt->percent);
+        }
+        break;
+    case EMsg::TradeInit:
+        if (size >= sizeof(TradeInitPacket))
+        {
+            const TradeInitPacket* pkt = reinterpret_cast<const TradeInitPacket*>(payload);
+            if (Net_IsAuthoritative())
+                CoopNet::TradeController_Start(pkt->fromId, pkt->toId);
+            else
+                TradeWindow_OnInit(pkt->fromId);
+        }
+        break;
+    case EMsg::TradeOffer:
+        if (size >= sizeof(TradeOfferPacket))
+        {
+            const TradeOfferPacket* pkt = reinterpret_cast<const TradeOfferPacket*>(payload);
+            if (Net_IsAuthoritative())
+                CoopNet::TradeController_HandleOffer(this, *pkt);
+            else
+                TradeWindow_OnOffer(pkt->fromId, pkt->items, pkt->count, pkt->eddies);
+        }
+        break;
+    case EMsg::TradeAccept:
+        if (size >= sizeof(TradeAcceptPacket))
+        {
+            const TradeAcceptPacket* pkt = reinterpret_cast<const TradeAcceptPacket*>(payload);
+            if (Net_IsAuthoritative())
+                CoopNet::TradeController_HandleAccept(this, pkt->peerId, pkt->accept != 0);
+            else
+                TradeWindow_OnAccept(pkt->peerId, pkt->accept != 0);
+        }
+        break;
+    case EMsg::TradeFinalize:
+        if (size >= sizeof(TradeFinalizePacket))
+        {
+            const TradeFinalizePacket* pkt = reinterpret_cast<const TradeFinalizePacket*>(payload);
+            TradeWindow_OnFinalize(pkt->success != 0);
+        }
+        break;
     case EMsg::PurchaseRequest:
         if (size >= sizeof(PurchaseRequestPacket) && Net_IsAuthoritative())
         {
@@ -968,6 +1149,44 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const DealerBuyPacket* pkt = reinterpret_cast<const DealerBuyPacket*>(payload);
             CoopNet::DealerController_HandleBuy(this, pkt->vehicleTpl, pkt->price);
+        }
+        break;
+    case EMsg::AptPurchase:
+        if (size >= sizeof(AptPurchasePacket) && Net_IsAuthoritative())
+        {
+            const AptPurchasePacket* pkt = reinterpret_cast<const AptPurchasePacket*>(payload);
+            CoopNet::ApartmentController_HandlePurchase(this, pkt->aptId);
+        }
+        break;
+    case EMsg::AptEnterReq:
+        if (size >= sizeof(AptEnterReqPacket) && Net_IsAuthoritative())
+        {
+            const AptEnterReqPacket* pkt = reinterpret_cast<const AptEnterReqPacket*>(payload);
+            CoopNet::ApartmentController_HandleEnter(this, pkt->aptId, pkt->ownerPhaseId);
+        }
+        break;
+    case EMsg::AptPermChange:
+        if (size >= sizeof(AptPermChangePacket))
+        {
+            const AptPermChangePacket* pkt = reinterpret_cast<const AptPermChangePacket*>(payload);
+            if (Net_IsAuthoritative())
+            {
+                CoopNet::ApartmentController_HandlePermChange(this, pkt->aptId, pkt->targetPeerId, pkt->allow != 0);
+            }
+        }
+        break;
+    case EMsg::AptPurchaseAck:
+        if (size >= sizeof(AptPurchaseAckPacket) && !Net_IsAuthoritative())
+        {
+            const AptPurchaseAckPacket* pkt = reinterpret_cast<const AptPurchaseAckPacket*>(payload);
+            Apartments_OnPurchaseAck(pkt->aptId, pkt->balance, pkt->success != 0);
+        }
+        break;
+    case EMsg::AptEnterAck:
+        if (size >= sizeof(AptEnterAckPacket) && !Net_IsAuthoritative())
+        {
+            const AptEnterAckPacket* pkt = reinterpret_cast<const AptEnterAckPacket*>(payload);
+            Apartments_OnEnterAck(pkt->allow != 0, pkt->phaseId, pkt->interiorSeed);
         }
         break;
     case EMsg::VehicleUnlock:
@@ -988,7 +1207,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(FinisherStartPacket))
         {
             const FinisherStartPacket* pkt = reinterpret_cast<const FinisherStartPacket*>(payload);
-            WeaponSync_OnFinisherStart(pkt->actorId, pkt->victimId, pkt->animId);
+            WeaponSync_OnFinisherStart(pkt->actorId, pkt->victimId, pkt->finisherType);
         }
         break;
     case EMsg::FinisherEnd:
@@ -1015,7 +1234,22 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
     case EMsg::CriticalVoteCast:
         if (size >= sizeof(CriticalVoteCastPacket) && Net_IsAuthoritative())
         {
-            // TODO tally votes
+            const CriticalVoteCastPacket* pkt = reinterpret_cast<const CriticalVoteCastPacket*>(payload);
+            CoopNet::QuestWatchdog_HandleVote(peerId, pkt->yes != 0);
+        }
+        break;
+    case EMsg::EndingVoteStart:
+        if (size >= sizeof(EndingVoteStartPacket))
+        {
+            const EndingVoteStartPacket* pkt = reinterpret_cast<const EndingVoteStartPacket*>(payload);
+            std::cout << "[Vote] ending triggered" << std::endl;
+        }
+        break;
+    case EMsg::EndingVoteCast:
+        if (size >= sizeof(EndingVoteCastPacket) && Net_IsAuthoritative())
+        {
+            const EndingVoteCastPacket* pkt = reinterpret_cast<const EndingVoteCastPacket*>(payload);
+            CoopNet::QuestWatchdog_HandleEndingVote(peerId, pkt->yes != 0);
         }
         break;
     case EMsg::PhaseBundle:

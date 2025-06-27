@@ -1,6 +1,9 @@
 #include "PhaseGC.hpp"
 #include "../core/GameClock.hpp"
 #include "../net/Net.hpp"
+#include "NpcController.hpp"
+#include "PhaseTriggerController.hpp"
+#include "SnapshotHeap.hpp"
 #include <RED4ext/RED4ext.hpp>
 #include <iostream>
 #include <unordered_map>
@@ -38,7 +41,9 @@ void PhaseGC_Tick(uint64_t nowTick)
         }
         if (!hasPlayer && nowTick - it->second > timeout)
         {
-            RED4ext::ExecuteFunction("PhaseTrigger", "ClearPhaseTriggers", nullptr, id);
+            PhaseTrigger_Clear(id);
+            NpcController_Despawn(id); // best-effort per-phase cleanup
+            SnapshotStore_PurgeOld(0.f);
             std::cout << "[PhaseGC] cleaned phase " << id << std::endl;
             it = g_lastActive.erase(it);
         }

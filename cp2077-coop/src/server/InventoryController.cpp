@@ -3,6 +3,7 @@
 #include "../net/Packets.hpp"
 #include <cstring>
 #include <iostream>
+#include <random>
 #include <unordered_map>
 
 namespace CoopNet
@@ -85,6 +86,23 @@ void Inventory_HandleAttachRequest(Connection* conn, uint64_t itemId, uint8_t sl
         Net_Broadcast(EMsg::ItemSnap, &snapPkt, sizeof(snapPkt));
     }
     std::cout << "AttachRequest item=" << itemId << " slot=" << static_cast<int>(slotIdx) << " ok=" << ok << std::endl;
+}
+
+void Inventory_HandleReRollRequest(Connection* conn, uint64_t itemId, uint32_t seed)
+{
+    if (!conn)
+        return;
+    auto it = g_items.find(itemId);
+    if (it == g_items.end() || !ValidateMaterials(it->second.tpl))
+        return;
+    std::mt19937 rng(seed);
+    for (int i = 0; i < 4; ++i)
+        it->second.rolls[i] = rng();
+    ReRollResultPacket res{it->second};
+    Net_Send(conn, EMsg::ReRollResult, &res, sizeof(res));
+    ItemSnapPacket snapPkt{it->second};
+    Net_Broadcast(EMsg::ItemSnap, &snapPkt, sizeof(snapPkt));
+    std::cout << "ReRollRequest item=" << itemId << " seed=" << seed << std::endl;
 }
 
 } // namespace CoopNet

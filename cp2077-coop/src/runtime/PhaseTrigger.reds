@@ -3,8 +3,7 @@ public class PhaseTrigger {
 
   public static func SpawnPhaseTrigger(baseEntId: Uint32, phaseId: Uint32) -> Void {
     if !Net_IsAuthoritative() { return; };
-    let name: String = IntToString(Cast<Int32>(baseEntId)) + "_ph" + IntToString(Cast<Int32>(phaseId));
-    RED4ext.ExecuteFunction("TriggerSystem", "SpawnPhaseTrigger", null, baseEntId, phaseId, StringToName(name));
+    RED4ext.ExecuteFunction("TriggerSystem", "SpawnPhaseTrigger", null, baseEntId, phaseId);
     var list = spawned.Get(phaseId) as array<Uint32>;
     if !IsDefined(list) { list = []; };
     ArrayPush(list, baseEntId);

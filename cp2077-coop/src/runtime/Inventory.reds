@@ -40,6 +40,19 @@ public class Inventory {
         };
     }
 
+    public static func OnReRollResult(snap: ref<ItemSnap>) -> Void {
+        let count: Int32 = ArraySize(items);
+        var i: Int32 = 0;
+        while i < count {
+            if items[i].itemId == snap.itemId {
+                items[i] = *snap;
+                break;
+            };
+            i += 1;
+        };
+        LogChannel(n"DEBUG", "ReRolled " + Uint64ToString(snap.itemId));
+    }
+
     public static func OnPurchaseResult(itemId: Uint64, balance: Uint64, success: Bool) -> Void {
         if success {
             LogChannel(n"DEBUG", "Purchased item " + Uint64ToString(itemId));
@@ -55,6 +68,12 @@ public class Inventory {
 
     public static func RequestAttach(itemId: Uint64, slotIdx: Uint8, attachId: Uint64) -> Void {
         Net_SendAttachRequest(itemId, slotIdx, attachId);
+    }
+
+    public static func RequestReRoll(itemId: Uint64) -> Void {
+        let tick: Uint32 = CoopNet.GameClock.GetCurrentTick();
+        let seed: Uint32 = CoopNet.Fnv1a32(Uint64ToString(itemId) + IntToString(Cast<Int32>(tick)));
+        CoopNet.Net_SendReRollRequest(itemId, seed);
     }
 
     public static func RequestPurchase(vendorId: Uint32, itemId: Uint32, nonce: Uint64) -> Void {

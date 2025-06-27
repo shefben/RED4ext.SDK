@@ -8,6 +8,8 @@ public class AvatarProxy extends gameObject {
     public var armor: Uint16;
     public var currentSector: Uint64;
     public var invulEndTick: Uint64;
+    public var meshId: Uint32;
+    public var tintId: Uint32;
     // Future tickets will push per-tick input states here for client prediction
     // and server reconciliation.
     // Buffered movement commands awaiting server acknowledgement.
@@ -77,8 +79,19 @@ public class AvatarProxy extends gameObject {
     public static func OnAppearance(id: Uint32, meshId: Uint32, tintId: Uint32) -> Void {
         let avatar = GameInstance.GetPlayerSystem(GetGame()).FindObject(id) as AvatarProxy;
         if IsDefined(avatar) {
-            LogChannel(n"appearance", "peer=" + IntToString(id) + " mesh=" + IntToString(meshId));
-            // TODO apply cloth mesh and tint
+            avatar.meshId = meshId;
+            avatar.tintId = tintId;
+            LogChannel(n"appearance", "peer=" + IntToString(id) + " mesh=" + IntToString(meshId) + " tint=" + IntToString(tintId));
+            avatar.RefreshAppearance();
+        };
+    }
+
+    public func RefreshAppearance() -> Void {
+        if HasMethod(this, n"SetBodyMesh") {
+            this.SetBodyMesh(meshId);
+        };
+        if HasMethod(this, n"SetBodyTint") {
+            this.SetBodyTint(tintId);
         };
     }
 

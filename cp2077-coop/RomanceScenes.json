@@ -1,0 +1,12 @@
+[
+    {
+        "questHash": 111111,
+        "stage": 200,
+        "sceneId": 12345
+    },
+    {
+        "questHash": 222222,
+        "stage": 100,
+        "sceneId": 67890
+    }
+]

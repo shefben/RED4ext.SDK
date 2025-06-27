@@ -1,4 +1,10 @@
-#questHash,
-    stage 123456,
-    2 789012,
-    3
+[
+    {
+        "questHash": 123456,
+        "stage": 2
+    },
+    {
+        "questHash": 789012,
+        "stage": 3
+    }
+]

@@ -1,5 +1,6 @@
 #include "Net.hpp"
 #include "../core/Hash.hpp"
+#include "../runtime/QuestSync.reds"
 #include "../server/AdminController.hpp"
 #include "../server/PoliceDispatch.hpp"
 #include "../server/QuestWatchdog.hpp"
@@ -277,9 +278,10 @@ void Net_BroadcastEject(uint32_t peerId, const RED4ext::Vector3& vel)
     Net_Broadcast(EMsg::EjectOccupant, &pkt, sizeof(pkt));
 }
 
-void Net_BroadcastVehicleSpawn(uint32_t vehicleId, uint32_t archetypeId, uint32_t paintId, const TransformSnap& t)
+void Net_BroadcastVehicleSpawn(uint32_t vehicleId, uint32_t archetypeId, uint32_t paintId, uint32_t phaseId,
+                               const TransformSnap& t)
 {
-    VehicleSpawnPacket pkt{vehicleId, archetypeId, paintId, t};
+    VehicleSpawnPacket pkt{vehicleId, archetypeId, paintId, phaseId, t};
     Net_Broadcast(EMsg::VehicleSpawn, &pkt, sizeof(pkt));
 }
 
@@ -647,6 +649,22 @@ void Net_SendPerkRespecAck(CoopNet::Connection* conn, uint16_t newPoints)
     Net_Send(conn, EMsg::PerkRespecAck, &pkt, sizeof(pkt));
 }
 
+void Net_SendSkillXP(uint16_t skillId, int16_t deltaXP)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        SkillXPPacket pkt{0u, skillId, deltaXP};
+        Net_Send(conns[0], EMsg::SkillXP, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_BroadcastSkillXP(uint32_t peerId, uint16_t skillId, int16_t deltaXP)
+{
+    SkillXPPacket pkt{peerId, skillId, deltaXP};
+    Net_Broadcast(EMsg::SkillXP, &pkt, sizeof(pkt));
+}
+
 void Net_BroadcastStatusApply(uint32_t targetId, uint8_t effectId, uint16_t durMs, uint8_t amp)
 {
     StatusApplyPacket pkt{targetId, effectId, durMs, amp};
@@ -739,6 +757,144 @@ void Net_BroadcastLootRoll(uint32_t containerId, uint32_t seed)
     Net_Broadcast(EMsg::LootRoll, &pkt, sizeof(pkt));
 }
 
+void Net_BroadcastAptPermChange(uint32_t aptId, uint32_t targetPeerId, bool allow)
+{
+    AptPermChangePacket pkt{aptId, targetPeerId, static_cast<uint8_t>(allow), {0, 0, 0}};
+    Net_Broadcast(EMsg::AptPermChange, &pkt, sizeof(pkt));
+}
+
+void Net_SendVehicleTowRequest(const RED4ext::Vector3& pos)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        VehicleTowRequestPacket pkt{pos};
+        Net_Send(conns[0], EMsg::VehicleTowRequest, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_SendVehicleTowAck(Connection* conn, uint32_t ownerId, bool ok)
+{
+    if (!conn)
+        return;
+    VehicleTowAckPacket pkt{ownerId, static_cast<uint8_t>(ok), {0, 0, 0}};
+    Net_Send(conn, EMsg::VehicleTowAck, &pkt, sizeof(pkt));
+}
+
+void Net_SendReRollRequest(uint64_t itemId, uint32_t seed)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        ReRollRequestPacket pkt{itemId, seed};
+        Net_Send(conns[0], EMsg::ReRollRequest, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_SendReRollResult(Connection* conn, const ItemSnap& snap)
+{
+    if (!conn)
+        return;
+    ReRollResultPacket pkt{snap};
+    Net_Send(conn, EMsg::ReRollResult, &pkt, sizeof(pkt));
+}
+
+void Net_SendRipperInstallRequest(uint8_t slotId)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        RipperInstallRequestPacket pkt{slotId, {0, 0, 0}};
+        Net_Send(conns[0], EMsg::RipperInstallRequest, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_SendTileSelect(uint8_t row, uint8_t col)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        TileSelectPacket pkt{Net_GetPeerId(), QuestSync::localPhase, row, col, {0, 0}};
+        Net_Send(conns[0], EMsg::TileSelect, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_BroadcastTileGameStart(uint32_t phaseId, uint32_t seed)
+{
+    TileGameStartPacket pkt{phaseId, seed};
+    Net_Broadcast(EMsg::TileGameStart, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastTileSelect(uint32_t peerId, uint32_t phaseId, uint8_t row, uint8_t col)
+{
+    TileSelectPacket pkt{peerId, phaseId, row, col, {0, 0}};
+    Net_Broadcast(EMsg::TileSelect, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastShardProgress(uint32_t phaseId, uint8_t percent)
+{
+    ShardProgressPacket pkt{phaseId, percent, {0, 0, 0}};
+    Net_Broadcast(EMsg::ShardProgress, &pkt, sizeof(pkt));
+}
+
+void Net_SendTradeInit(uint32_t targetPeerId)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        TradeInitPacket pkt{Net_GetPeerId(), targetPeerId};
+        Net_Send(conns[0], EMsg::TradeInit, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_SendTradeOffer(const ItemSnap* items, uint8_t count, uint32_t eddies)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        TradeOfferPacket pkt{};
+        pkt.fromId = Net_GetPeerId();
+        pkt.toId = 0u;
+        pkt.count = count;
+        pkt.eddies = eddies;
+        if (count > 0 && items)
+            std::memcpy(pkt.items, items, sizeof(ItemSnap) * count);
+        Net_Send(conns[0], EMsg::TradeOffer, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_SendTradeAccept(bool accept)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        TradeAcceptPacket pkt{Net_GetPeerId(), static_cast<uint8_t>(accept), {0, 0, 0}};
+        Net_Send(conns[0], EMsg::TradeAccept, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_BroadcastTradeFinalize(bool success)
+{
+    TradeFinalizePacket pkt{static_cast<uint8_t>(success), {0, 0, 0}};
+    Net_Broadcast(EMsg::TradeFinalize, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastEndingVoteStart(uint32_t questHash)
+{
+    EndingVoteStartPacket pkt{questHash};
+    Net_Broadcast(EMsg::EndingVoteStart, &pkt, sizeof(pkt));
+}
+
+void Net_SendEndingVoteCast(bool yes)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        EndingVoteCastPacket pkt{Net_GetPeerId(), static_cast<uint8_t>(yes), {0, 0, 0}};
+        Net_Send(conns[0], EMsg::EndingVoteCast, &pkt, sizeof(pkt));
+    }
+}
+
 void Net_SendDealerBuy(uint32_t vehicleTpl, uint32_t price)
 {
     auto conns = Net_GetConnections();
@@ -755,15 +911,78 @@ void Net_BroadcastVehicleUnlock(uint32_t peerId, uint32_t vehicleTpl)
     Net_Broadcast(EMsg::VehicleUnlock, &pkt, sizeof(pkt));
 }
 
+void Net_BroadcastVehicleHitHighSpeed(uint32_t vehA, uint32_t vehB, const RED4ext::Vector3& delta)
+{
+    VehicleHitHighSpeedPacket pkt{vehA, vehB, delta};
+    Net_Broadcast(EMsg::VehicleHitHighSpeed, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastVehicleSnap(const VehicleSnap& snap)
+{
+    VehicleSnapshotPacket pkt{snap};
+    Net_Broadcast(EMsg::VehicleSnapshot, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastTurretAim(uint32_t vehId, float yaw, float pitch)
+{
+    TurretAimPacket pkt{vehId, yaw, pitch};
+    Net_Broadcast(EMsg::TurretAim, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastAirVehSpawn(uint32_t vehId, const RED4ext::Vector3* pts, uint8_t count)
+{
+    AirVehSpawnPacket pkt{};
+    pkt.vehId = vehId;
+    pkt.count = count > 8 ? 8 : count;
+    for (uint8_t i = 0; i < pkt.count; ++i)
+        pkt.points[i] = pts[i];
+    Net_Broadcast(EMsg::AirVehSpawn, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastAirVehUpdate(uint32_t vehId, const TransformSnap& t)
+{
+    AirVehUpdatePacket pkt{vehId, t};
+    Net_Broadcast(EMsg::AirVehUpdate, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastVehiclePaintChange(uint32_t vehId, uint32_t colorId, const char* plate)
+{
+    VehiclePaintChangePacket pkt{};
+    pkt.vehId = vehId;
+    pkt.colorId = colorId;
+    std::memset(pkt.plateId, 0, sizeof(pkt.plateId));
+    if (plate)
+        std::memcpy(pkt.plateId, plate, std::min<size_t>(7, std::strlen(plate)));
+    Net_Broadcast(EMsg::VehiclePaintChange, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastPanicEvent(const RED4ext::Vector3& pos, uint32_t seed)
+{
+    PanicEventPacket pkt{pos, seed};
+    Net_Broadcast(EMsg::PanicEvent, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastAIHack(uint32_t targetId, uint8_t effectId)
+{
+    AIHackPacket pkt{targetId, effectId, {0, 0, 0}};
+    Net_Broadcast(EMsg::AIHack, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastBossPhase(uint32_t npcId, uint8_t phaseIdx)
+{
+    BossPhasePacket pkt{npcId, phaseIdx, {0, 0, 0}};
+    Net_Broadcast(EMsg::BossPhase, &pkt, sizeof(pkt));
+}
+
 void Net_BroadcastWeaponInspect(uint32_t peerId, uint16_t animId)
 {
     WeaponInspectPacket pkt{peerId, animId, 0};
     Net_Broadcast(EMsg::WeaponInspectStart, &pkt, sizeof(pkt));
 }
 
-void Net_BroadcastFinisherStart(uint32_t actorId, uint32_t victimId, uint16_t animId)
+void Net_BroadcastFinisherStart(uint32_t actorId, uint32_t victimId, uint8_t finisherType)
 {
-    FinisherStartPacket pkt{actorId, victimId, animId, 0};
+    FinisherStartPacket pkt{actorId, victimId, finisherType, {0, 0, 0}};
     Net_Broadcast(EMsg::FinisherStart, &pkt, sizeof(pkt));
 }
 
@@ -803,4 +1022,50 @@ void Net_SendPhaseBundle(Connection* conn, uint32_t phaseId, const std::vector<u
     pkt->blobBytes = static_cast<uint16_t>(blob.size());
     std::memcpy(pkt->zstdBlob, blob.data(), blob.size());
     Net_Send(conn, EMsg::PhaseBundle, pkt, static_cast<uint16_t>(buf.size()));
+}
+
+void Net_SendAptPurchase(uint32_t aptId)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        AptPurchasePacket pkt{aptId};
+        Net_Send(conns[0], EMsg::AptPurchase, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_SendAptEnterReq(uint32_t aptId, uint32_t ownerPhaseId)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        AptEnterReqPacket pkt{aptId, ownerPhaseId};
+        Net_Send(conns[0], EMsg::AptEnterReq, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_SendAptPermChange(uint32_t aptId, uint32_t targetPeerId, bool allow)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        AptPermChangePacket pkt{aptId, targetPeerId, static_cast<uint8_t>(allow), {0, 0, 0}};
+        Net_Send(conns[0], EMsg::AptPermChange, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_SendAptPurchaseAck(Connection* conn, uint32_t aptId, bool success, uint64_t balance)
+{
+    if (!conn)
+        return;
+    AptPurchaseAckPacket pkt{aptId, balance, static_cast<uint8_t>(success), {0, 0, 0}};
+    Net_Send(conn, EMsg::AptPurchaseAck, &pkt, sizeof(pkt));
+}
+
+void Net_SendAptEnterAck(Connection* conn, bool allow, uint32_t phaseId, uint32_t interiorSeed)
+{
+    if (!conn)
+        return;
+    AptEnterAckPacket pkt{static_cast<uint8_t>(allow), {0, 0, 0}, phaseId, interiorSeed};
+    Net_Send(conn, EMsg::AptEnterAck, &pkt, sizeof(pkt));
 }

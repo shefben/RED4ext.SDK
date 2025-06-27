@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Snapshot.hpp"
+#include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
 #include <cstdint>
 
 namespace CoopNet
@@ -91,6 +92,7 @@ enum class EMsg : uint16_t
     PerkUnlock,
     PerkRespecRequest,
     PerkRespecAck,
+    SkillXP, // SX-1
     StatusApply,
     StatusTick,
     TrafficSeed,
@@ -113,7 +115,35 @@ enum class EMsg : uint16_t
     TextureBiasChange,
     CriticalVoteStart, // PX-6
     CriticalVoteCast,
-    PhaseBundle
+    PhaseBundle,
+    AptPurchase,
+    AptPurchaseAck,
+    AptEnterReq,
+    AptEnterAck,
+    AptPermChange,
+    VehicleHitHighSpeed,
+    VehicleTowRequest,
+    VehicleTowAck,
+    ReRollRequest, // WM-1
+    ReRollResult,
+    RipperInstallRequest,
+    TileGameStart, // MG-1
+    TileSelect,
+    ShardProgress, // MG-2
+    TradeInit,     // TRD-1
+    TradeOffer,
+    TradeAccept,
+    TradeFinalize,
+    EndingVoteStart, // EG-1
+    EndingVoteCast,
+    VehicleSnapshot, // VT-1
+    TurretAim,       // VT-2
+    AirVehSpawn,     // VT-3
+    AirVehUpdate,
+    VehiclePaintChange, // VT-4
+    PanicEvent,         // AI-1
+    AIHack,             // AI-2
+    BossPhase           // AI-3
 };
 
 struct PacketHeader
@@ -177,6 +207,7 @@ struct VehicleSpawnPacket
     uint32_t vehicleId;
     uint32_t archetypeId;
     uint32_t paintId;
+    uint32_t phaseId;
     TransformSnap transform;
 };
 
@@ -205,6 +236,13 @@ struct VehicleHitPacket
     uint16_t dmg;
     uint8_t side; // 1 if side impact
     uint8_t pad;
+};
+
+struct VehicleHitHighSpeedPacket
+{
+    uint32_t vehA;
+    uint32_t vehB;
+    RED4ext::Vector3 deltaVel;
 };
 
 struct WorldStatePacket
@@ -586,6 +624,13 @@ struct PerkRespecAckPacket
     uint8_t _pad[2];
 };
 
+struct SkillXPPacket
+{
+    uint32_t peerId;
+    uint16_t skillId;
+    int16_t deltaXP;
+};
+
 struct StatusApplyPacket
 {
     uint32_t targetId;
@@ -692,8 +737,8 @@ struct FinisherStartPacket
 {
     uint32_t actorId;
     uint32_t victimId;
-    uint16_t animId;
-    uint16_t _pad;
+    uint8_t finisherType;
+    uint8_t _pad[3];
 };
 
 struct FinisherEndPacket
@@ -724,6 +769,186 @@ struct PhaseBundlePacket
     uint32_t phaseId;
     uint16_t blobBytes;
     uint8_t zstdBlob[1];
+};
+
+struct AptPurchasePacket
+{
+    uint32_t aptId;
+};
+
+struct AptPurchaseAckPacket
+{
+    uint32_t aptId;
+    uint64_t balance;
+    uint8_t success;
+    uint8_t _pad[3];
+};
+
+struct AptEnterReqPacket
+{
+    uint32_t aptId;
+    uint32_t ownerPhaseId;
+};
+
+struct AptEnterAckPacket
+{
+    uint8_t allow;
+    uint8_t _pad[3];
+    uint32_t phaseId;
+    uint32_t interiorSeed;
+};
+
+struct AptPermChangePacket
+{
+    uint32_t aptId;
+    uint32_t targetPeerId;
+    uint8_t allow;
+    uint8_t _pad[3];
+};
+
+struct VehicleTowRequestPacket
+{
+    RED4ext::Vector3 pos;
+};
+
+struct VehicleTowAckPacket
+{
+    uint32_t ownerId;
+    uint8_t ok;
+    uint8_t _pad[3];
+};
+
+struct ReRollRequestPacket
+{
+    uint64_t itemId;
+    uint32_t seed;
+};
+
+struct ReRollResultPacket
+{
+    ItemSnap snap;
+};
+
+struct RipperInstallRequestPacket
+{
+    uint8_t slotId;
+    uint8_t _pad[3];
+};
+
+struct TileGameStartPacket
+{
+    uint32_t phaseId;
+    uint32_t seed;
+};
+
+struct TileSelectPacket
+{
+    uint32_t peerId;
+    uint32_t phaseId;
+    uint8_t row;
+    uint8_t col;
+    uint8_t _pad[2];
+};
+
+struct ShardProgressPacket
+{
+    uint32_t phaseId;
+    uint8_t percent;
+    uint8_t _pad[3];
+};
+
+struct TradeInitPacket
+{
+    uint32_t fromId;
+    uint32_t toId;
+};
+
+struct TradeOfferPacket
+{
+    uint32_t fromId;
+    uint32_t toId;
+    uint8_t count;
+    uint8_t _pad[3];
+    uint32_t eddies;
+    ItemSnap items[8];
+};
+
+struct TradeAcceptPacket
+{
+    uint32_t peerId;
+    uint8_t accept;
+    uint8_t _pad[3];
+};
+
+struct TradeFinalizePacket
+{
+    uint8_t success;
+    uint8_t _pad[3];
+};
+
+struct EndingVoteStartPacket
+{
+    uint32_t questHash;
+};
+
+struct EndingVoteCastPacket
+{
+    uint32_t peerId;
+    uint8_t yes;
+    uint8_t _pad[3];
+};
+
+struct VehicleSnapshotPacket
+{
+    VehicleSnap snap;
+};
+
+struct TurretAimPacket
+{
+    uint32_t vehId;
+    float yaw;
+    float pitch;
+};
+
+struct AirVehSpawnPacket
+{
+    uint32_t vehId;
+    uint8_t count;
+    uint8_t _pad[3];
+    RED4ext::Vector3 points[8];
+};
+
+struct AirVehUpdatePacket
+{
+    uint32_t vehId;
+    TransformSnap snap;
+};
+
+struct VehiclePaintChangePacket
+{
+    uint32_t vehId;
+    uint32_t colorId;
+    char plateId[8];
+};
+
+struct PanicEventPacket
+{
+    RED4ext::Vector3 pos;
+    uint32_t seed;
+};
+
+struct AIHackPacket
+{
+    uint32_t targetId;
+    uint8_t effectId;
+    uint8_t _pad[3];
+};
+
+struct BossPhasePacket
+{
+    uint32_t npcId;
+    uint8_t phaseIdx;
+    uint8_t _pad[3];
 };
 
 struct AvatarSpawnPacket

@@ -13,6 +13,8 @@ uint16_t FilterDamage(uint32_t sourcePeer, uint32_t targetPeer, bool targetIsNpc
         return 0;
 
     float mult = PerkController_GetHealthMult(targetPeer);
+    if (PerkController_HasRelic(sourcePeer, 1000)) // Data Tunneling
+        rawDmg = static_cast<uint16_t>(static_cast<float>(rawDmg) * 1.1f);
     uint16_t maxAllowed = static_cast<uint16_t>((targetArmor * 4 + 200) * mult);
     if (rawDmg > maxAllowed)
     {

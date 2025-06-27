@@ -8,6 +8,7 @@ public class CyberwareSync {
         if peer == Net_GetLocalPeerId() {
             // Reload meshes for local player
             AvatarProxy.ReloadCyberware(slot);
+            CyberCooldownHud.SetCooldown(slot, 30.0);
         };
         QuickhackSync.RefreshSlots(peer);
     }

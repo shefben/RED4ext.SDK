@@ -3,6 +3,7 @@
 
 #include "../net/Packets.hpp"
 #include <cstdint>
+#include <vector>
 
 namespace CoopNet
 {
@@ -12,6 +13,9 @@ void QuestWatchdog_Tick(float dt);
 void QuestWatchdog_BuildFullSync(uint32_t phaseId, QuestFullSyncPacket& outPkt); // PX-2
 std::vector<uint32_t> QuestWatchdog_ListPhases();                                // PX-7
 void QuestWatchdog_LoadCritical();                                               // PX-6
+void QuestWatchdog_LoadRomance();                                                // RM-1
+void QuestWatchdog_HandleVote(uint32_t peerId, bool yes);                        // PX-6
+void QuestWatchdog_HandleEndingVote(uint32_t peerId, bool yes);                  // EG-1
 
 } // namespace CoopNet
 

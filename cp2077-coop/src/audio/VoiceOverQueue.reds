@@ -6,6 +6,13 @@ public struct VOEvent {
 public class VoiceOverQueue {
     public static let events: array<VOEvent>;
 
+    public static func Play(lineId: Uint32) -> Void {
+        if Net_IsAuthoritative() {
+            CoopNet.Net_BroadcastVOPlay(lineId);
+            OnPlay(lineId);
+        };
+    }
+
     public static func OnPlay(lineId: Uint32) -> Void {
         let ts = GameClock.GetTime();
         let evt: VOEvent;
