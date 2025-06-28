@@ -13,4 +13,5 @@ void VehicleController_HandleHit(uint32_t vehicleId, uint16_t dmg, bool side);
 void VehicleController_RemovePeer(uint32_t peerId);
 void VehicleController_HandleSummon(CoopNet::Connection* c, uint32_t vehId, const TransformSnap& t);
 void VehicleController_HandleTowRequest(CoopNet::Connection* c, const RED4ext::Vector3& pos);
+void VehicleController_PhysicsStep(float dt);
 } // namespace CoopNet

@@ -12,8 +12,7 @@ struct EntitySnap
     TransformSnap snap;
 };
 
-// Placeholder container of active entity snapshots
-extern std::vector<EntitySnap> g_entitySnaps;
+std::vector<EntitySnap> g_entitySnaps;
 
 void BuildSnapshot(std::vector<EntitySnap>& out)
 {

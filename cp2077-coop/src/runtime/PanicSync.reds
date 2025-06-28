@@ -6,7 +6,7 @@ public struct PanicEventPacket {
 public class PanicSync {
     public static func OnEvent(pos: Vector3, seed: Uint32) -> Void {
         LogChannel(n"panic", "seed=" + IntToString(Cast<Int32>(seed)));
-        // FIXME(next ticket): spawn flee behavior
+        CoopNotice.Show("Panic event!");
     }
 
     public static func SendEvent(pos: Vector3) -> Void {

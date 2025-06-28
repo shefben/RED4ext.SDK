@@ -111,8 +111,8 @@ void Nat_PerformHandshake(Connection* conn)
         }
         if (g_connected && conn)
         {
-            // Placeholder bandwidth accounting
-            g_relayBytes += 5000; // NT-3: obtain stats from libjuice
+            extern uint64_t juice_get_bytes_relayed(juice_agent_t*);
+            g_relayBytes = juice_get_bytes_relayed(g_agent);
             conn->relayBytes += g_relayBytes;
             conn->rttMs = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start).count();
             conn->usingRelay = g_relayBytes > 0;

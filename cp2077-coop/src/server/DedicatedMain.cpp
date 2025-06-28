@@ -24,6 +24,15 @@
 #include "TrafficController.hpp"
 #include "VehicleController.hpp"
 #include "WebDash.hpp"
+#include "../plugin/PluginManager.hpp"
+#include "../core/TaskGraph.hpp"
+#include "../net/Snapshot.hpp"
+
+namespace CoopNet
+{
+struct EntitySnap;
+void BuildSnapshot(std::vector<EntitySnap>& out);
+}
 #include <cmath>
 #include <cstring>
 #include <iostream>
@@ -60,7 +69,11 @@ int main(int argc, char** argv)
     }
     CoopNet::WebDash_Start();
     CoopNet::AdminController_Start();
+    CoopNet::PluginManager_Init();
     std::cout << "Dedicated up" << std::endl;
+    CoopNet::TaskGraph taskGraph;
+    size_t maxWorkers = std::max<size_t>(1, std::thread::hardware_concurrency() - 1);
+    taskGraph.Start(maxWorkers);
     uint32_t sessionId = 0;
     uint64_t worldClock = 0;
     uint32_t sunAngle = 0;
@@ -79,6 +92,10 @@ int main(int argc, char** argv)
     float goodTime = 0.f;
     float hbTimer = 0.f;
     float memTimer = 0.f;
+    float scaleTimer = 0.f;
+    float scaleAccum = 0.f;
+    int scaleFrames = 0;
+    float fastUnder = 0.f;
     float tickMs = CoopNet::GameClock::GetTickMs();
     bool validated = false;
     auto last = std::chrono::steady_clock::now();
@@ -116,7 +133,10 @@ int main(int argc, char** argv)
         CoopNet::ElevatorController_ServerTick(tickMs);
         if (!CoopNet::ElevatorController_IsPaused())
         {
-            CoopNet::NpcController_ServerTick(tickMs);
+            taskGraph.Submit([tickMs]
+                            { CoopNet::NpcController_ServerTick(tickMs); });
+            taskGraph.Submit([tickMs]
+                            { CoopNet::VehicleController_PhysicsStep(tickMs); });
             CoopNet::VehicleController_ServerTick(tickMs);
             CoopNet::BreachController_ServerTick(tickMs);
             CoopNet::ShardController_ServerTick(tickMs);
@@ -132,9 +152,15 @@ int main(int argc, char** argv)
             RED4ext::ExecuteFunction("GameModeManager", "TickDM", nullptr, static_cast<uint32_t>(tickMs));
         }
         Net_Poll(static_cast<uint32_t>(tickMs));
+        taskGraph.Submit([]
+                        {
+                            std::vector<CoopNet::EntitySnap> tmp;
+                            CoopNet::BuildSnapshot(tmp);
+                        });
         CoopNet::QuestWatchdog_Tick(tickMs);
         CoopNet::PhaseGC_Tick(CoopNet::GameClock::GetCurrentTick());
         CoopNet::AdminController_PollCommands();
+        CoopNet::PluginManager_Tick(tickMs / 1000.f);
         hbTimer += tickMs / 1000.f;
         memTimer += tickMs / 1000.f;
         CoopNet::TextureGuard_Tick(tickMs / 1000.f);
@@ -177,6 +203,36 @@ int main(int argc, char** argv)
         float frameMs = std::chrono::duration<float, std::milli>(end - begin).count();
         frameAccum += frameMs;
         frameCount++;
+        scaleTimer += frameMs / 1000.f;
+        scaleAccum += frameMs;
+        scaleFrames++;
+        if (scaleTimer >= 5.f)
+        {
+            float avgFrame = scaleAccum / scaleFrames;
+            scaleTimer = 0.f;
+            scaleAccum = 0.f;
+            scaleFrames = 0;
+            if (avgFrame > 30.f && taskGraph.GetWorkerCount() < maxWorkers)
+            {
+                taskGraph.Resize(taskGraph.GetWorkerCount() + 1);
+                std::cout << "Autoscale workers=" << taskGraph.GetWorkerCount() << std::endl;
+                fastUnder = 0.f;
+            }
+            else if (avgFrame < 15.f)
+            {
+                fastUnder += 5.f;
+                if (fastUnder >= 30.f && taskGraph.GetWorkerCount() > 1)
+                {
+                    taskGraph.Resize(taskGraph.GetWorkerCount() - 1);
+                    std::cout << "Autoscale workers=" << taskGraph.GetWorkerCount() << std::endl;
+                    fastUnder = 0.f;
+                }
+            }
+            else
+            {
+                fastUnder = 0.f;
+            }
+        }
         if (frameAccum >= 1000.f)
         {
             float avg = frameAccum / frameCount;
@@ -215,6 +271,8 @@ int main(int argc, char** argv)
         }
     }
 
+    taskGraph.Stop();
+    CoopNet::PluginManager_Shutdown();
     CoopNet::SaveSessionState(sessionId);
     CoopNet::AdminController_Stop();
     CoopNet::WebDash_Stop();

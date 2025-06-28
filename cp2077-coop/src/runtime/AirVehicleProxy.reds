@@ -3,6 +3,7 @@ public class AirVehicleProxy extends gameObject {
     public var path: array<Vector3>;
     public var idx: Int32;
     public var state: TransformSnap;
+    public static let proxies: array<ref<AirVehicleProxy>>;
 
     public func Spawn(id: Uint32, points: array<Vector3>) -> Void {
         vehicleId = id;
@@ -22,8 +23,14 @@ public static func AirVehicleProxy_Spawn(id: Uint32, count: Uint8, points: ref<V
     }
     let av = new AirVehicleProxy();
     av.Spawn(id, p);
+    proxies.PushBack(av);
 }
 
 public static func AirVehicleProxy_Update(id: Uint32, t: ref<TransformSnap>) -> Void {
-    // FIXME(next ticket): find proxy, update state
+    for v in proxies {
+        if v.vehicleId == id {
+            v.UpdateSnap(t);
+            break;
+        };
+    }
 }

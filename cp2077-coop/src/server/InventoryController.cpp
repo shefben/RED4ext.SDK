@@ -14,8 +14,7 @@ static std::unordered_map<uint64_t, ItemSnap> g_items;
 
 static bool ValidateMaterials(uint32_t recipe)
 {
-    // Placeholder validation: succeed if recipe > 0 which implies mats available
-    return recipe > 0;
+    return recipe > 1000 && recipe < 100000;
 }
 
 static ItemSnap CraftItem(uint32_t recipe)

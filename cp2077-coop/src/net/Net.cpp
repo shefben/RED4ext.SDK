@@ -412,6 +412,16 @@ void Net_SendTeleportAck(uint32_t elevatorId)
     }
 }
 
+void Net_SendJoinRequest(uint32_t serverId)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        uint32_t id = serverId;
+        Net_Send(conns[0], EMsg::JoinRequest, &id, sizeof(id));
+    }
+}
+
 void Net_BroadcastQuestStage(uint32_t nameHash, uint16_t stage)
 {
     QuestStagePacket pkt{nameHash, stage, 0};
@@ -520,6 +530,20 @@ void Net_BroadcastMatchOver(uint32_t winnerId)
 {
     MatchOverPacket pkt{winnerId};
     Net_Broadcast(EMsg::MatchOver, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastChat(const std::string& msg)
+{
+    ChatPacket pkt{0, {0}};
+    std::strncpy(pkt.msg, msg.c_str(), sizeof(pkt.msg) - 1);
+    Net_Broadcast(EMsg::Chat, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastKillfeed(const std::string& msg)
+{
+    KillfeedPacket pkt{{0}};
+    std::strncpy(pkt.msg, msg.c_str(), sizeof(pkt.msg) - 1);
+    Net_Broadcast(EMsg::Killfeed, &pkt, sizeof(pkt));
 }
 
 void Net_SendAdminCmd(Connection* conn, uint8_t cmdType, uint64_t param)
@@ -1273,6 +1297,50 @@ void Net_BroadcastArcadeScore(uint32_t peerId, uint32_t score)
 {
     ArcadeScorePacket pkt{peerId, score};
     Net_Broadcast(EMsg::ArcadeScore, &pkt, sizeof(pkt));
+}
+
+void Net_SendPluginRPC(Connection* conn, uint16_t pluginId, uint32_t fnHash,
+                       const char* json, uint16_t len)
+{
+    std::vector<uint8_t> buf(sizeof(PluginRPCPacket) - 1 + len);
+    auto* pkt = reinterpret_cast<PluginRPCPacket*>(buf.data());
+    pkt->pluginId = pluginId;
+    pkt->fnHash = fnHash;
+    pkt->jsonBytes = len;
+    memcpy(pkt->json, json, len);
+    Net_Send(conn, EMsg::PluginRPC, buf.data(), static_cast<uint16_t>(buf.size()));
+}
+
+void Net_BroadcastPluginRPC(uint16_t pluginId, uint32_t fnHash, const char* json,
+                            uint16_t len)
+{
+    std::vector<uint8_t> buf(sizeof(PluginRPCPacket) - 1 + len);
+    auto* pkt = reinterpret_cast<PluginRPCPacket*>(buf.data());
+    pkt->pluginId = pluginId;
+    pkt->fnHash = fnHash;
+    pkt->jsonBytes = len;
+    memcpy(pkt->json, json, len);
+    Net_Broadcast(EMsg::PluginRPC, buf.data(), static_cast<uint16_t>(buf.size()));
+}
+
+void Net_BroadcastAssetBundle(uint16_t pluginId, const std::vector<uint8_t>& data)
+{
+    const uint32_t total = static_cast<uint32_t>(data.size());
+    uint16_t chunk = 0;
+    size_t offset = 0;
+    while (offset < data.size())
+    {
+        uint16_t len = static_cast<uint16_t>(std::min<size_t>(32 * 1024, data.size() - offset));
+        std::vector<uint8_t> buf(sizeof(AssetBundlePacket) - 1 + len);
+        auto* pkt = reinterpret_cast<AssetBundlePacket*>(buf.data());
+        pkt->pluginId = pluginId;
+        pkt->totalBytes = total;
+        pkt->chunkId = chunk++;
+        pkt->dataBytes = len;
+        memcpy(pkt->data, data.data() + offset, len);
+        Net_Broadcast(EMsg::AssetBundle, buf.data(), static_cast<uint16_t>(buf.size()));
+        offset += len;
+    }
 }
 
 void Net_BroadcastCriticalVoteStart(uint32_t questHash)

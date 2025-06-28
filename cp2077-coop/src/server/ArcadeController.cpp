@@ -24,7 +24,13 @@ void Arcade_Input(uint32_t frame, uint8_t buttons)
 {
     for (auto& kv : g_games) {
         if (kv.second.active)
-            kv.second.score += buttons; // placeholder scoring
+        {
+            uint8_t b = buttons;
+            while (b) {
+                kv.second.score += b & 1;
+                b >>= 1;
+            }
+        }
     }
 }
 

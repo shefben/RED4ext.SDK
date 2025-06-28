@@ -43,6 +43,7 @@ enum class EMsg : uint16_t
     WorldState,
     ScoreUpdate,
     MatchOver,
+    Killfeed,
     NpcSnapshot,
     NpcSpawn,
     NpcDespawn,
@@ -178,7 +179,9 @@ enum class EMsg : uint16_t
     SlowMoFinisher, // RB-1
     ArcadeStart,    // AM-1
     ArcadeInput,
-    ArcadeScore
+    ArcadeScore,
+    PluginRPC,
+    AssetBundle
 };
 
 struct PacketHeader
@@ -307,6 +310,11 @@ struct ScoreUpdatePacket
 struct MatchOverPacket
 {
     uint32_t winnerId;
+};
+
+struct KillfeedPacket
+{
+    char msg[64];
 };
 
 struct NpcSnapshotPacket
@@ -1246,5 +1254,22 @@ struct ArcadeScorePacket
 {
     uint32_t peerId;
     uint32_t score;
+};
+
+struct PluginRPCPacket
+{
+    uint16_t pluginId;
+    uint32_t fnHash;
+    uint16_t jsonBytes;
+    uint8_t json[1];
+};
+
+struct AssetBundlePacket
+{
+    uint16_t pluginId;
+    uint32_t totalBytes;
+    uint16_t chunkId;
+    uint16_t dataBytes;
+    uint8_t data[1];
 };
 } // namespace CoopNet

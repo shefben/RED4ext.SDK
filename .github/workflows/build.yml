@@ -34,6 +34,9 @@ jobs:
       - name: Build
         working-directory: build
         run: |
-          cmake `
-            --build . `
+          cmake \
+            --build . \
             --config ${{ matrix.config }}
+
+      - name: Generate plugin docs
+        run: python tools/gen_plugin_docs.py

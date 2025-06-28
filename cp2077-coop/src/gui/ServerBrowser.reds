@@ -47,9 +47,8 @@ public class ServerBrowser {
             LogChannel(n"DEBUG", "Join aborted - no server selected");
             return;
         }
-        // Placeholder networking call.
         LogChannel(n"DEBUG", "JoinRequest -> " + IntToString(selectedId));
-        // NetCore.SendJoinRequest(selectedId);
+        CoopNet.Net_SendJoinRequest(selectedId);
     }
 
     public static func Host() -> Void {

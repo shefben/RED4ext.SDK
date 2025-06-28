@@ -49,6 +49,7 @@ void Net_BroadcastElevatorCall(uint32_t peerId, uint32_t elevatorId, uint8_t flo
 void Net_SendElevatorCall(uint32_t elevatorId, uint8_t floorIdx);
 void Net_BroadcastElevatorArrive(uint32_t elevatorId, uint64_t sectorHash, const RED4ext::Vector3& pos);
 void Net_SendTeleportAck(uint32_t elevatorId);
+void Net_SendJoinRequest(uint32_t serverId);
 void Net_BroadcastQuestStage(uint32_t nameHash, uint16_t stage);
 void Net_BroadcastQuestStageP2P(uint32_t phaseId, uint32_t questHash, uint16_t stage); // PX-2
 void Net_SendQuestResyncRequest();
@@ -64,6 +65,8 @@ void Net_SendSpectateGranted(uint32_t peerId);
 void Net_SendAdminCmd(CoopNet::Connection* conn, uint8_t cmdType, uint64_t param);
 void Net_BroadcastScoreUpdate(uint32_t peerId, uint16_t k, uint16_t d);
 void Net_BroadcastMatchOver(uint32_t winnerId);
+void Net_BroadcastChat(const std::string& msg);
+void Net_BroadcastKillfeed(const std::string& msg);
 void Net_Disconnect(CoopNet::Connection* conn);
 void Nat_Start();
 void Nat_PerformHandshake(CoopNet::Connection* conn);
@@ -192,3 +195,8 @@ void Net_BroadcastSmartCamEnd(uint32_t projId);                                 
 void Net_BroadcastArcadeStart(uint32_t cabId, uint32_t peerId, uint32_t seed);
 void Net_SendArcadeInput(uint32_t frame, uint8_t buttonMask);
 void Net_BroadcastArcadeScore(uint32_t peerId, uint32_t score);
+void Net_SendPluginRPC(CoopNet::Connection* conn, uint16_t pluginId, uint32_t fnHash,
+                       const char* json, uint16_t len);
+void Net_BroadcastPluginRPC(uint16_t pluginId, uint32_t fnHash, const char* json,
+                            uint16_t len);
+void Net_BroadcastAssetBundle(uint16_t pluginId, const std::vector<uint8_t>& data);

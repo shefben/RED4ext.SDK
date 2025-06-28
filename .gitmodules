@@ -1,0 +1,3 @@
+[submodule "cp2077-coop/third_party/cpython-3.11"]
+	path = cp2077-coop/third_party/cpython-3.11
+	url = https://github.com/python/cpython.git

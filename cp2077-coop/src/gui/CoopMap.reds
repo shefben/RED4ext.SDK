@@ -1,6 +1,8 @@
 public class CoopMap extends inkHUDLayer {
     private static let s_instance: ref<CoopMap>;
     private let icons: array<ref<inkImage>>;
+    private let offset: Vector2 = new Vector2(0.0, 0.0);
+    private let zoom: Float = 1.0;
 
     public static func Show() -> Void {
         if IsDefined(s_instance) { return; };
@@ -33,7 +35,13 @@ public class CoopMap extends inkHUDLayer {
     }
 
     public func OnUpdate(dt: Float) -> Void {
-        // Placeholder pan/zoom controls without pausing the game.
+        let input = GameInstance.GetInputSystem(GetGame());
+        if input.IsActionPressed(n"IK_W") { offset.Y += 200.0 * dt; };
+        if input.IsActionPressed(n"IK_S") { offset.Y -= 200.0 * dt; };
+        if input.IsActionPressed(n"IK_A") { offset.X += 200.0 * dt; };
+        if input.IsActionPressed(n"IK_D") { offset.X -= 200.0 * dt; };
+        if input.IsActionJustPressed(n"IK_Plus") { zoom *= 1.1; };
+        if input.IsActionJustPressed(n"IK_Minus") { zoom *= 0.9; };
         let playerSys = GameInstance.GetPlayerSystem(GetGame());
         let players = playerSys.GetPlayers();
         var i: Int32 = 0;
@@ -41,7 +49,7 @@ public class CoopMap extends inkHUDLayer {
             let p = players[i] as AvatarProxy;
             if IsDefined(p) {
                 let screen = GameInstance.GetViewportManager(GetGame()).WorldToScreen(p.pos);
-                icons[i].SetMargin(screen.X, screen.Y);
+                icons[i].SetMargin((screen.X * zoom) + offset.X, (screen.Y * zoom) + offset.Y);
             };
             i += 1;
         }

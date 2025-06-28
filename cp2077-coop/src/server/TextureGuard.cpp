@@ -10,7 +10,6 @@ static float g_highTimer = 0.f;
 static float g_lowTimer = 0.f;
 static uint8_t g_bias = 0;
 
-// Placeholder external functions
 float RenderDevice_GetVRAMUsage();
 float RenderDevice_GetVRAMBudget();
 void TextureSystem_SetGlobalMipBias(int bias);

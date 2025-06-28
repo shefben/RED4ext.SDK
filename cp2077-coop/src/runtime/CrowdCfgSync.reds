@@ -4,7 +4,8 @@ public class CrowdCfgSync {
 
     public static func OnApply(density: Uint8) -> Void {
         if !locked {
-            saved = density; // placeholder for ini read
+            saved = density;
+            CoopSettings.SetCrowdDensity(density);
             locked = true;
         };
         LogChannel(n"crowd", "Density forced " + IntToString(Cast<Int32>(density)));

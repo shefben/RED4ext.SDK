@@ -10,9 +10,16 @@
 #include "../server/StatusController.hpp"
 #include "../server/TrafficController.hpp"
 #include "../voice/VoiceDecoder.hpp"
+#include "../plugin/PluginManager.hpp"
+#include "../third_party/zstd/zstd.h"
+#include <openssl/sha.h>
+#include <Python.h>
 #include "Net.hpp"
 #include "StatBatch.hpp"
 #include <RED4ext/RED4ext.hpp>
+#include <filesystem>
+#include <fstream>
+#include <unordered_map>
 #include <iostream>
 
 // Temporary proxies for script methods.
@@ -28,7 +35,16 @@ static void AvatarProxy_DespawnRemote(uint32_t peerId)
 
 static void Killfeed_Push(const char* msg)
 {
+    RED4ext::CString s(msg);
+    RED4ext::ExecuteFunction("Killfeed", "Push", nullptr, &s);
     std::cout << "Killfeed: " << msg << std::endl;
+}
+
+static void Killfeed_Broadcast(const char* msg)
+{
+    if (CoopNet::Net_IsAuthoritative())
+        CoopNet::Net_BroadcastKillfeed(msg);
+    Killfeed_Push(msg);
 }
 
 static void ChatOverlay_Push(const char* msg)
@@ -36,6 +52,64 @@ static void ChatOverlay_Push(const char* msg)
     RED4ext::CString s(msg);
     RED4ext::ExecuteFunction("ChatOverlay", "PushGlobal", nullptr, &s);
 }
+
+namespace
+{
+    struct BundleBuf
+    {
+        std::vector<uint8_t> data;
+        uint32_t expected{0};
+    };
+
+    std::unordered_map<uint16_t, BundleBuf> g_bundle;
+    std::unordered_map<uint16_t, std::string> g_bundleSha;
+
+    void HandleBundleComplete(uint16_t pluginId, const std::vector<uint8_t>& comp)
+    {
+        namespace fs = std::filesystem;
+        std::vector<uint8_t> raw(5u * 1024u * 1024u);
+        size_t size = ZSTD_decompress(raw.data(), raw.size(), comp.data(), comp.size());
+        if (ZSTD_isError(size))
+            return;
+        raw.resize(size);
+        unsigned char sha[SHA256_DIGEST_LENGTH];
+        SHA256(comp.data(), comp.size(), sha);
+        std::string s(reinterpret_cast<char*>(sha), SHA256_DIGEST_LENGTH);
+        if (g_bundleSha[pluginId] == s)
+            return;
+        g_bundleSha[pluginId] = s;
+        fs::path base = fs::path("runtime_cache") / "plugins" / std::to_string(pluginId);
+        fs::create_directories(base);
+        const uint8_t* p = raw.data();
+        const uint8_t* end = raw.data() + raw.size();
+        while (p + 2 <= end)
+        {
+            uint16_t pathLen;
+            memcpy(&pathLen, p, 2);
+            p += 2;
+            if (p + pathLen > end)
+                break;
+            std::string rel(reinterpret_cast<const char*>(p), pathLen);
+            p += pathLen;
+            if (p + 4 > end)
+                break;
+            uint32_t len;
+            memcpy(&len, p, 4);
+            p += 4;
+            if (p + len > end)
+                break;
+            fs::path out = base / rel;
+            fs::create_directories(out.parent_path());
+            std::ofstream f(out, std::ios::binary);
+            f.write(reinterpret_cast<const char*>(p), len);
+            p += len;
+        }
+        RED4ext::CString path(base.string().c_str());
+        bool ro = true; // sandbox client scripts
+        RED4ext::ExecuteFunction("ModSystem", "Mount", nullptr, &path, &ro);
+        RED4ext::ExecuteFunction("ModSystem", "ReloadScriptsFrom", nullptr, &path);
+    }
+} // namespace
 
 static void QuestSync_ApplyQuestStage(uint32_t hash, uint16_t stage)
 {
@@ -447,7 +521,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         }
         break;
     case EMsg::Disconnect:
-        Killfeed_Push("0 disconnected");
+        Killfeed_Broadcast("0 disconnected");
         CoopNet::VehicleController_RemovePeer(peerId);
         Transition(ConnectionState::Disconnected);
         CrowdCfgSync_OnRestore();
@@ -471,7 +545,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             const AvatarDespawnPacket* pkt = reinterpret_cast<const AvatarDespawnPacket*>(payload);
             AvatarProxy_DespawnRemote(pkt->peerId);
         }
-        Killfeed_Push("0 disconnected");
+        Killfeed_Broadcast("0 disconnected");
         break;
     case EMsg::Chat:
         if (Net_IsAuthoritative())
@@ -481,6 +555,8 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (size >= sizeof(ChatPacket))
             {
                 const ChatPacket* pkt = reinterpret_cast<const ChatPacket*>(payload);
+                if (CoopNet::PluginManager_HandleChat(peerId, pkt->msg, false))
+                    break;
                 ChatPacket out{peerId, {0}};
                 std::strncpy(out.msg, pkt->msg, sizeof(out.msg) - 1);
                 Net_Broadcast(EMsg::Chat, &out, sizeof(out));
@@ -490,6 +566,9 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const ChatPacket* pkt = reinterpret_cast<const ChatPacket*>(payload);
             ChatOverlay_Push(pkt->msg);
+            PyObject* d = Py_BuildValue("{s:I,s:s}", "peerId", peerId, "text", pkt->msg);
+            CoopNet::PluginManager_DispatchEvent("OnChatMsg", d);
+            Py_DECREF(d);
         }
         break;
     case EMsg::QuestStageP2P:
@@ -698,6 +777,13 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const MatchOverPacket* pkt = reinterpret_cast<const MatchOverPacket*>(payload);
             DMScoreboard_OnMatchOver(pkt->winnerId);
+        }
+        break;
+    case EMsg::Killfeed:
+        if (size >= sizeof(KillfeedPacket))
+        {
+            const KillfeedPacket* pkt = reinterpret_cast<const KillfeedPacket*>(payload);
+            Killfeed_Push(pkt->msg);
         }
         break;
     case EMsg::ItemSnap:
@@ -1602,6 +1688,29 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const ArcadeScorePacket* pkt = reinterpret_cast<const ArcadeScorePacket*>(payload);
             RED4ext::ExecuteFunction("ArcadeSync", "OnScore", nullptr, pkt);
+        }
+        break;
+    case EMsg::PluginRPC:
+        if (size >= sizeof(PluginRPCPacket) && !Net_IsAuthoritative())
+        {
+            const PluginRPCPacket* pkt = reinterpret_cast<const PluginRPCPacket*>(payload);
+            if (size >= sizeof(PluginRPCPacket) - 1 + pkt->jsonBytes)
+                ClientPluginProxy_OnRpc(pkt);
+        }
+        break;
+    case EMsg::AssetBundle:
+        if (size >= sizeof(AssetBundlePacket) && !Net_IsAuthoritative())
+        {
+            const AssetBundlePacket* pkt = reinterpret_cast<const AssetBundlePacket*>(payload);
+            auto& b = g_bundle[pkt->pluginId];
+            if (b.data.empty())
+                b.expected = pkt->totalBytes;
+            b.data.insert(b.data.end(), pkt->data, pkt->data + pkt->dataBytes);
+            if (b.data.size() >= b.expected)
+            {
+                HandleBundleComplete(pkt->pluginId, b.data);
+                g_bundle.erase(pkt->pluginId);
+            }
         }
         break;
     default:

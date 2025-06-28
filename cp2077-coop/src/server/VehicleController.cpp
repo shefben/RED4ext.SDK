@@ -6,8 +6,11 @@
 #include "../net/Connection.hpp"
 #include "../net/Net.hpp"
 #include "../net/Packets.hpp"
+#include "../physics/CarPhysics.hpp"
 #include <cmath>
 #include <iostream>
+
+bool Nav_FindClosestRoad(const RED4ext::Vector3& pos, RED4ext::Vector3& out);
 
 namespace CoopNet
 {
@@ -138,8 +141,10 @@ void VehicleController_HandleSummon(CoopNet::Connection* c, uint32_t vehId, cons
 
 static RED4ext::Vector3 FindSafePos(const RED4ext::Vector3& pos)
 {
-    // Engine nav query will snap to nearest road; placeholder returns input
-    return pos;
+    RED4ext::Vector3 out;
+    if (!Nav_FindClosestRoad(pos, out))
+        out = pos;
+    return out;
 }
 
 void VehicleController_HandleTowRequest(CoopNet::Connection* c, const RED4ext::Vector3& pos)
@@ -216,6 +221,12 @@ void VehicleController_ServerTick(float dt)
     {
         g_vehicle.idle = 0.f;
     }
+}
+
+void VehicleController_PhysicsStep(float dt)
+{
+    if (!g_vehicle.destroyed)
+        ServerSimulate(g_vehicle.snap, dt);
 }
 
 } // namespace CoopNet

@@ -20,8 +20,7 @@ public class NpcProxy extends gameObject {
         aiState = Cast<PoliceAIState>(snap.aiState);
         health = snap.health;
         LogChannel(n"DEBUG", "NpcProxy.Spawn " + IntToString(npcId) + " tpl=" + IntToString(templateId));
-        // Placeholder mesh spawn
-        LogChannel(n"DEBUG", "Spawn mesh base\\characters\\crowd_man_01.mesh");
+        RED4ext.ExecuteFunction("WorldObjectSpawner", "SpawnNPC", npcId, templateId, pos, rot);
     }
 
     public func ApplySnap(snap: ref<NpcSnap>) -> Void {
