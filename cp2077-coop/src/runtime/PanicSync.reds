@@ -5,8 +5,13 @@ public struct PanicEventPacket {
 
 public class PanicSync {
     public static func OnEvent(pos: Vector3, seed: Uint32) -> Void {
-        LogChannel(n"panic", "seed=" + IntToString(Cast<Int32>(seed)));
+        let container = GameInstance.GetScriptableSystemsContainer(GetGame());
+        let crowdSys = container.Get(n"CrowdSystem") as CrowdSystem;
+        if IsDefined(crowdSys) {
+            crowdSys.TriggerPanic(pos, seed);
+        };
         CoopNotice.Show("Panic event!");
+        LogChannel(n"panic", "seed=" + IntToString(Cast<Int32>(seed)));
     }
 
     public static func SendEvent(pos: Vector3) -> Void {

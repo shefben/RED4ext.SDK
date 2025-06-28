@@ -1690,12 +1690,20 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             RED4ext::ExecuteFunction("ArcadeSync", "OnScore", nullptr, pkt);
         }
         break;
-    case EMsg::PluginRPC:
-        if (size >= sizeof(PluginRPCPacket) && !Net_IsAuthoritative())
+
+    // --- audit omissions ---------------------------------------------------
+    case EMsg::AirVehSpawn:
+        if (size >= sizeof(AirVehSpawnPacket))
         {
-            const PluginRPCPacket* pkt = reinterpret_cast<const PluginRPCPacket*>(payload);
-            if (size >= sizeof(PluginRPCPacket) - 1 + pkt->jsonBytes)
-                ClientPluginProxy_OnRpc(pkt);
+            const AirVehSpawnPacket* pkt = reinterpret_cast<const AirVehSpawnPacket*>(payload);
+            RED4ext::ExecuteFunction("AirVehicleProxy", "AirVehicleProxy_Spawn", nullptr, pkt->vehId, pkt->count, pkt->points);
+        }
+        break;
+    case EMsg::AirVehUpdate:
+        if (size >= sizeof(AirVehUpdatePacket))
+        {
+            const AirVehUpdatePacket* pkt = reinterpret_cast<const AirVehUpdatePacket*>(payload);
+            RED4ext::ExecuteFunction("AirVehicleProxy", "AirVehicleProxy_Update", nullptr, pkt->vehId, &pkt->snap);
         }
         break;
     case EMsg::AssetBundle:
@@ -1712,6 +1720,107 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
                 g_bundle.erase(pkt->pluginId);
             }
         }
+        break;
+    case EMsg::HitConfirm:
+        if (size >= sizeof(HitConfirmPacket))
+        {
+            const HitConfirmPacket* pkt = reinterpret_cast<const HitConfirmPacket*>(payload);
+            std::cout << "HitConfirm id=" << pkt->targetId << " dmg=" << pkt->appliedDamage << std::endl;
+        }
+        break;
+    case EMsg::HitRequest:
+        if (size >= sizeof(HitRequestPacket))
+        {
+            const HitRequestPacket* pkt = reinterpret_cast<const HitRequestPacket*>(payload);
+            std::cout << "HitRequest id=" << pkt->targetId << " dmg=" << pkt->damage << std::endl;
+        }
+        break;
+    case EMsg::InterestAdd:
+        if (size >= sizeof(InterestPacket))
+        {
+            const InterestPacket* pkt = reinterpret_cast<const InterestPacket*>(payload);
+            std::cout << "InterestAdd " << pkt->id << std::endl;
+        }
+        break;
+    case EMsg::InterestRemove:
+        if (size >= sizeof(InterestPacket))
+        {
+            const InterestPacket* pkt = reinterpret_cast<const InterestPacket*>(payload);
+            std::cout << "InterestRemove " << pkt->id << std::endl;
+        }
+        break;
+    case EMsg::JoinDeny:
+        std::cout << "Join denied" << std::endl;
+        Transition(ConnectionState::Disconnected);
+        break;
+    case EMsg::JoinRequest:
+        std::cout << "Join request" << std::endl;
+        break;
+    case EMsg::LowBWMode:
+        if (size >= sizeof(LowBWModePacket))
+        {
+            const LowBWModePacket* pkt = reinterpret_cast<const LowBWModePacket*>(payload);
+            std::cout << "LowBWMode " << static_cast<int>(pkt->enable) << std::endl;
+        }
+        break;
+    case EMsg::PluginRPC:
+        if (size >= sizeof(PluginRPCPacket) && !Net_IsAuthoritative())
+        {
+            const PluginRPCPacket* pkt = reinterpret_cast<const PluginRPCPacket*>(payload);
+            if (size >= sizeof(PluginRPCPacket) - 1 + pkt->jsonBytes)
+                ClientPluginProxy_OnRpc(pkt);
+        }
+        break;
+    case EMsg::QuestStage:
+        if (size >= sizeof(QuestStagePacket))
+        {
+            const QuestStagePacket* pkt = reinterpret_cast<const QuestStagePacket*>(payload);
+            QuestSync_ApplyQuestStage(pkt->questHash, pkt->stage);
+        }
+        break;
+    case EMsg::Quickhack:
+        std::cout << "Quickhack packet" << std::endl;
+        break;
+    case EMsg::SectorLOD:
+        if (size >= sizeof(SectorLODPacket))
+        {
+            const SectorLODPacket* pkt = reinterpret_cast<const SectorLODPacket*>(payload);
+            std::cout << "SectorLOD " << pkt->sectorHash << " -> " << static_cast<int>(pkt->lod) << std::endl;
+        }
+        break;
+    case EMsg::Seed:
+        if (size >= sizeof(SeedPacket))
+        {
+            const SeedPacket* pkt = reinterpret_cast<const SeedPacket*>(payload);
+            std::srand(pkt->seed);
+        }
+        break;
+    case EMsg::SeedAck:
+        std::cout << "SeedAck" << std::endl;
+        break;
+    case EMsg::TurretAim:
+        if (size >= sizeof(TurretAimPacket))
+        {
+            const TurretAimPacket* pkt = reinterpret_cast<const TurretAimPacket*>(payload);
+            VehicleProxy_SetTurretAim(pkt->vehId, pkt->yaw, pkt->pitch);
+        }
+        break;
+    case EMsg::VehiclePaintChange:
+        if (size >= sizeof(VehiclePaintChangePacket))
+        {
+            const VehiclePaintChangePacket* pkt = reinterpret_cast<const VehiclePaintChangePacket*>(payload);
+            VehicleProxy_ApplyPaint(pkt->vehId, pkt->colorId, pkt->plateId);
+        }
+        break;
+    case EMsg::VehicleSnapshot:
+        if (size >= sizeof(VehicleSnapshotPacket))
+        {
+            const VehicleSnapshotPacket* pkt = reinterpret_cast<const VehicleSnapshotPacket*>(payload);
+            RED4ext::ExecuteFunction("VehicleProxy", "UpdateSnapshot", nullptr, &pkt->snap);
+        }
+        break;
+    case EMsg::Version:
+        std::cout << "Version crc" << std::endl;
         break;
     default:
         break;

@@ -50,6 +50,20 @@ void Arcade_End(uint32_t peerId, uint32_t score)
     Net_Broadcast(EMsg::ArcadeScore, &pkt, sizeof(pkt));
 }
 
-void Arcade_Tick(float /*dt*/) {}
+void Arcade_Tick(float dt)
+{
+    static float accum = 0.f;
+    accum += dt;
+    if (accum < 1.0f)
+        return;
+    accum = 0.f;
+    for (const auto& kv : g_games)
+    {
+        if (!kv.second.active)
+            continue;
+        ArcadeScorePacket pkt{kv.second.peerId, kv.second.score};
+        Net_Broadcast(EMsg::ArcadeScore, &pkt, sizeof(pkt));
+    }
+}
 
 } // namespace CoopNet

@@ -54,4 +54,15 @@ public class CoopMap extends inkHUDLayer {
             i += 1;
         }
     }
+
+    protected cb func OnPadTranslate(evt: ref<inkPadTranslateEvent>) -> Bool {
+        offset.X += evt.GetDelta().X;
+        offset.Y += evt.GetDelta().Y;
+        return true;
+    }
+
+    protected cb func OnPadPinchStretch(evt: ref<inkPadPinchStretchEvent>) -> Bool {
+        zoom *= 1.0 + evt.GetDelta();
+        return true;
+    }
 }

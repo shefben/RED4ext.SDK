@@ -3,6 +3,7 @@ public class Killfeed extends inkHUDLayer {
     private var root: ref<inkVerticalPanel>;
     private var lines: array<ref<inkText>>;
     private var timers: array<Float>;
+    private const maxLines: Int32 = 20;
 
     public static func Instance() -> ref<Killfeed> {
         if !IsDefined(s_instance) {
@@ -25,10 +26,11 @@ public class Killfeed extends inkHUDLayer {
         };
         let t = new inkText();
         t.SetText(msg);
+        t.SetOpacity(1.0);
         root.AddChild(t);
         lines.PushBack(t);
         timers.PushBack(5.0);
-        while lines.Size() > 5 {
+        while lines.Size() > maxLines {
             root.RemoveChild(lines[0]);
             lines.Erase(0);
             timers.Erase(0);
@@ -44,6 +46,9 @@ public class Killfeed extends inkHUDLayer {
                 lines.Erase(i);
                 timers.Erase(i);
             } else {
+                if timers[i] < 1.0 {
+                    lines[i].SetOpacity(timers[i]);
+                };
                 i += 1;
             };
         };

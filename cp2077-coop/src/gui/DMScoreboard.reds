@@ -3,8 +3,13 @@ public class DMScoreboard extends inkHUDLayer {
     public static let s_instance: ref<DMScoreboard>;
     public var kills: Uint16;
     public var deaths: Uint16;
-    private var rowIds: array<Uint32>;
-    private var rows: array<ref<inkText>>;
+    private struct RowInfo {
+        public let peer: Uint32;
+        public let widget: ref<inkText>;
+        public var k: Uint16;
+        public var d: Uint16;
+    }
+    private var rows: array<RowInfo>;
     private var banner: ref<inkText>;
 
     public static func Instance() -> ref<DMScoreboard> {
@@ -26,7 +31,7 @@ public class DMScoreboard extends inkHUDLayer {
             AddChild(ticker);
         };
         for i in 0 ..< rows.Size() {
-            rows[i].SetVisible(true);
+            rows[i].widget.SetVisible(true);
         };
         SetVisible(true);
         LogChannel(n"DEBUG", "Scoreboard shown");
@@ -37,20 +42,51 @@ public class DMScoreboard extends inkHUDLayer {
     public func Update(peerId: Uint32, k: Uint16, d: Uint16) -> Void {
         kills = k;
         deaths = d;
-        let idx = rowIds.Find(peerId);
+        var idx: Int32 = -1;
+        var i: Int32 = 0;
+        while i < rows.Size() {
+            if rows[i].peer == peerId { idx = i; break; };
+            i += 1;
+        };
         if idx == -1 {
-            let t = new inkText();
-            t.SetAnchor(inkEAnchor.Center);
-            t.SetTranslation(new Vector2(0.0, 40.0 * Cast<Float>(rowIds.Size())));
-            AddChild(t);
-            rowIds.Push(peerId);
-            rows.Push(t);
+            let w = new inkText();
+            w.SetAnchor(inkEAnchor.Center);
+            AddChild(w);
+            let ri: RowInfo;
+            ri.peer = peerId;
+            ri.widget = w;
+            ri.k = k;
+            ri.d = d;
+            rows.PushBack(ri);
             idx = rows.Size() - 1;
+        } else {
+            rows[idx].k = k;
+            rows[idx].d = d;
         };
-        rows[idx].SetText(IntToString(peerId) + "  " + IntToString(k) + " / " + IntToString(d));
-        if IsDefined(ticker) {
-            ticker.SetText(IntToString(k) + " / " + IntToString(d));
+
+        rows[idx].widget.SetText(IntToString(peerId) + "  " + IntToString(k) + " / " + IntToString(d));
+        // sort by kills desc
+        var swapped: Bool = true;
+        while swapped {
+            swapped = false;
+            i = 0;
+            while i < rows.Size() - 1 {
+                if rows[i].k < rows[i+1].k {
+                    let tmp = rows[i];
+                    rows[i] = rows[i+1];
+                    rows[i+1] = tmp;
+                    swapped = true;
+                };
+                i += 1;
+            };
         };
+        // reposition rows
+        i = 0;
+        while i < rows.Size() {
+            rows[i].widget.SetTranslation(new Vector2(0.0, 40.0 * Cast<Float>(i)));
+            i += 1;
+        };
+        if IsDefined(ticker) { ticker.SetText(IntToString(k) + " / " + IntToString(d)); };
         LogChannel(n"DEBUG", "ScoreUpdate " + IntToString(peerId));
     }
 
