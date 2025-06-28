@@ -7,8 +7,6 @@ and various gameplay sync stubs:
 * Snapshot interpolation with rollback history
 * Quickhack, heat, and weather replication helpers
 * Basic damage validation on the server
-* Vehicle spawn and seat assignment stubs
-* Deterministic car physics placeholders
 * Vehicle damage sync placeholder
 * Deathmatch mode manager and respawn/scoreboard stubs
 * Thread-safe queue utility for cross-thread tasks

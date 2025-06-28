@@ -2,8 +2,14 @@ cmake_minimum_required(VERSION 3.21) project(cp2077 - coop)
 
     list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
-        find_package(Juice REQUIRED) find_package(Opus REQUIRED) find_package(AL REQUIRED)
-            find_package(OpenSSL REQUIRED) find_package(Sodium REQUIRED)
+    find_package(Juice REQUIRED)
+    find_package(Opus REQUIRED)
+    find_package(AL REQUIRED)
+    find_package(OpenSSL REQUIRED)
+    find_package(Sodium REQUIRED)
+
+    add_library(enet STATIC third_party/enet/enet.c)
+    target_include_directories(enet PUBLIC "${PROJECT_SOURCE_DIR}/third_party/enet/include")
 
 #See README for build and packaging instructions.
 #This CMake script builds the cp2077 - coop mod and the coop_dedicated server.

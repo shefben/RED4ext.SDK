@@ -29,6 +29,9 @@
 #endif
 #endif
 
+#define REL_OFFS_ASSERT(strct, member, off) \
+    static_assert(offsetof(strct, member) == off, #member " offset mismatch")
+
 /**
  * @brief This macro is used to avoid compiler warnings about unreferenced / used parameter.
  */
@@ -49,3 +52,14 @@
 #ifndef RED4EXT_CALL
 #define RED4EXT_CALL __fastcall
 #endif
+
+// Basic offset examples from RTTI
+REL_OFFS_ASSERT(::RED4ext::CName, hash, 0x0);
+REL_OFFS_ASSERT(::RED4ext::Vector4, X, 0x0);
+REL_OFFS_ASSERT(::RED4ext::Vector4, Y, 0x4);
+REL_OFFS_ASSERT(::RED4ext::Vector4, Z, 0x8);
+REL_OFFS_ASSERT(::RED4ext::Vector4, W, 0xC);
+REL_OFFS_ASSERT(::RED4ext::Quaternion, i, 0x0);
+REL_OFFS_ASSERT(::RED4ext::Quaternion, j, 0x4);
+REL_OFFS_ASSERT(::RED4ext::Quaternion, k, 0x8);
+REL_OFFS_ASSERT(::RED4ext::Quaternion, r, 0xC);

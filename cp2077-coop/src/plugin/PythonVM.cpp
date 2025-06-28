@@ -97,7 +97,25 @@ static PyObject* Py_TeleportPeer(PyObject*, PyObject* args)
     PyObject* rot;
     if (!PyArg_ParseTuple(args, "IOO", &peer, &pos, &rot))
         return nullptr;
-    std::cout << "teleport_peer id=" << peer << std::endl;
+    if (!PyTuple_Check(pos) || PyTuple_Size(pos) != 3 || !PyTuple_Check(rot) || PyTuple_Size(rot) != 4)
+    {
+        PyErr_SetString(PyExc_TypeError, "pos/rot tuple size");
+        return nullptr;
+    }
+    RED4ext::Vector3 p{
+        static_cast<float>(PyFloat_AsDouble(PyTuple_GetItem(pos, 0))),
+        static_cast<float>(PyFloat_AsDouble(PyTuple_GetItem(pos, 1))),
+        static_cast<float>(PyFloat_AsDouble(PyTuple_GetItem(pos, 2)))};
+    RED4ext::Quaternion q{
+        static_cast<float>(PyFloat_AsDouble(PyTuple_GetItem(rot, 0))),
+        static_cast<float>(PyFloat_AsDouble(PyTuple_GetItem(rot, 1))),
+        static_cast<float>(PyFloat_AsDouble(PyTuple_GetItem(rot, 2))),
+        static_cast<float>(PyFloat_AsDouble(PyTuple_GetItem(rot, 3)))};
+    CoopNet::Connection* c = Net_FindConnection(peer);
+    if (c)
+        c->avatarPos = p;
+    RED4ext::ExecuteFunction("AvatarProxy", "Teleport", nullptr, peer, &p, &q);
+    std::cout << "teleport_peer id=" << peer << " -> " << p.X << "," << p.Y << "," << p.Z << std::endl;
     Py_RETURN_NONE;
 }
 

@@ -50,6 +50,22 @@ static void SaveJson(const std::string& path, const Document& doc)
     out << buffer.GetString();
 }
 
+static bool LoadSingleSave(const std::string& path, SingleSave& out)
+{
+    Document doc;
+    if (!LoadJson(path, doc))
+        return false;
+    out.xp = doc["xp"].GetUint();
+    for (auto itr = doc["quests"].MemberBegin(); itr != doc["quests"].MemberEnd(); ++itr)
+        out.quests[itr->name.GetString()] = itr->value.GetUint();
+    for (auto& e : doc["inventory"].GetArray())
+    {
+        CoopNet::ItemSnap it{e["itemId"].GetUint(), static_cast<uint16_t>(e["qty"].GetUint())};
+        out.inventory.push_back(it);
+    }
+    return true;
+}
+
 static void MergeSaves(const Document& coop, const SingleSave& sp, Document& out, std::string& summary)
 {
     out.SetObject();
@@ -156,22 +172,11 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // Stub: treat the singleplayer save as JSON as well
-    Document spDoc;
-    if (!LoadJson(argv[2], spDoc))
+    SingleSave sp;
+    if (!LoadSingleSave(argv[2], sp))
     {
         std::cerr << "Failed to read singleplayer save" << std::endl;
         return 1;
-    }
-
-    SingleSave sp;
-    sp.xp = spDoc["xp"].GetUint();
-    for (auto itr = spDoc["quests"].MemberBegin(); itr != spDoc["quests"].MemberEnd(); ++itr)
-        sp.quests[itr->name.GetString()] = itr->value.GetUint();
-    for (auto& e : spDoc["inventory"].GetArray())
-    {
-        CoopNet::ItemSnap it{e["itemId"].GetUint(), static_cast<uint16_t>(e["qty"].GetUint())};
-        sp.inventory.push_back(it);
     }
 
     Document merged;

@@ -208,6 +208,16 @@ public class AvatarProxy extends gameObject {
             avatar.Despawn();
         };
     }
+
+    public static func Teleport(peerId: Uint32, pos: Vector3, rot: Quaternion) -> Void {
+        let playerSys = GameInstance.GetPlayerSystem(GetGame());
+        let avatar = playerSys.FindObject(peerId) as AvatarProxy;
+        if IsDefined(avatar) {
+            avatar.pos = pos;
+            avatar.rot = rot;
+            avatar.SetWorldPosition(pos);
+        };
+    }
 }
 
 public static func AvatarProxy_OnEject(peerId: Uint32, vel: Vector3) -> Void {

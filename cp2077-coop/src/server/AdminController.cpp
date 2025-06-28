@@ -4,6 +4,7 @@
 #include "../net/Net.hpp"
 #include "../net/Packets.hpp"
 #include "WebDash.hpp"
+#include "VehicleController.hpp"
 #include <RED4ext/RED4ext.hpp>
 #include <iostream>
 #include <sstream>
@@ -146,6 +147,15 @@ void AdminController_PollCommands()
         {
             DoUnmute(id);
             WebDash_PushEvent("{\"event\":\"unmute\",\"id\":" + std::to_string(id) + "}");
+        }
+    }
+    else if (cmd == "unstuckcar")
+    {
+        uint32_t id;
+        if (ss >> id)
+        {
+            if (Connection* c = Net_FindConnection(id))
+                VehicleController_HandleTowRequest(c, c->avatarPos);
         }
     }
     else if (cmd == "sv_dm")
