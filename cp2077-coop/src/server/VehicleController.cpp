@@ -151,19 +151,25 @@ void VehicleController_HandleTowRequest(CoopNet::Connection* c, const RED4ext::V
 {
     if (!c || g_vehicle.owner != c->peerId)
         return;
+    RED4ext::Vector3 safe = FindSafePos(pos);
     if (g_vehicle.destroyed)
     {
-        g_vehicle.owner = 0;
+        TransformSnap t = g_vehicle.snap;
+        t.pos = safe;
+        g_vehicle.snap = t;
+        g_vehicle.damage = 0;
+        g_vehicle.destroyed = false;
+        g_vehicle.despawn = 0.f;
         g_vehicle.towTimer = 0.f;
-        if (Connection* target = Net_FindConnection(c->peerId))
-            Net_SendVehicleTowAck(target, c->peerId, true);
-        std::cout << "[Tow] Car returned" << std::endl;
+        VehicleSpawnPacket pkt{g_vehicle.id, g_vehicle.archetype, g_vehicle.paint, g_vehicle.phaseId, t};
+        Net_Broadcast(EMsg::VehicleSpawn, &pkt, sizeof(pkt));
+        std::cout << "[Tow] Car respawn" << std::endl;
     }
     else
     {
-        g_vehicle.snap.pos = FindSafePos(pos);
-        Net_SendVehicleTowAck(c, c->peerId, true);
+        g_vehicle.snap.pos = safe;
     }
+    Net_SendVehicleTowAck(c, c->peerId, true);
 }
 
 void VehicleController_RemovePeer(uint32_t peerId)

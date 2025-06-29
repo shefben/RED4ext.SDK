@@ -130,6 +130,14 @@ endif()
 add_library(RED4ext::SDK ALIAS RED4ext.SDK)
 add_library(RED4ext::RED4ext.SDK ALIAS RED4ext.SDK)
 
+# Third-party static libs
+add_library(zstd STATIC cp2077-coop/third_party/zstd/zstd.c)
+target_include_directories(zstd PUBLIC "${PROJECT_SOURCE_DIR}/cp2077-coop/third_party/zstd")
+target_compile_definitions(zstd PUBLIC ZSTD_MULTITHREAD=ON)
+
+add_library(libsodium STATIC cp2077-coop/third_party/libsodium/sodium.c)
+target_include_directories(libsodium PUBLIC "${PROJECT_SOURCE_DIR}/cp2077-coop/third_party/libsodium")
+
 # -----------------------------------------------------------------------------
 # Examples
 # -----------------------------------------------------------------------------

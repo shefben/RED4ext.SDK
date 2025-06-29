@@ -8,9 +8,15 @@ public enum NpcState {
 public class NpcController {
     public static let proxies: array<ref<NpcProxy>>;
     public static let crowdSeeds: ref<inkHashMap> = new inkHashMap();
+    private static let reinforceTimer: Float = 0.0;
+    private static let waveCount: Uint32 = 0u;
+    private static let desired: Uint32 = 6u;
 
     public static func ServerTick(dt: Float) -> Void {
         CoopNet.NpcController_ServerTick(dt);
+        if Net_IsAuthoritative() {
+            ReinforcementTick(dt);
+        };
     }
 
     private static func FindProxy(id: Uint32) -> ref<NpcProxy> {
@@ -57,5 +63,24 @@ public class NpcController {
     public static func GetCrowdSeed(hash: Uint64) -> Uint32 {
         let val = crowdSeeds.Get(hash) as Uint32;
         return val;
+    }
+
+    private static func ReinforcementTick(dt: Float) -> Void {
+        let players = Cast<Uint32>(Net_GetPeerCount());
+        if players > 2u && proxies.Size() < Cast<Int32>(desired) {
+            reinforceTimer += dt;
+            if reinforceTimer >= 30.0 {
+                reinforceTimer = 0.0;
+                let need: Uint32 = desired - Cast<Uint32>(proxies.Size());
+                var i: Uint32 = 0u;
+                while i < need {
+                    CoopNet.SpawnPhaseNpc();
+                    i += 1u;
+                };
+                waveCount += 1u;
+            };
+        } else {
+            reinforceTimer = 0.0;
+        };
     }
 }

@@ -1,1 +1,6 @@
-# simple animation\nframe0\nframe1
+# ascii anim stub
+frames 45
+fps 30
+bone root
+0: pos(0,0,0) rot(0,0,0,1)
+44: pos(0,0.1,0) rot(0,0,0,1)

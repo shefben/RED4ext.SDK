@@ -13,19 +13,19 @@ public class QuickhackSync {
     private static var cameraTimer: Float;
     private static var vulnTimer: Float;
     public static func SendHack(info: ref<HackInfo>) -> Void {
-        // NetCore.BroadcastQuickhack(info);
-        LogChannel(n"DEBUG", "SendHack target=" + IntToString(info.targetId));
+        // NetCore.BroadcastQuickhack(info); // implemented in C++
     }
 
     public static func ApplyHack(info: ref<HackInfo>) -> Void {
-        LogChannel(n"DEBUG", "ApplyHack target=" + IntToString(info.targetId) +
-            " hack=" + IntToString(info.hackId));
         let target = GameInstance.GetPlayerSystem(GetGame()).FindObject(info.targetId) as AvatarProxy;
         if IsDefined(target) {
             info.startHealth = target.health;
         } else {
             info.startHealth = 0u;
         }
+        if info.hackId == 1u {
+            StatusEffectSync.OnApply(info.targetId, 2u, info.durationMs, 1u);
+        };
         activeHacks.PushBack(*info);
     }
 

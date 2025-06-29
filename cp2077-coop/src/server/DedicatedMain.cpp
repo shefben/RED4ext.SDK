@@ -12,6 +12,7 @@
 #include "GlobalEventController.hpp"
 #include "GrenadeController.hpp"
 #include "Heartbeat.hpp"
+#include "InfoServer.hpp"
 #include "NpcController.hpp"
 #include "PhaseGC.hpp"
 #include "PoliceDispatch.hpp"
@@ -69,6 +70,7 @@ int main(int argc, char** argv)
     }
     CoopNet::WebDash_Start();
     CoopNet::AdminController_Start();
+    CoopNet::InfoServer_Start();
     CoopNet::PluginManager_Init();
     std::cout << "Dedicated up" << std::endl;
     CoopNet::TaskGraph taskGraph;
@@ -98,6 +100,7 @@ int main(int argc, char** argv)
     float fastUnder = 0.f;
     float tickMs = CoopNet::GameClock::GetTickMs();
     bool validated = false;
+    bool hbSent = false;
     auto last = std::chrono::steady_clock::now();
 
     while (running)
@@ -109,6 +112,9 @@ int main(int argc, char** argv)
         {
             CoopNet::ValidateSessionState(sessionId);
             validated = true;
+            std::string hjson = "{\"id\":" + std::to_string(sessionId) + "}";
+            CoopNet::Heartbeat_Send(hjson);
+            hbSent = true;
         }
 
         CoopNet::GameClock::Tick(tickMs);
@@ -184,13 +190,14 @@ int main(int argc, char** argv)
                 }
             }
         }
-        if (hbTimer >= 30.f)
+        // Heartbeat every six minutes so master server can prune stale hosts
+        if (hbTimer >= 360.f)
         {
             hbTimer = 0.f;
             size_t count = Net_GetConnections().size();
             uint32_t id = CoopNet::SessionState_GetId();
-            std::string json = "{\"players\":" + std::to_string(count) + ",\"hash\":" + std::to_string(id) + "}";
-            CoopNet::Heartbeat_Announce(json);
+            std::string json = "{\"id\":" + std::to_string(id) + ",\"cur\":" + std::to_string(count) + ",\"max\":4,\"password\":false,\"mode\":\"Coop\"}";
+            CoopNet::Heartbeat_Send(json);
         }
         if (memTimer >= 60.f)
         {
@@ -274,7 +281,10 @@ int main(int argc, char** argv)
     taskGraph.Stop();
     CoopNet::PluginManager_Shutdown();
     CoopNet::SaveSessionState(sessionId);
+    if (hbSent)
+        CoopNet::Heartbeat_Disconnect(sessionId);
     CoopNet::AdminController_Stop();
+    CoopNet::InfoServer_Stop();
     CoopNet::WebDash_Stop();
     Net_Shutdown();
     return 0;
