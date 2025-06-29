@@ -232,6 +232,32 @@ static void Quickhack_BreachResult(uint32_t peerId, uint8_t mask)
     std::cout << "Breach result mask=" << static_cast<int>(mask) << std::endl;
 }
 
+struct QuickhackPacket
+{
+    uint32_t targetId;
+    uint32_t hackId;
+    uint16_t durationMs;
+    uint16_t _pad;
+};
+
+struct HackInfoNative
+{
+    uint32_t targetId;
+    uint32_t hackId;
+    uint16_t durationMs;
+    uint16_t startHealth;
+};
+
+static void QuickhackSync_Apply(const HackInfoNative& info)
+{
+    RED4ext::ExecuteFunction("QuickhackSync", "ApplyHack", nullptr, &info);
+}
+
+namespace
+{
+    static std::unordered_map<uint32_t, float> g_lastHackMs;
+}
+
 static void TileGameSync_Start(uint32_t phaseId, uint32_t seed)
 {
     RED4ext::ExecuteFunction("TileGameSync", "OnStart", nullptr, &phaseId, &seed);
@@ -1779,7 +1805,21 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         }
         break;
     case EMsg::Quickhack:
-        std::cout << "Quickhack packet" << std::endl;
+        if (size >= sizeof(QuickhackPacket))
+        {
+            const QuickhackPacket* pkt = reinterpret_cast<const QuickhackPacket*>(payload);
+            if (Net_IsAuthoritative())
+            {
+                float now = CoopNet::GameClock::GetCurrentTick() * CoopNet::GameClock::currentTickMs;
+                if (now - g_lastHackMs[peerId] >= 5000.f)
+                {
+                    g_lastHackMs[peerId] = now;
+                    Net_Broadcast(EMsg::Quickhack, pkt, sizeof(*pkt));
+                }
+            }
+            HackInfoNative info{pkt->targetId, pkt->hackId, pkt->durationMs, 0};
+            QuickhackSync_Apply(info);
+        }
         break;
     case EMsg::SectorLOD:
         if (size >= sizeof(SectorLODPacket))

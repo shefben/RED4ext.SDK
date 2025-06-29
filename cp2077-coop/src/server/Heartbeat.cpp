@@ -4,14 +4,61 @@
 #include <chrono>
 #include <thread>
 #include <iostream>
+#include <openssl/sha.h>
+#include <cstdlib>
+#include <iomanip>
+#include <sstream>
 
 namespace CoopNet {
 static int g_backoff = 1;
 
-void Heartbeat_Send(const std::string& sessionJson)
+static std::string GetSecret()
+{
+    const char* env = std::getenv("COOP_SECRET");
+    return env ? env : "changeme";
+}
+
+static std::string FetchNonce()
 {
     httplib::SSLClient cli("coop-master", 443);
-    auto res = cli.Post("/api/heartbeat", sessionJson, "application/json");
+    auto res = cli.Get("/api/challenge");
+    if (!res || res->status != 200)
+        return {};
+    const std::string& body = res->body;
+    size_t p = body.find("\"nonce\":\"");
+    if (p == std::string::npos)
+        return {};
+    p += 9;
+    size_t e = body.find('"', p);
+    if (e == std::string::npos)
+        return {};
+    return body.substr(p, e - p);
+}
+
+static std::string Sign(const std::string& nonce)
+{
+    std::string msg = nonce + GetSecret();
+    unsigned char sha[SHA256_DIGEST_LENGTH];
+    SHA256(reinterpret_cast<const unsigned char*>(msg.data()), msg.size(), sha);
+    std::ostringstream os;
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i)
+        os << std::hex << std::setw(2) << std::setfill('0') << (int)sha[i];
+    return os.str();
+}
+
+void Heartbeat_Send(const std::string& sessionJson)
+{
+    std::string nonce = FetchNonce();
+    if (nonce.empty())
+        return;
+    std::string auth = Sign(nonce);
+    std::string payload = sessionJson;
+    if (!payload.empty() && payload.back() == '}')
+        payload.pop_back();
+    payload += ",\"nonce\":\"" + nonce + "\",\"auth\":\"" + auth + "\"}";
+
+    httplib::SSLClient cli("coop-master", 443);
+    auto res = cli.Post("/api/heartbeat", payload, "application/json");
     if (!res || res->status != 200)
     {
         std::cerr << "Heartbeat failed" << std::endl;
@@ -52,6 +99,17 @@ void Heartbeat_Announce(const std::string& json)
     {
         std::cerr << "Announce failed" << std::endl;
     }
+}
+
+void Heartbeat_Disconnect(uint32_t sessionId)
+{
+    std::string nonce = FetchNonce();
+    if (nonce.empty())
+        return;
+    std::string auth = Sign(nonce);
+    std::string payload = "{\"id\":" + std::to_string(sessionId) + ",\"nonce\":\"" + nonce + "\",\"auth\":\"" + auth + "\"}";
+    httplib::SSLClient cli("coop-master", 443);
+    cli.Post("/api/disconnect", payload, "application/json");
 }
 
 } // namespace CoopNet

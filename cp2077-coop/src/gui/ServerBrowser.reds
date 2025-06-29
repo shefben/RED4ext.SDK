@@ -1,10 +1,96 @@
-public class ServerBrowser {
+public class ServerBrowser extends inkHUDLayer {
+    private static let s_instance: ref<ServerBrowser>;
     private static var selectedId: Uint32;
-    private static let listCtrl: wref<inkListController>;
+    private static let listCtrl: wref<inkVerticalPanel>;
     private static let scrollCtrl: wref<inkScrollController>;
     private static let joinBtn: wref<inkButton>;
 
-    // jsonList should come from tests/static/serverlist.json
+    public struct ServerInfo {
+        var id: Uint32;
+        var name: String;
+        var ip: String;
+        var cur: Uint16;
+        var max: Uint16;
+        var password: Bool;
+        var mode: String;
+    }
+
+    public static func Show() -> Void {
+        if IsDefined(s_instance) { return; };
+        let layer = new ServerBrowser();
+        s_instance = layer;
+        let hud = GameInstance.GetHUDManager(GetGame());
+        hud.AddLayer(layer);
+        let root = new inkVerticalPanel();
+        layer.AddChild(root);
+        listCtrl = new inkVerticalPanel();
+        root.AddChild(listCtrl);
+        scrollCtrl = new inkScrollController();
+        joinBtn = new inkButton();
+        joinBtn.SetText("CONNECT");
+        joinBtn.RegisterToCallback(n"OnRelease", layer, n"OnJoinClick");
+        joinBtn.SetEnabled(false);
+        root.AddChild(joinBtn);
+        RefreshLive();
+    }
+
+    protected cb func OnJoinClick(e: ref<inkPointerEvent>) -> Bool {
+        Join();
+        return true;
+    }
+
+    public static func Hide() -> Void {
+        if !IsDefined(s_instance) { return; };
+        let hud = GameInstance.GetHUDManager(GetGame());
+        hud.RemoveLayer(s_instance);
+        s_instance = null;
+    }
+
+    private static func QueryMaster() -> array<ref<IScriptable>> {
+        let req = new HttpRequest();
+        req.SetUrl("https://coop-master/api/list");
+        req.Send();
+        if req.GetStatusCode() != 200u {
+            LogChannel(n"DEBUG", "Master query failed");
+            return [];
+        };
+        let body = req.GetBody();
+        return Json.Parse(body) as array<ref<IScriptable>>;
+    }
+
+    private static func QueryServer(entry: ref<IScriptable>) -> ref<IScriptable> {
+        let ip: String = entry["ip"] as String;
+        let port: Uint32 = entry["port"] as Int32;
+        let req = new HttpRequest();
+        req.SetUrl("http://" + ip + ":" + IntToString(port) + "/info");
+        req.Send();
+        if req.GetStatusCode() != 200u {
+            return null;
+        };
+        let body = req.GetBody();
+        let info = Json.Parse(body) as ref<IScriptable>;
+        if IsDefined(info) {
+            info["id"] = entry["id"];
+            info["ip"] = ip;
+            info["port"] = port;
+        };
+        return info;
+    }
+
+    public static func RefreshLive() -> Void {
+        let entries = QueryMaster();
+        let servers: array<ref<IScriptable>>;
+        for e in entries {
+            let data = QueryServer(e);
+            if IsDefined(data) {
+                ArrayPush(servers, data);
+            };
+        };
+        let json = Json.Stringify(servers);
+        Refresh(json);
+    }
+
+    // Populate list from JSON payload with array<ServerInfo>
     public static func Refresh(jsonList: String) -> Void {
         LogChannel(n"DEBUG", "ServerBrowser.Refresh");
         let servers = Json.Parse(jsonList) as array<ref<IScriptable>>;
@@ -18,15 +104,33 @@ public class ServerBrowser {
         for server in servers {
             let id: Uint32 = server["id"] as Int32;
             let name: String = server["name"] as String;
-            let players: String = server["players"] as String;
+            let cur: Uint32 = server["cur"] as Int32;
+            let max: Uint32 = server["max"] as Int32;
+            let mode: String = server["mode"] as String;
+            let pass: Bool = server["password"] as Bool;
+            let ip: String = server["ip"] as String;
+            let port: Uint32 = server["port"] as Int32;
             let row = new inkHorizontalPanel();
             row.SetName(IntToString(id));
             let nameLabel = new inkText();
             nameLabel.SetText(name);
             let playersLabel = new inkText();
-            playersLabel.SetText(players);
+            playersLabel.SetText(IntToString(cur) + "/" + IntToString(max));
+            let modeLabel = new inkText();
+            modeLabel.SetText(mode);
+            let passLabel = new inkText();
+            if pass {
+                passLabel.SetText("🔒");
+            } else {
+                passLabel.SetText(" ");
+            };
+            let addrLabel = new inkText();
+            addrLabel.SetText(ip + ":" + IntToString(port));
             row.AddChild(nameLabel);
             row.AddChild(playersLabel);
+            row.AddChild(modeLabel);
+            row.AddChild(passLabel);
+            row.AddChild(addrLabel);
             row.RegisterToCallback(n"OnRelease", this, n"OnRowClicked");
             listCtrl.AddChild(row);
         }
@@ -38,7 +142,6 @@ public class ServerBrowser {
         if IsDefined(joinBtn) {
             joinBtn.SetEnabled(true);
         };
-        listCtrl.SetSelected(widget);
         LogChannel(n"DEBUG", "Selected " + IntToString(selectedId));
     }
 
@@ -51,13 +154,21 @@ public class ServerBrowser {
         CoopNet.Net_SendJoinRequest(selectedId);
     }
 
+    public static func HostServer() -> Void {
+        // Launch dedicated instance and wait for local heartbeat.
+        GameProcess.Launch("coop_dedicated", "--port 7777");
+        let ts = GameInstance.GetTimeSystem(GetGame());
+        let start = EngineTime.ToFloat(ts.GetGameTime());
+        while !Net_IsConnected() && EngineTime.ToFloat(ts.GetGameTime()) - start < 5.0 {
+            Net_Poll(50u);
+        };
+        if Net_IsConnected() {
+            CoopNet.Net_SendJoinRequest(0u);
+        };
+    }
+
     public static func Host() -> Void {
-        // Pseudo-code: spawn the dedicated server then join localhost.
-        // SystemCommand("coop_dedicated --port 7777");
-        LogChannel(n"DEBUG", "Host -> coop_dedicated --port 7777");
-        selectedId = 0;
-        // NetCore.Connect("127.0.0.1");
-        LogChannel(n"DEBUG", "JoinRequest -> 127.0.0.1");
+        HostServer();
     }
 
     public static func OnUpdate() -> Void {

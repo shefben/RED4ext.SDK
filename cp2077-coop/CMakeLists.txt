@@ -6,7 +6,13 @@ cmake_minimum_required(VERSION 3.21) project(cp2077 - coop)
     find_package(Opus REQUIRED)
     find_package(AL REQUIRED)
     find_package(OpenSSL REQUIRED)
-    find_package(Sodium REQUIRED)
+
+    add_library(zstd STATIC third_party/zstd/zstd.c)
+    target_include_directories(zstd PUBLIC "${PROJECT_SOURCE_DIR}/third_party/zstd")
+    target_compile_definitions(zstd PUBLIC ZSTD_MULTITHREAD=ON)
+
+    add_library(libsodium STATIC third_party/libsodium/sodium.c)
+    target_include_directories(libsodium PUBLIC "${PROJECT_SOURCE_DIR}/third_party/libsodium")
 
     add_library(enet STATIC third_party/enet/enet.c)
     target_include_directories(enet PUBLIC "${PROJECT_SOURCE_DIR}/third_party/enet/include")
@@ -41,9 +47,10 @@ cmake_minimum_required(VERSION 3.21) project(cp2077 - coop)
 
                     target_include_directories(cp2077 - coop PRIVATE "${PROJECT_SOURCE_DIR}/third_party/enet/include"
                                                                      "${PROJECT_SOURCE_DIR}/third_party"
-                                                                     "${PROJECT_SOURCE_DIR}/third_party/zstd")
+                                                                     "${PROJECT_SOURCE_DIR}/third_party/zstd"
+                                                                     "${PROJECT_SOURCE_DIR}/third_party/libsodium")
 
-                        target_link_libraries(cp2077 - coop PRIVATE enet juice opus AL::AL OpenSSL::SSL sodium)
+                        target_link_libraries(cp2077 - coop PRIVATE enet zstd libsodium juice opus AL::AL OpenSSL::SSL)
 
                             set(BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build") file(MAKE_DIRECTORY "${BUILD_DIR}")
 
@@ -55,16 +62,18 @@ cmake_minimum_required(VERSION 3.21) project(cp2077 - coop)
                                                        src/server/DamageValidator.cpp
                                                        src/server/ServerConfig.cpp
                                                        src/server/Heartbeat.cpp
+                                                       src/server/InfoServer.cpp
                                                        src/server/AdminController.cpp
                                                        src/plugin/PythonVM.cpp
                                                        src/plugin/PluginManager.cpp)
 
                                             target_include_directories(coop_dedicated PRIVATE
                                                                        "${PROJECT_SOURCE_DIR}/third_party"
+                                                                       "${PROJECT_SOURCE_DIR}/third_party/zstd"
+                                                                       "${PROJECT_SOURCE_DIR}/third_party/libsodium"
                                                                        "${PROJECT_SOURCE_DIR}/third_party/cpython-3.11/Include")
 
-                                                target_link_libraries(coop_dedicated PRIVATE cp2077 - coop enet juice
-                                                                                ${PROJECT_SOURCE_DIR}/third_party/cpython-3.11/libpython3.11.a)
+                                                target_link_libraries(coop_dedicated PRIVATE cp2077 - coop enet zstd libsodium juice ${PROJECT_SOURCE_DIR}/third_party/cpython-3.11/libpython3.11.a)
                                                 target_compile_definitions(coop_dedicated PRIVATE Py_ENABLE_SHARED=0)
 
                                                     add_executable(coop_merge tools / coop_merge.cpp)

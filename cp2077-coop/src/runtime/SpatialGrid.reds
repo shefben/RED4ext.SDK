@@ -1,4 +1,4 @@
-// flat grid impl ☠ TO-BE-REPLACED
+// quadtree spatial grid for interest queries
 public class SpatialGrid {
     public struct QuadNode {
         public let bounds: Box;
@@ -7,10 +7,12 @@ public class SpatialGrid {
     }
 
     private let root: ref<QuadNode>;
+    private let posMap: ref<inkHashMap>;
     private let kNodeCapacity: Uint32 = 32u;
     private let kMaxDepth: Uint32 = 6u;
 
     public func Reset(size: Float) -> Void {
+        posMap = new inkHashMap();
         root = new QuadNode();
         root.bounds.Min = Vector3{-size, -size, -100.0};
         root.bounds.Max = Vector3{size, size, 100.0};
@@ -18,10 +20,12 @@ public class SpatialGrid {
 
     public func Insert(id: Uint32, pos: Vector3) -> Void {
         if !IsDefined(root) { Reset(512.0); }; // 1 km^2 default
+        posMap.Insert(id, pos);
         InsertRec(root, id, pos, 0u);
     }
 
     public func Remove(id: Uint32, pos: Vector3) -> Void {
+        posMap.Erase(id);
         if IsDefined(root) { RemoveRec(root, id, pos); };
     }
 
@@ -48,7 +52,15 @@ public class SpatialGrid {
             node.ids.PushBack(id);
             return;
         };
-        if node.child.Size() == 0 { Subdivide(node, depth); };
+        if node.child.Size() == 0 {
+            Subdivide(node, depth);
+            let tmp: array<Uint32> = node.ids;
+            node.ids.Clear();
+            for existing in tmp {
+                let epos = posMap.Get(existing) as Vector3;
+                if IsDefined(epos) { InsertRec(node, existing, epos, depth); };
+            };
+        };
         for child in node.child {
             if PtInBox(pos, child.bounds) {
                 InsertRec(child, id, pos, depth + 1u);
@@ -69,9 +81,27 @@ public class SpatialGrid {
         return false;
     }
 
+    private func FindNode(node: ref<QuadNode>, pos: Vector3) -> ref<QuadNode> {
+        if !PtInBox(pos, node.bounds) { return null; };
+        for child in node.child {
+            if PtInBox(pos, child.bounds) {
+                let found = FindNode(child, pos);
+                if IsDefined(found) { return found; };
+            };
+        };
+        return node;
+    }
+
     private func QueryRec(node: ref<QuadNode>, center: Vector3, radius: Float, out ids: array<Uint32>) -> Void {
         if !CircleIntersectsBox(center, radius, node.bounds) { return; };
-        for id in node.ids { ids.PushBack(id); };
+        for id in node.ids {
+            let p = posMap.Get(id) as Vector3;
+            if IsDefined(p) {
+                let dx = p.X - center.X;
+                let dy = p.Y - center.Y;
+                if dx*dx + dy*dy <= radius*radius { ids.PushBack(id); };
+            };
+        };
         for child in node.child { QueryRec(child, center, radius, ids); };
     }
 

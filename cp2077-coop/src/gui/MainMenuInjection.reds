@@ -1,16 +1,23 @@
-public class MainMenuInjection {
-    // Called to insert a CO-OP button into the title menu.
-    public static func Inject() -> Void {
-        // Pseudo-code: locate the menu controller and add a button.
-        // let menu = rtti:MainMenuGameController;
-        // let btn = new inkButton();
-        // btn.SetText("CO-OP");
-        // btn.RegisterToCallback(n"OnPress", this, n"OnButton");
-        // menu.GetRootWidget().AddChild(btn);
-        LogChannel(n"DEBUG", "Main menu injected with CO-OP button");
-    }
+import Codeware.UI
 
-    public static func OnButton(widget: ref<inkWidget>) -> Void {
-        CoopRootPanel.Show();
+public class MainMenuInjection {
+    public static func Inject() -> Void {
+        // legacy stub retained for compatibility
     }
+}
+
+@wrapMethod(MainMenuController, OnInitialize)
+public func OnInitialize() -> Void {
+    wrappedMethod();
+    let coopBtn = new inkText();
+    coopBtn.SetText("CO-OP");
+    coopBtn.SetStyle(n"BaseButtonMedium");
+    coopBtn.RegisterToCallback(n"OnRelease", this, n"OnCoop");
+    this.GetRootCompoundWidget().AddChild(coopBtn);
+}
+
+public func OnCoop(e: ref<inkPointerEvent>) -> Void {
+    // ensure gameplay continues even if the pause menu invoked this button
+    GameInstance.GetTimeSystem(GetGame()).SetLocalTimeDilation(1.0);
+    ServerBrowser.Show();
 }

@@ -1,0 +1,14 @@
+{
+  "pluginId": 7,
+  "version": "0.0.1",
+  "files": [
+    {"path": "animations/emotes/1.anim", "size": 102, "sha256": "5f59b6ac8cc46167ec726524aa4ae94fb4d3fe19c85c69059b37beb89f74a71e"},
+    {"path": "animations/emotes/2.anim", "size": 102, "sha256": "5f59b6ac8cc46167ec726524aa4ae94fb4d3fe19c85c69059b37beb89f74a71e"},
+    {"path": "animations/emotes/3.anim", "size": 102, "sha256": "5f59b6ac8cc46167ec726524aa4ae94fb4d3fe19c85c69059b37beb89f74a71e"},
+    {"path": "animations/emotes/4.anim", "size": 102, "sha256": "5f59b6ac8cc46167ec726524aa4ae94fb4d3fe19c85c69059b37beb89f74a71e"},
+    {"path": "animations/emotes/5.anim", "size": 102, "sha256": "5f59b6ac8cc46167ec726524aa4ae94fb4d3fe19c85c69059b37beb89f74a71e"},
+    {"path": "animations/emotes/6.anim", "size": 102, "sha256": "5f59b6ac8cc46167ec726524aa4ae94fb4d3fe19c85c69059b37beb89f74a71e"},
+    {"path": "animations/emotes/7.anim", "size": 102, "sha256": "5f59b6ac8cc46167ec726524aa4ae94fb4d3fe19c85c69059b37beb89f74a71e"},
+    {"path": "animations/emotes/8.anim", "size": 102, "sha256": "5f59b6ac8cc46167ec726524aa4ae94fb4d3fe19c85c69059b37beb89f74a71e"}
+  ]
+}
