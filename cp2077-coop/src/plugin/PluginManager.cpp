@@ -1,6 +1,12 @@
 #include "PluginManager.hpp"
 #include "PythonVM.hpp"
-#include <Python.h>
+#if defined(__has_include)
+#  if __has_include(<Python.h>)
+#    include <Python.h>
+#  endif
+#else
+#  include <Python.h>
+#endif
 #include <filesystem>
 #include <fstream>
 #include <unordered_map>
@@ -32,6 +38,7 @@ struct CommandInfo
 };
 
 static std::unordered_map<std::string, PluginInfo> g_plugins;
+static std::unordered_map<std::string, CommandInfo> g_commands;
 static float g_timer = 0.f;
 
 void PluginManager_RegisterCommand(const std::string& name, const std::string& help,
@@ -40,7 +47,6 @@ void PluginManager_RegisterCommand(const std::string& name, const std::string& h
     Py_INCREF(func);
     g_commands[name] = {help, func, plugin};
 }
-static std::unordered_map<std::string, CommandInfo> g_commands;
 static uint16_t g_nextPluginId = 1;
 
 bool PluginManager_IsEnabled(const std::string& plugin)
@@ -77,7 +83,7 @@ void PluginManager_LogException(const std::string& plugin)
         if (++it->second.errors >= 5 && it->second.enabled)
         {
             it->second.enabled = false;
-            std::string msg = "[Plugin " + it->second.meta.name + " disabled – error]";
+            std::string msg = "[Plugin " + it->second.meta.name + " disabled â€“ error]";
             Net_BroadcastChat(msg);
         }
     }

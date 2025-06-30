@@ -26,6 +26,8 @@ public class ServerBrowser extends inkHUDLayer {
         listCtrl = new inkVerticalPanel();
         root.AddChild(listCtrl);
         scrollCtrl = new inkScrollController();
+        scrollCtrl.direction = inkEScrollDirection.Vertical;
+        scrollCtrl.useGlobalInput = true;
         joinBtn = new inkButton();
         joinBtn.SetText("CONNECT");
         joinBtn.RegisterToCallback(n"OnRelease", layer, n"OnJoinClick");
@@ -50,6 +52,10 @@ public class ServerBrowser extends inkHUDLayer {
         let req = new HttpRequest();
         req.SetUrl("https://coop-master/api/list");
         req.Send();
+        if req.GetStatusCode() == 0u {
+            LogChannel(n"DEBUG", "Master server unreachable");
+            return [];
+        };
         if req.GetStatusCode() != 200u {
             LogChannel(n"DEBUG", "Master query failed");
             return [];
@@ -64,7 +70,12 @@ public class ServerBrowser extends inkHUDLayer {
         let req = new HttpRequest();
         req.SetUrl("http://" + ip + ":" + IntToString(port) + "/info");
         req.Send();
+        if req.GetStatusCode() == 0u {
+            LogChannel(n"DEBUG", "Server " + ip + " unreachable");
+            return null;
+        };
         if req.GetStatusCode() != 200u {
+            LogChannel(n"DEBUG", "Info query failed " + IntToString(req.GetStatusCode()));
             return null;
         };
         let body = req.GetBody();
@@ -95,7 +106,9 @@ public class ServerBrowser extends inkHUDLayer {
         LogChannel(n"DEBUG", "ServerBrowser.Refresh");
         let servers = Json.Parse(jsonList) as array<ref<IScriptable>>;
         if IsDefined(listCtrl) {
-            listCtrl.Clear();
+            while listCtrl.GetNumChildren() > 0 {
+                listCtrl.RemoveChild(listCtrl.GetChild(0));
+            };
         };
         selectedId = 0;
         if IsDefined(joinBtn) {
@@ -131,18 +144,20 @@ public class ServerBrowser extends inkHUDLayer {
             row.AddChild(modeLabel);
             row.AddChild(passLabel);
             row.AddChild(addrLabel);
-            row.RegisterToCallback(n"OnRelease", this, n"OnRowClicked");
+            // Refresh is static so use s_instance for callbacks
+            row.RegisterToCallback(n"OnRelease", s_instance, n"OnRowClicked");
             listCtrl.AddChild(row);
         }
         scrollCtrl.SetTarget(listCtrl);
     }
 
-    public static func OnRowClicked(widget: ref<inkWidget>) -> Void {
-        selectedId = StringToUint(widget.GetName());
+    protected cb func OnRowClicked(widget: ref<inkWidget>) -> Bool {
+        selectedId = StringToUint(NameToString(widget.GetName()));
         if IsDefined(joinBtn) {
             joinBtn.SetEnabled(true);
         };
         LogChannel(n"DEBUG", "Selected " + IntToString(selectedId));
+        return true;
     }
 
     public static func Join() -> Void {
@@ -171,7 +186,23 @@ public class ServerBrowser extends inkHUDLayer {
         HostServer();
     }
 
-    public static func OnUpdate() -> Void {
+    protected cb func OnDetach() -> Void {
+        if IsDefined(joinBtn) {
+            // Use the static instance for symmetry with registration
+            joinBtn.UnregisterFromCallback(n"OnRelease", s_instance, n"OnJoinClick");
+        };
+        if IsDefined(listCtrl) {
+            let idx: Int32 = 0;
+            while idx < listCtrl.GetNumChildren() {
+                let row = listCtrl.GetChild(idx);
+                // FIX: prevent leaking row callbacks
+                row.UnregisterFromCallback(n"OnRelease", s_instance, n"OnRowClicked");
+                idx += 1;
+            };
+        };
+    }
+
+    public func OnUpdate(dt: Float) -> Void {
         if IsDefined(scrollCtrl) {
             let input = GameInstance.GetInputSystem(GetGame());
             if input.IsActionJustPressed(n"IK_Up") {

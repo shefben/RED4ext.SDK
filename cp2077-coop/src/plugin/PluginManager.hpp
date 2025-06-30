@@ -1,5 +1,15 @@
 #pragma once
 #include <string>
+#if defined(__has_include)
+#  if __has_include(<Python.h>)
+#    include <Python.h>
+#  else
+struct _object; // FIX: forward declaration when Python headers are absent
+using PyObject = _object;
+#  endif
+#else
+#  include <Python.h>
+#endif
 
 namespace CoopNet {
 struct PluginMetadata {
