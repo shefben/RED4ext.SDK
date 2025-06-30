@@ -22,9 +22,10 @@ static std::string FetchNonce()
 {
     httplib::SSLClient cli("coop-master", 443);
     auto res = cli.Get("/api/challenge");
-    if (!res || res->status != 200)
+    // FIX: `Result` is a struct, not a pointer
+    if (res.status != 200)
         return {};
-    const std::string& body = res->body;
+    const std::string& body = res.body;
     size_t p = body.find("\"nonce\":\"");
     if (p == std::string::npos)
         return {};
@@ -59,7 +60,8 @@ void Heartbeat_Send(const std::string& sessionJson)
 
     httplib::SSLClient cli("coop-master", 443);
     auto res = cli.Post("/api/heartbeat", payload, "application/json");
-    if (!res || res->status != 200)
+    // FIX: check struct return, not pointer
+    if (res.status != 200)
     {
         std::cerr << "Heartbeat failed" << std::endl;
         std::this_thread::sleep_for(std::chrono::seconds(g_backoff));
@@ -68,7 +70,7 @@ void Heartbeat_Send(const std::string& sessionJson)
         return;
     }
     g_backoff = 1;
-    const std::string& body = res->body;
+    const std::string& body = res.body;
     if (body.find("\"ok\":true") != std::string::npos)
     {
         size_t u = body.find("\"url\":\"");
@@ -95,7 +97,8 @@ void Heartbeat_Announce(const std::string& json)
 {
     httplib::SSLClient cli("coop-master", 443);
     auto res = cli.Post("/announce", json, "application/json");
-    if (!res || res->status != 200)
+    // FIX: validate struct result instead of pointer check
+    if (res.status != 200)
     {
         std::cerr << "Announce failed" << std::endl;
     }

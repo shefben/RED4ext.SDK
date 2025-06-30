@@ -3,6 +3,7 @@
 #include "../net/Net.hpp"
 #include "SnapshotHeap.hpp"
 #include "TextureGuard.hpp"
+#include "RenderDevice.hpp"
 #include <iostream>
 #include <sys/sysinfo.h>
 

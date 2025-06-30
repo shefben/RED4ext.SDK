@@ -173,6 +173,11 @@ bool Net_IsAuthoritative()
     return CoopNet::kDedicatedAuthority;
 }
 
+bool Net_IsConnected()
+{
+    return !g_Peers.empty();
+}
+
 std::vector<Connection*> Net_GetConnections()
 {
     std::vector<Connection*> out;

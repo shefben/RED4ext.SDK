@@ -1,4 +1,5 @@
 #include "TextureGuard.hpp"
+#include "RenderDevice.hpp"
 #include "../net/Net.hpp"
 #include <iostream>
 
@@ -10,9 +11,6 @@ static float g_highTimer = 0.f;
 static float g_lowTimer = 0.f;
 static uint8_t g_bias = 0;
 
-float RenderDevice_GetVRAMUsage();
-float RenderDevice_GetVRAMBudget();
-void TextureSystem_SetGlobalMipBias(int bias);
 
 void TextureGuard_Tick(float dt)
 {
