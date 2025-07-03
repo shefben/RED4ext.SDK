@@ -255,5 +255,11 @@ constexpr std::uint32_t DeferredDataBuffer_LoadRefAsync = 1459046115;
 #pragma region LaunchParameters
 constexpr std::uint32_t LaunchParameters = 677908004;
 #pragma endregion
+
+#pragma region RenderDevice
+constexpr std::uint32_t RenderDevice_GetVRAMUsage = 0x5BF8A273;
+constexpr std::uint32_t RenderDevice_GetVRAMBudget = 0x6AF92E11;
+constexpr std::uint32_t TextureSystem_SetGlobalMipBias = 0x1CE54698;
+#pragma endregion
 }
 // clang-format on

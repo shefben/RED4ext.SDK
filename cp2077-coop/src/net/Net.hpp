@@ -24,6 +24,7 @@ void Net_Init();
 void Net_Shutdown();
 void Net_Poll(uint32_t maxMs);
 bool Net_IsAuthoritative();
+bool Net_IsConnected();
 std::vector<CoopNet::Connection*> Net_GetConnections();
 void Net_Send(CoopNet::Connection* conn, CoopNet::EMsg type, const void* data, uint16_t size);
 void Net_Broadcast(CoopNet::EMsg type, const void* data, uint16_t size);

@@ -1,4 +1,14 @@
 #pragma once
+#if defined(__has_include)
+#  if __has_include(<Python.h>)
+#    include <Python.h>
+#  else
+struct _object;
+using PyObject = _object;
+#  endif
+#else
+#  include <Python.h>
+#endif
 namespace CoopNet {
 bool PyVM_Init();
 bool PyVM_Shutdown();

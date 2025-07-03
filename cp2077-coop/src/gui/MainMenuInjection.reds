@@ -9,13 +9,15 @@ public class MainMenuInjection {
 @wrapMethod(MainMenuController, OnInitialize)
 public func OnInitialize() -> Void {
     wrappedMethod();
-    let coopBtn = new inkText();
+    let coopBtn = new inkButton();
+    coopBtn.SetName(n"coopBtn");
     coopBtn.SetText("CO-OP");
     coopBtn.SetStyle(n"BaseButtonMedium");
     coopBtn.RegisterToCallback(n"OnRelease", this, n"OnCoop");
     this.GetRootCompoundWidget().AddChild(coopBtn);
 }
 
+@addMethod(MainMenuController)
 public func OnCoop(e: ref<inkPointerEvent>) -> Void {
     // ensure gameplay continues even if the pause menu invoked this button
     GameInstance.GetTimeSystem(GetGame()).SetLocalTimeDilation(1.0);
