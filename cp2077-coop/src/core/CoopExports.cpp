@@ -2,6 +2,7 @@
 #include <memory>
 #include "GameProcess.hpp"
 #include "../net/Net.hpp" // FIX: expose networking helpers
+#include "../voice/VoiceEncoder.hpp"
 #include <RED4ext/RED4ext.hpp>
 
 using CoopNet::HttpResponse;
@@ -57,6 +58,32 @@ static void NetPollFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, void*
     RED4ext::GetParameter(aFrame, &maxMs);
     aFrame->code++;
     Net_Poll(maxMs);
+}
+
+static void VoiceStartFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, bool* aOut, void*)
+{
+    RED4ext::CString dev;
+    RED4ext::GetParameter(aFrame, &dev);
+    aFrame->code++;
+    if (aOut)
+        *aOut = CoopVoice::StartCapture(dev.c_str());
+}
+
+static void VoiceEncodeFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, int32_t* aOut, void*)
+{
+    int16_t* pcm = nullptr;
+    uint8_t* buf = nullptr;
+    RED4ext::GetParameter(aFrame, &pcm);
+    RED4ext::GetParameter(aFrame, &buf);
+    aFrame->code++;
+    if (aOut)
+        *aOut = CoopVoice::EncodeFrame(pcm, buf);
+}
+
+static void VoiceStopFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, void*, void*)
+{
+    aFrame->code++;
+    CoopVoice::StopCapture();
 }
 
 static RED4ext::TTypedClass<CoopNet::HttpResponse> g_httpRespCls("HttpResponse");
@@ -118,6 +145,23 @@ RED4EXT_C_EXPORT void RED4EXT_CALL PostRegisterTypes()
     poll->flags = flags;
     poll->AddParam("Uint32", "maxMs");
     rtti->RegisterFunction(poll);
+
+    auto vs = RED4ext::CGlobalFunction::Create("CoopVoice_StartCapture", "CoopVoice_StartCapture", &VoiceStartFn);
+    vs->flags = flags;
+    vs->AddParam("String", "device");
+    vs->SetReturnType("Bool");
+    rtti->RegisterFunction(vs);
+
+    auto ve = RED4ext::CGlobalFunction::Create("CoopVoice_EncodeFrame", "CoopVoice_EncodeFrame", &VoiceEncodeFn);
+    ve->flags = flags;
+    ve->AddParam("script_ref<Int16>", "pcm");
+    ve->AddParam("script_ref<Uint8>", "buf");
+    ve->SetReturnType("Int32");
+    rtti->RegisterFunction(ve);
+
+    auto vstop = RED4ext::CGlobalFunction::Create("CoopVoice_StopCapture", "CoopVoice_StopCapture", &VoiceStopFn);
+    vstop->flags = flags;
+    rtti->RegisterFunction(vstop);
 }
 
 RED4EXT_C_EXPORT bool RED4EXT_CALL Main(RED4ext::PluginHandle aHandle, RED4ext::EMainReason aReason, const RED4ext::Sdk* aSdk)
