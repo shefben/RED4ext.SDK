@@ -2,7 +2,35 @@ import Codeware.UI
 
 public class MainMenuInjection {
     public static func Inject() -> Void {
-        // legacy stub retained for compatibility
+        let uiSys = GameInstance.GetUISystem(GetGame());
+        if !IsDefined(uiSys) {
+            LogChannel(n"DEBUG", "[MainMenuInjection] UISystem not found");
+            return;
+        };
+
+        let menu = uiSys.GetMenu(n"MainMenu") as wref<inkMenuLayer>;
+        if !IsDefined(menu) {
+            LogChannel(n"DEBUG", "[MainMenuInjection] main menu not yet available");
+            return;
+        };
+
+        let ctrl = menu.GetController() as MainMenuController;
+        if !IsDefined(ctrl) {
+            LogChannel(n"DEBUG", "[MainMenuInjection] controller cast failed");
+            return;
+        };
+
+        if IsDefined(ctrl.GetRootCompoundWidget().GetWidget(n"coopBtn")) {
+            return; // already injected
+        };
+
+        let coopBtn = new inkButton();
+        coopBtn.SetName(n"coopBtn");
+        coopBtn.SetText("CO-OP");
+        coopBtn.SetStyle(n"BaseButtonMedium");
+        coopBtn.RegisterToCallback(n"OnRelease", ctrl, n"OnCoop");
+        ctrl.GetRootCompoundWidget().AddChild(coopBtn);
+        LogChannel(n"DEBUG", "[MainMenuInjection] CO-OP button added");
     }
 }
 
