@@ -62,7 +62,7 @@ public class ChatOverlay extends inkHUDLayer {
                 MicIcon.Show();
             };
             let pcm: array<Int16>;
-            pcm.Resize(960); // VC-1: capture real PCM from mic
+            pcm.Resize(960);
             let buf: array<Uint8>;
             buf.Resize(256);
             let written = CoopVoice.EncodeFrame(pcm[0], buf[0]);
@@ -72,6 +72,7 @@ public class ChatOverlay extends inkHUDLayer {
             };
         } else {
             if talking {
+                CoopVoice.StopCapture();
                 talking = false;
                 LogChannel(n"DEBUG", "PTT stop");
                 MicIcon.Hide();

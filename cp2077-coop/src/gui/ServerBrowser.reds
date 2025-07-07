@@ -4,6 +4,7 @@ public class ServerBrowser extends inkHUDLayer {
     private static let listCtrl: wref<inkVerticalPanel>;
     private static let scrollCtrl: wref<inkScrollController>;
     private static let joinBtn: wref<inkButton>;
+    private static let hostBtn: wref<inkButton>;
 
     public struct ServerInfo {
         var id: Uint32;
@@ -33,11 +34,21 @@ public class ServerBrowser extends inkHUDLayer {
         joinBtn.RegisterToCallback(n"OnRelease", layer, n"OnJoinClick");
         joinBtn.SetEnabled(false);
         root.AddChild(joinBtn);
+
+        hostBtn = new inkButton();
+        hostBtn.SetText("HOST");
+        hostBtn.RegisterToCallback(n"OnRelease", layer, n"OnHostClick");
+        root.AddChild(hostBtn);
         RefreshLive();
     }
 
     protected cb func OnJoinClick(e: ref<inkPointerEvent>) -> Bool {
         Join();
+        return true;
+    }
+
+    protected cb func OnHostClick(e: ref<inkPointerEvent>) -> Bool {
+        Host();
         return true;
     }
 
@@ -182,7 +193,7 @@ public class ServerBrowser extends inkHUDLayer {
         };
     }
 
-    public static func Host() -> Void {
+    public static exec func Host() -> Void {
         HostServer();
     }
 
@@ -190,6 +201,9 @@ public class ServerBrowser extends inkHUDLayer {
         if IsDefined(joinBtn) {
             // Use the static instance for symmetry with registration
             joinBtn.UnregisterFromCallback(n"OnRelease", s_instance, n"OnJoinClick");
+        };
+        if IsDefined(hostBtn) {
+            hostBtn.UnregisterFromCallback(n"OnRelease", s_instance, n"OnHostClick");
         };
         if IsDefined(listCtrl) {
             let idx: Int32 = 0;
