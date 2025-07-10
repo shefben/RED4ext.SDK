@@ -12,9 +12,9 @@
 #include "../server/QuestWatchdog.hpp"
 #include "../server/StatusController.hpp"
 #include "../server/TrafficController.hpp"
-#include "../third_party/zstd/zstd.h"
 #include "../voice/VoiceDecoder.hpp"
 #include "../voice/VoiceEncoder.hpp"
+#include "../core/AssetStreamer.hpp"
 #include "InterestGrid.hpp"
 #include "Net.hpp"
 #include "NetConfig.hpp"
@@ -25,7 +25,6 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <openssl/sha.h>
 #include <unistd.h>
 #include <unordered_map>
 #include <unordered_set>
@@ -109,103 +108,6 @@ void ClearBundleCache()
     g_bundle.clear();
     g_bundleSha.clear();
     std::cerr << "[MemGuard] bundle cache freed " << before << " bytes, RSS=" << GetProcessRSS() << std::endl;
-}
-
-uint64_t DirSize(const std::filesystem::path& p)
-{
-    uint64_t total = 0;
-    for (auto& f : std::filesystem::recursive_directory_iterator(p))
-        if (f.is_regular_file())
-            total += f.file_size();
-    return total;
-}
-
-void EnforceBundleLimit()
-{
-    namespace fs = std::filesystem;
-    fs::path base = fs::path("runtime_cache") / "plugins";
-    if (!fs::exists(base))
-        return;
-    struct Entry
-    {
-        fs::path path;
-        uint64_t size;
-        fs::file_time_type mtime;
-    };
-    std::vector<Entry> ent;
-    uint64_t total = 0;
-    for (auto& dir : fs::directory_iterator(base))
-    {
-        if (!dir.is_directory())
-            continue;
-        uint64_t sz = DirSize(dir.path());
-        ent.push_back({dir.path(), sz, fs::last_write_time(dir.path())});
-        total += sz;
-    }
-    std::sort(ent.begin(), ent.end(), [](const Entry& a, const Entry& b) { return a.mtime < b.mtime; });
-    for (const auto& e : ent)
-    {
-        if (total <= kBundleLimit)
-            break;
-        fs::remove_all(e.path);
-        total -= e.size;
-        std::cerr << "[AssetCache] purged bundle " << e.path.filename().string() << std::endl;
-    }
-}
-
-bool HandleBundleComplete(uint16_t pluginId, const std::vector<uint8_t>& comp)
-{
-    namespace fs = std::filesystem;
-    std::vector<uint8_t> raw(5u * 1024u * 1024u);
-    size_t size = ZSTD_decompress(raw.data(), raw.size(), comp.data(), comp.size());
-    if (ZSTD_isError(size))
-    {
-        std::cerr << "Bundle decompress failed for plugin " << pluginId << ": " << ZSTD_getErrorName(size) << std::endl;
-        return false;
-    }
-    raw.resize(size);
-    unsigned char sha[SHA256_DIGEST_LENGTH];
-    SHA256(comp.data(), comp.size(), sha);
-    std::string s(reinterpret_cast<char*>(sha), SHA256_DIGEST_LENGTH);
-    {
-        std::unique_lock lock(g_bundleMutex);
-        if (g_bundleSha[pluginId] == s)
-            return true;
-        g_bundleSha[pluginId] = s;
-    }
-    fs::path base = fs::path("runtime_cache") / "plugins" / std::to_string(pluginId);
-    fs::create_directories(base);
-    const uint8_t* p = raw.data();
-    const uint8_t* end = raw.data() + raw.size();
-    while (p + 2 <= end)
-    {
-        uint16_t pathLen;
-        memcpy(&pathLen, p, 2);
-        p += 2;
-        if (p + pathLen > end)
-            break;
-        std::string rel(reinterpret_cast<const char*>(p), pathLen);
-        p += pathLen;
-        if (p + 4 > end)
-            break;
-        uint32_t len;
-        memcpy(&len, p, 4);
-        p += 4;
-        if (p + len > end)
-            break;
-        fs::path out = base / rel;
-        fs::create_directories(out.parent_path());
-        std::ofstream f(out, std::ios::binary);
-        f.write(reinterpret_cast<const char*>(p), len);
-        p += len;
-    }
-    std::filesystem::last_write_time(base, std::filesystem::file_time_type::clock::now());
-    EnforceBundleLimit();
-    RED4ext::CString path(base.string().c_str());
-    bool ro = true; // sandbox client scripts
-    RED4ext::ExecuteFunction("ModSystem", "Mount", nullptr, &path, &ro);
-    RED4ext::ExecuteFunction("ModSystem", "ReloadScriptsFrom", nullptr, &path);
-    return true;
 }
 } // namespace
 
@@ -2035,9 +1937,10 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
                 b.data.insert(b.data.end(), pkt->data, pkt->data + pkt->dataBytes);
                 if (b.data.size() >= b.expected)
                 {
-                    bool ok = HandleBundleComplete(pkt->pluginId, b.data);
+                    CoopNet::GetAssetStreamer().Submit({pkt->pluginId, std::move(b.data)});
+                    pendingAssets += 1;
+                    RED4ext::ExecuteFunction("SyncProgress", "Show", nullptr);
                     g_bundle.erase(pkt->pluginId);
-                    (void)ok;
                 }
             }
         }
@@ -2220,10 +2123,30 @@ void Connection::Update(uint64_t nowMs)
             CoopNet::ApplyPhaseBundle(blob.arg, blob.data.data(), blob.data.size());
         processedLarge += 1;
         int32_t pct = 0;
-        if (pendingLarge > 0)
-            pct = static_cast<int32_t>(processedLarge * 100 / pendingLarge);
+        uint8_t total = pendingLarge + pendingAssets;
+        uint8_t done = processedLarge + processedAssets;
+        if (total > 0)
+            pct = static_cast<int32_t>(done * 100 / total);
         RED4ext::ExecuteFunction("SyncProgress", "Update", nullptr, pct);
-        if (processedLarge >= pendingLarge)
+        if (done >= total)
+            RED4ext::ExecuteFunction("SyncProgress", "Hide", nullptr);
+    }
+
+    CoopNet::AssetStreamer::Result ar;
+    if (CoopNet::GetAssetStreamer().Poll(ar))
+    {
+        RED4ext::CString path((std::string("runtime_cache/plugins/") + std::to_string(ar.pluginId)).c_str());
+        bool ro = true;
+        RED4ext::ExecuteFunction("ModSystem", "Mount", nullptr, &path, &ro);
+        RED4ext::ExecuteFunction("ModSystem", "ReloadScriptsFrom", nullptr, &path);
+        processedAssets += 1;
+        int32_t pct = 0;
+        uint8_t total = pendingLarge + pendingAssets;
+        uint8_t done = processedLarge + processedAssets;
+        if (total > 0)
+            pct = static_cast<int32_t>(done * 100 / total);
+        RED4ext::ExecuteFunction("SyncProgress", "Update", nullptr, pct);
+        if (done >= total)
             RED4ext::ExecuteFunction("SyncProgress", "Hide", nullptr);
     }
 

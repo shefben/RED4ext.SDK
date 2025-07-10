@@ -11,6 +11,7 @@
 #include "../voice/VoiceEncoder.hpp"
 #include "NetConfig.hpp"
 #include "Packets.hpp"
+#include "../core/AssetStreamer.hpp"
 #include <algorithm>
 #include <cstring>
 #include <enet/enet.h>
@@ -50,6 +51,7 @@ void Net_Init()
             Net_BroadcastNatCandidate(cand);
         });
     Nat_Start();
+    CoopNet::GetAssetStreamer().Start();
     std::cout << "Net_Init complete" << std::endl;
 }
 
@@ -66,6 +68,8 @@ void Net_Shutdown()
         enet_host_destroy(g_Host);
         g_Host = nullptr;
     }
+
+    CoopNet::GetAssetStreamer().Stop();
 
     enet_deinitialize();
     std::cout << "Net_Shutdown complete" << std::endl;
