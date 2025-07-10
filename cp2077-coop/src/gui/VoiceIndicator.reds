@@ -86,6 +86,8 @@ public class VoiceIndicator extends inkHUDLayer {
         volDown.SetMargin(new inkMargin(0.0,20.0,100.0,0.0));
         AddChild(volDown);
         volDown.RegisterToCallback(n"OnRelease", this, n"OnVolDown");
+        volume = CoopSettings.voiceVolume;
+        CoopVoice.SetVolume(volume);
     }
 
     protected cb func OnMuteClick(widget: ref<inkWidget>) -> Bool {

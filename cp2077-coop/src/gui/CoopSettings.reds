@@ -7,6 +7,7 @@ public var pushToTalk: EKey = EKey.T;
 public var voiceSampleRate: Uint32 = 48000u;
 public var voiceBitrate: Uint32 = 24000u;
 public var voiceUseOpus: Bool = true;
+public var voiceVolume: Float = 1.0;
 public var friendlyFire: Bool = false;
 public var sharedLoot: Bool = true;
 public var difficultyScaling: Bool = false;
@@ -24,6 +25,7 @@ public func Show() -> Void {
 
 public func Apply() -> Void {
     GameModeManager.SetFriendlyFire(friendlyFire);
+    CoopVoice.SetVolume(voiceVolume);
 }
 
 public func Save(path: String) -> Void {
@@ -33,7 +35,8 @@ public func Save(path: String) -> Void {
                 ",\"dynamicEvents\":" + BoolToString(dynamicEvents) +
                 ",\"difficulty\":" + IntToString(Cast<Int32>(difficultyLevel)) +
                 ",\"minTickRate\":" + IntToString(Cast<Int32>(minTickRate)) +
-                ",\"maxTickRate\":" + IntToString(Cast<Int32>(maxTickRate)) + "}";
+                ",\"maxTickRate\":" + IntToString(Cast<Int32>(maxTickRate)) +
+                ",\"voiceVolume\":" + FloatToString(voiceVolume) + "}";
     SaveSettings(json);
     LogChannel(n"DEBUG", "Saved settings");
 }
