@@ -82,6 +82,13 @@ static void NetPollFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, void*
     Net_Poll(maxMs);
 }
 
+static void SessionActiveCountFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, uint32_t* aOut, void*)
+{
+    aFrame->code++;
+    if (aOut)
+        *aOut = CoopNet::SessionState_GetActivePlayerCount();
+}
+
 static void VoiceStartFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, bool* aOut, void*)
 {
     RED4ext::CString dev;
@@ -203,6 +210,11 @@ RED4EXT_C_EXPORT void RED4EXT_CALL PostRegisterTypes()
     poll->flags = flags;
     poll->AddParam("Uint32", "maxMs");
     rtti->RegisterFunction(poll);
+
+    auto ap = RED4ext::CGlobalFunction::Create("SessionState_GetActivePlayerCount", "SessionState_GetActivePlayerCount", &SessionActiveCountFn);
+    ap->flags = flags;
+    ap->SetReturnType("Uint32");
+    rtti->RegisterFunction(ap);
 
     auto vs = RED4ext::CGlobalFunction::Create("CoopVoice_StartCapture", "CoopVoice_StartCapture", &VoiceStartFn);
     vs->flags = flags;

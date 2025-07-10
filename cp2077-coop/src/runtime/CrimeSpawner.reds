@@ -12,9 +12,12 @@ public class CrimeTriggerVolume extends ScriptedTriggerBase {
         var pkt: CoopNet.CrimeEventSpawnPacket;
         pkt.eventId = eventId;
         pkt.seed = seed;
-        pkt.count = 3u;
+        let players: Uint32 = SessionState.GetActivePlayerCount();
+        if players == 0u { players = 1u; };
+        if players > 4u { players = 4u; };
+        pkt.count = Cast<Uint8>(players);
         let base: Uint32 = CoopNet.Fnv1a32(IntToString(Cast<Int32>(GameInstance.GetSimTime(GetGame()))));
-        for i in range(0, 3) {
+        for i in range(0, Cast<Int32>(players)) {
             pkt.npcIds[i] = base + Cast<Uint32>(i);
         };
         CoopNet.Net_BroadcastCrimeEvent(pkt);

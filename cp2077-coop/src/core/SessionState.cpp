@@ -137,6 +137,11 @@ uint32_t SessionState_GetId()
     return g_sessionId;
 }
 
+uint32_t SessionState_GetActivePlayerCount()
+{
+    return static_cast<uint32_t>(g_party.size());
+}
+
 void SessionState_SetPerk(uint32_t peerId, uint32_t perkId, uint8_t rank)
 {
     for (auto& p : g_party)
