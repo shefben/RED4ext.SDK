@@ -1183,6 +1183,19 @@ struct AvatarDespawnPacket
     uint32_t phaseId; // PX-1
 };
 
+// Delta-compressed TransformSnap serialized via SnapshotWriter.
+// `dataBytes` is the number of bytes following `flags` that make up the
+// compressed payload. The payload layout is determined by the dirty bits
+// set in `flags`.
+struct SnapshotPacket
+{
+    uint32_t entityId;
+    SnapshotHeader header;
+    SnapshotFieldFlags flags;
+    uint16_t dataBytes;
+    uint8_t data[1];
+};
+
 struct ChatPacket
 {
     uint32_t peerId;
