@@ -63,10 +63,14 @@ static void NetPollFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, void*
 static void VoiceStartFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, bool* aOut, void*)
 {
     RED4ext::CString dev;
+    uint32_t sr = 48000;
+    uint32_t br = 24000;
     RED4ext::GetParameter(aFrame, &dev);
+    RED4ext::GetParameter(aFrame, &sr);
+    RED4ext::GetParameter(aFrame, &br);
     aFrame->code++;
     if (aOut)
-        *aOut = CoopVoice::StartCapture(dev.c_str());
+        *aOut = CoopVoice::StartCapture(dev.c_str(), sr, br);
 }
 
 static void VoiceEncodeFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, int32_t* aOut, void*)
@@ -149,6 +153,8 @@ RED4EXT_C_EXPORT void RED4EXT_CALL PostRegisterTypes()
     auto vs = RED4ext::CGlobalFunction::Create("CoopVoice_StartCapture", "CoopVoice_StartCapture", &VoiceStartFn);
     vs->flags = flags;
     vs->AddParam("String", "device");
+    vs->AddParam("Uint32", "sampleRate");
+    vs->AddParam("Uint32", "bitrate");
     vs->SetReturnType("Bool");
     rtti->RegisterFunction(vs);
 

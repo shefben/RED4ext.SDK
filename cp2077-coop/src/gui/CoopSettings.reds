@@ -2,6 +2,8 @@
 public var tickRate: Uint16 = 30;
 public var interpMs: Uint16 = 100;
 public var pushToTalk: EKey = EKey.T;
+public var voiceSampleRate: Uint32 = 48000u;
+public var voiceBitrate: Uint32 = 24000u;
 public var friendlyFire: Bool = false;
 public var sharedLoot: Bool = true;
 public var difficultyScaling: Bool = false;
