@@ -20,6 +20,7 @@
 #include "ServerConfig.hpp"
 #include "SmartCamController.hpp"
 #include "SnapshotHeap.hpp"
+#include "WorldStateIO.hpp"
 #include "StatusController.hpp"
 #include "TextureGuard.hpp"
 #include "TrafficController.hpp"
@@ -72,6 +73,16 @@ int main(int argc, char** argv)
     CoopNet::AdminController_Start();
     CoopNet::InfoServer_Start();
     CoopNet::PluginManager_Init();
+    CoopNet::WorldStatePacket saved{};
+    if (CoopNet::LoadWorldState(saved))
+    {
+        sunAngle = static_cast<uint32_t>(saved.sunAngleDeg % 360) * 100u;
+        particleSeed = saved.particleSeed;
+        weatherId = saved.weatherId;
+        lastSunDeg = saved.sunAngleDeg;
+        lastWeather = weatherId;
+        CoopNet::SessionState_UpdateWeather(saved.sunAngleDeg, saved.weatherId, saved.particleSeed);
+    }
     std::cout << "Dedicated up" << std::endl;
     CoopNet::TaskGraph taskGraph;
     size_t maxWorkers = std::max<size_t>(1, std::thread::hardware_concurrency() - 1);
@@ -311,6 +322,7 @@ int main(int argc, char** argv)
     taskGraph.Stop();
     CoopNet::PluginManager_Shutdown();
     CoopNet::SaveSessionState(sessionId);
+    CoopNet::SaveWorldState({lastSunDeg, lastWeather, particleSeed});
     if (hbSent)
         CoopNet::Heartbeat_Disconnect(sessionId);
     CoopNet::AdminController_Stop();

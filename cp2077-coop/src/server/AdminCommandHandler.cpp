@@ -2,6 +2,9 @@
 #include "AdminController.hpp"
 #include "Journal.hpp"
 #include "../core/GameClock.hpp"
+#include "../core/SessionState.hpp"
+#include "../net/Net.hpp"
+#include "WorldStateIO.hpp"
 #include <sstream>
 
 namespace CoopNet {
@@ -59,6 +62,27 @@ bool AdminCommandHandler_Handle(uint32_t senderId, const std::string& text)
         {
             AdminController_Unmute(id);
             Journal_Log(GameClock::GetCurrentTick(), senderId, "unmute", id, 0);
+        }
+        return true;
+    }
+    else if (cmd == "snapshot")
+    {
+        WorldStatePacket pkt{};
+        const auto& ws = SessionState_GetWorld();
+        pkt.sunAngleDeg = ws.sunDeg;
+        pkt.weatherId = ws.weatherId;
+        pkt.particleSeed = ws.particleSeed;
+        SaveWorldState(pkt);
+        SaveSessionState(SessionState_GetId());
+        return true;
+    }
+    else if (cmd == "reset")
+    {
+        WorldStatePacket pkt{};
+        if (LoadWorldState(pkt))
+        {
+            SessionState_UpdateWeather(pkt.sunAngleDeg, pkt.weatherId, pkt.particleSeed);
+            Net_BroadcastWorldState(pkt.sunAngleDeg, pkt.weatherId, pkt.particleSeed);
         }
         return true;
     }
