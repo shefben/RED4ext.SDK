@@ -47,6 +47,8 @@ public:
         return state;
     }
 
+    float GetAverageRtt() const;
+
 private:
     void Transition(ConnectionState next);
 
