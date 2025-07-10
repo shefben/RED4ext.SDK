@@ -1,6 +1,7 @@
 #include "SessionState.hpp"
 #include "SaveFork.hpp"
 #include "SaveMigration.hpp"
+#include "../net/Net.hpp"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -47,6 +48,8 @@ uint32_t SessionState_SetParty(const std::vector<uint32_t>& peerIds)
     g_sessionId = hash;
     if (g_sessionId != prev)
         LoadSessionState(g_sessionId);
+    if (!sorted.empty())
+        Net_BroadcastPartyInfo(sorted.data(), static_cast<uint8_t>(sorted.size()));
     return g_sessionId;
 }
 

@@ -2,33 +2,33 @@
 #include "../core/GameClock.hpp"
 #include "../core/Hash.hpp"
 #include "../core/SessionState.hpp"
+#include "../plugin/PluginManager.hpp"
 #include "../runtime/GameModeManager.reds"
 #include "../runtime/TileGameSync.reds"
+#include "../server/AdminCommandHandler.hpp"
 #include "../server/BreachController.hpp"
+#include "../server/ChatFilter.hpp"
 #include "../server/NpcController.hpp"
 #include "../server/QuestWatchdog.hpp"
 #include "../server/StatusController.hpp"
 #include "../server/TrafficController.hpp"
-#include "InterestGrid.hpp"
+#include "../third_party/zstd/zstd.h"
 #include "../voice/VoiceDecoder.hpp"
 #include "../voice/VoiceEncoder.hpp"
-#include "../plugin/PluginManager.hpp"
-#include "../server/AdminCommandHandler.hpp"
-#include "../server/ChatFilter.hpp"
-#include "../third_party/zstd/zstd.h"
-#include <openssl/sha.h>
-#include <Python.h>
+#include "InterestGrid.hpp"
 #include "Net.hpp"
 #include "NetConfig.hpp"
 #include "StatBatch.hpp"
+#include <Python.h>
 #include <RED4ext/RED4ext.hpp>
-#include <unistd.h>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
+#include <openssl/sha.h>
+#include <unistd.h>
 #include <unordered_map>
 #include <unordered_set>
-#include <iostream>
-#include <algorithm>
 #include <vector>
 
 // Temporary proxies for script methods.
@@ -75,126 +75,127 @@ static size_t GetProcessRSS()
 
 namespace
 {
-    struct BundleBuf
+struct BundleBuf
+{
+    std::vector<uint8_t> data;
+    uint32_t expected{0};
+};
+
+std::unordered_map<uint16_t, BundleBuf> g_bundle;
+std::unordered_map<uint16_t, std::string> g_bundleSha;
+constexpr uint64_t kBundleLimit = 128ull * 1024ull * 1024ull; // 128 MB
+
+size_t GetBundleMemory()
+{
+    size_t mem = 0;
+    for (auto& kv : g_bundle)
+        mem += kv.second.data.capacity();
+    for (auto& kv : g_bundleSha)
+        mem += kv.second.capacity();
+    return mem;
+}
+
+void ClearBundleCache()
+{
+    size_t before = GetBundleMemory();
+    g_bundle.clear();
+    g_bundleSha.clear();
+    std::cerr << "[MemGuard] bundle cache freed " << before << " bytes, RSS=" << GetProcessRSS() << std::endl;
+}
+
+uint64_t DirSize(const std::filesystem::path& p)
+{
+    uint64_t total = 0;
+    for (auto& f : std::filesystem::recursive_directory_iterator(p))
+        if (f.is_regular_file())
+            total += f.file_size();
+    return total;
+}
+
+void EnforceBundleLimit()
+{
+    namespace fs = std::filesystem;
+    fs::path base = fs::path("runtime_cache") / "plugins";
+    if (!fs::exists(base))
+        return;
+    struct Entry
     {
-        std::vector<uint8_t> data;
-        uint32_t expected{0};
+        fs::path path;
+        uint64_t size;
+        fs::file_time_type mtime;
     };
-
-    std::unordered_map<uint16_t, BundleBuf> g_bundle;
-    std::unordered_map<uint16_t, std::string> g_bundleSha;
-    constexpr uint64_t kBundleLimit = 128ull * 1024ull * 1024ull; // 128 MB
-
-    size_t GetBundleMemory()
+    std::vector<Entry> ent;
+    uint64_t total = 0;
+    for (auto& dir : fs::directory_iterator(base))
     {
-        size_t mem = 0;
-        for (auto& kv : g_bundle)
-            mem += kv.second.data.capacity();
-        for (auto& kv : g_bundleSha)
-            mem += kv.second.capacity();
-        return mem;
+        if (!dir.is_directory())
+            continue;
+        uint64_t sz = DirSize(dir.path());
+        ent.push_back({dir.path(), sz, fs::last_write_time(dir.path())});
+        total += sz;
     }
-
-    void ClearBundleCache()
+    std::sort(ent.begin(), ent.end(), [](const Entry& a, const Entry& b) { return a.mtime < b.mtime; });
+    for (const auto& e : ent)
     {
-        size_t before = GetBundleMemory();
-        g_bundle.clear();
-        g_bundleSha.clear();
-        std::cerr << "[MemGuard] bundle cache freed " << before
-                  << " bytes, RSS=" << GetProcessRSS() << std::endl;
+        if (total <= kBundleLimit)
+            break;
+        fs::remove_all(e.path);
+        total -= e.size;
+        std::cerr << "[AssetCache] purged bundle " << e.path.filename().string() << std::endl;
     }
+}
 
-    uint64_t DirSize(const std::filesystem::path& p)
+bool HandleBundleComplete(uint16_t pluginId, const std::vector<uint8_t>& comp)
+{
+    namespace fs = std::filesystem;
+    std::vector<uint8_t> raw(5u * 1024u * 1024u);
+    size_t size = ZSTD_decompress(raw.data(), raw.size(), comp.data(), comp.size());
+    if (ZSTD_isError(size))
     {
-        uint64_t total = 0;
-        for (auto& f : std::filesystem::recursive_directory_iterator(p))
-            if (f.is_regular_file())
-                total += f.file_size();
-        return total;
+        std::cerr << "Bundle decompress failed for plugin " << pluginId << ": " << ZSTD_getErrorName(size) << std::endl;
+        return false;
     }
-
-    void EnforceBundleLimit()
-    {
-        namespace fs = std::filesystem;
-        fs::path base = fs::path("runtime_cache") / "plugins";
-        if (!fs::exists(base))
-            return;
-        struct Entry { fs::path path; uint64_t size; fs::file_time_type mtime; };
-        std::vector<Entry> ent;
-        uint64_t total = 0;
-        for (auto& dir : fs::directory_iterator(base))
-        {
-            if (!dir.is_directory())
-                continue;
-            uint64_t sz = DirSize(dir.path());
-            ent.push_back({dir.path(), sz, fs::last_write_time(dir.path())});
-            total += sz;
-        }
-        std::sort(ent.begin(), ent.end(), [](const Entry& a, const Entry& b)
-                  { return a.mtime < b.mtime; });
-        for (const auto& e : ent)
-        {
-            if (total <= kBundleLimit)
-                break;
-            fs::remove_all(e.path);
-            total -= e.size;
-            std::cerr << "[AssetCache] purged bundle " << e.path.filename().string()
-                      << std::endl;
-        }
-    }
-
-    bool HandleBundleComplete(uint16_t pluginId, const std::vector<uint8_t>& comp)
-    {
-        namespace fs = std::filesystem;
-        std::vector<uint8_t> raw(5u * 1024u * 1024u);
-        size_t size = ZSTD_decompress(raw.data(), raw.size(), comp.data(), comp.size());
-        if (ZSTD_isError(size))
-        {
-            std::cerr << "Bundle decompress failed for plugin " << pluginId
-                      << ": " << ZSTD_getErrorName(size) << std::endl;
-            return false;
-        }
-        raw.resize(size);
-        unsigned char sha[SHA256_DIGEST_LENGTH];
-        SHA256(comp.data(), comp.size(), sha);
-        std::string s(reinterpret_cast<char*>(sha), SHA256_DIGEST_LENGTH);
-        if (g_bundleSha[pluginId] == s)
-            return true;
-        g_bundleSha[pluginId] = s;
-        fs::path base = fs::path("runtime_cache") / "plugins" / std::to_string(pluginId);
-        fs::create_directories(base);
-        const uint8_t* p = raw.data();
-        const uint8_t* end = raw.data() + raw.size();
-        while (p + 2 <= end)
-        {
-            uint16_t pathLen;
-            memcpy(&pathLen, p, 2);
-            p += 2;
-            if (p + pathLen > end)
-                break;
-            std::string rel(reinterpret_cast<const char*>(p), pathLen);
-            p += pathLen;
-            if (p + 4 > end)
-                break;
-            uint32_t len;
-            memcpy(&len, p, 4);
-            p += 4;
-            if (p + len > end)
-                break;
-            fs::path out = base / rel;
-            fs::create_directories(out.parent_path());
-            std::ofstream f(out, std::ios::binary);
-            f.write(reinterpret_cast<const char*>(p), len);
-            p += len;
-        }
-        std::filesystem::last_write_time(base, std::filesystem::file_time_type::clock::now());
-        EnforceBundleLimit();
-        RED4ext::CString path(base.string().c_str());
-        bool ro = true; // sandbox client scripts
-        RED4ext::ExecuteFunction("ModSystem", "Mount", nullptr, &path, &ro);
-        RED4ext::ExecuteFunction("ModSystem", "ReloadScriptsFrom", nullptr, &path);
+    raw.resize(size);
+    unsigned char sha[SHA256_DIGEST_LENGTH];
+    SHA256(comp.data(), comp.size(), sha);
+    std::string s(reinterpret_cast<char*>(sha), SHA256_DIGEST_LENGTH);
+    if (g_bundleSha[pluginId] == s)
         return true;
+    g_bundleSha[pluginId] = s;
+    fs::path base = fs::path("runtime_cache") / "plugins" / std::to_string(pluginId);
+    fs::create_directories(base);
+    const uint8_t* p = raw.data();
+    const uint8_t* end = raw.data() + raw.size();
+    while (p + 2 <= end)
+    {
+        uint16_t pathLen;
+        memcpy(&pathLen, p, 2);
+        p += 2;
+        if (p + pathLen > end)
+            break;
+        std::string rel(reinterpret_cast<const char*>(p), pathLen);
+        p += pathLen;
+        if (p + 4 > end)
+            break;
+        uint32_t len;
+        memcpy(&len, p, 4);
+        p += 4;
+        if (p + len > end)
+            break;
+        fs::path out = base / rel;
+        fs::create_directories(out.parent_path());
+        std::ofstream f(out, std::ios::binary);
+        f.write(reinterpret_cast<const char*>(p), len);
+        p += len;
     }
+    std::filesystem::last_write_time(base, std::filesystem::file_time_type::clock::now());
+    EnforceBundleLimit();
+    RED4ext::CString path(base.string().c_str());
+    bool ro = true; // sandbox client scripts
+    RED4ext::ExecuteFunction("ModSystem", "Mount", nullptr, &path, &ro);
+    RED4ext::ExecuteFunction("ModSystem", "ReloadScriptsFrom", nullptr, &path);
+    return true;
+}
 } // namespace
 
 static void QuestSync_ApplyQuestStage(uint32_t hash, uint16_t stage)
@@ -347,7 +348,7 @@ static void QuickhackSync_Apply(const HackInfoNative& info)
 
 namespace
 {
-    static std::unordered_map<uint32_t, float> g_lastHackMs;
+static std::unordered_map<uint32_t, float> g_lastHackMs;
 }
 
 static void TileGameSync_Start(uint32_t phaseId, uint32_t seed)
@@ -601,9 +602,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
             {
                 randombytes_buf(&ack.nonce, sizeof(ack.nonce));
-                crypto_sign_detached(ack.sig, nullptr,
-                                     reinterpret_cast<unsigned char*>(&ack.nonce),
-                                     sizeof(ack.nonce),
+                crypto_sign_detached(ack.sig, nullptr, reinterpret_cast<unsigned char*>(&ack.nonce), sizeof(ack.nonce),
                                      CoopNet::kServerCertPriv.data());
             }
             Net_Send(this, EMsg::Welcome, &ack, sizeof(ack));
@@ -634,9 +633,8 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             const WelcomePacket* pkt = reinterpret_cast<const WelcomePacket*>(payload);
             if (!Net_IsAuthoritative())
             {
-                if (crypto_sign_verify_detached(pkt->sig,
-                        reinterpret_cast<const unsigned char*>(&pkt->nonce), sizeof(pkt->nonce),
-                        CoopNet::kServerCertPub.data()) != 0)
+                if (crypto_sign_verify_detached(pkt->sig, reinterpret_cast<const unsigned char*>(&pkt->nonce),
+                                                sizeof(pkt->nonce), CoopNet::kServerCertPub.data()) != 0)
                     break; // invalid signature
             }
             unsigned char sec[crypto_scalarmult_BYTES];
@@ -1621,6 +1619,20 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             CoopNet::QuestWatchdog_HandleVote(peerId, pkt->yes != 0);
         }
         break;
+    case EMsg::BranchVoteStart:
+        if (size >= sizeof(BranchVoteStartPacket))
+        {
+            const BranchVoteStartPacket* pkt = reinterpret_cast<const BranchVoteStartPacket*>(payload);
+            std::cout << "[Vote] branch quest " << pkt->questHash << std::endl;
+        }
+        break;
+    case EMsg::BranchVoteCast:
+        if (size >= sizeof(BranchVoteCastPacket) && Net_IsAuthoritative())
+        {
+            const BranchVoteCastPacket* pkt = reinterpret_cast<const BranchVoteCastPacket*>(payload);
+            CoopNet::QuestWatchdog_HandleVote(peerId, pkt->yes != 0);
+        }
+        break;
     case EMsg::EndingVoteStart:
         if (size >= sizeof(EndingVoteStartPacket))
         {
@@ -1633,6 +1645,34 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const EndingVoteCastPacket* pkt = reinterpret_cast<const EndingVoteCastPacket*>(payload);
             CoopNet::QuestWatchdog_HandleEndingVote(peerId, pkt->yes != 0);
+        }
+        break;
+    case EMsg::PartyInfo:
+        if (size >= sizeof(PartyInfoPacket))
+        {
+            const PartyInfoPacket* pkt = reinterpret_cast<const PartyInfoPacket*>(payload);
+            PartyManager_OnPartyInfo(pkt->peerIds, pkt->count);
+        }
+        break;
+    case EMsg::PartyInvite:
+        if (size >= sizeof(PartyInvitePacket))
+        {
+            const PartyInvitePacket* pkt = reinterpret_cast<const PartyInvitePacket*>(payload);
+            PartyManager_OnInvite(pkt->fromId, pkt->toId);
+        }
+        break;
+    case EMsg::PartyLeave:
+        if (size >= sizeof(PartyLeavePacket))
+        {
+            const PartyLeavePacket* pkt = reinterpret_cast<const PartyLeavePacket*>(payload);
+            PartyManager_OnLeave(pkt->peerId);
+        }
+        break;
+    case EMsg::PartyKick:
+        if (size >= sizeof(PartyKickPacket))
+        {
+            const PartyKickPacket* pkt = reinterpret_cast<const PartyKickPacket*>(payload);
+            PartyManager_OnKick(pkt->peerId);
         }
         break;
     case EMsg::PhaseBundle:
@@ -1654,13 +1694,14 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const LootRollPacket* pkt = reinterpret_cast<const LootRollPacket*>(payload);
             array<Uint64> ids;
-            let cnt: Int32 = Cast<Int32>(pkt->count);
-            let i: Int32 = 0;
-            while i < cnt && i < 16
-            {
-                ids.PushBack(pkt->itemIds[i]);
-                i += 1;
-            }
+            let cnt : Int32 = Cast<Int32>(pkt->count);
+            let i : Int32 = 0;
+            while
+                i < cnt&& i < 16
+                {
+                    ids.PushBack(pkt->itemIds[i]);
+                    i += 1;
+                }
             LootAuthority_OnLootRoll(pkt->containerId, pkt->seed, ids);
         }
         break;
@@ -1943,7 +1984,8 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(AirVehSpawnPacket))
         {
             const AirVehSpawnPacket* pkt = reinterpret_cast<const AirVehSpawnPacket*>(payload);
-            RED4ext::ExecuteFunction("AirVehicleProxy", "AirVehicleProxy_Spawn", nullptr, pkt->vehId, pkt->count, pkt->points);
+            RED4ext::ExecuteFunction("AirVehicleProxy", "AirVehicleProxy_Spawn", nullptr, pkt->vehId, pkt->count,
+                                     pkt->points);
         }
         break;
     case EMsg::AirVehUpdate:
@@ -2124,9 +2166,10 @@ void Connection::Update(uint64_t nowMs)
     }
 
     int16_t pcm[960];
-    if (CoopVoice::DecodeFrame(pcm) > 0)
+    int samples = CoopVoice::DecodeFrame(pcm);
+    if (samples > 0)
     {
-        // PCM would be sent to audio output here
+        CoopVoice::QueuePCM(pcm, samples);
     }
 
     LargeBlob blob;

@@ -119,6 +119,8 @@ enum class EMsg : uint16_t
     TextureBiasChange,
     CriticalVoteStart, // PX-6
     CriticalVoteCast,
+    BranchVoteStart,  // QW-1
+    BranchVoteCast,
     PhaseBundle,
     AptPurchase,
     AptPurchaseAck,
@@ -142,6 +144,10 @@ enum class EMsg : uint16_t
     TradeFinalize,
     EndingVoteStart, // EG-1
     EndingVoteCast,
+    PartyInfo,
+    PartyInvite,
+    PartyLeave,
+    PartyKick,
     VehicleSnapshot, // VT-1
     TurretAim,       // VT-2
     AirVehSpawn,     // VT-3
@@ -899,6 +905,20 @@ struct CriticalVoteCastPacket
     uint8_t _pad[3];
 };
 
+struct BranchVoteStartPacket
+{
+    uint32_t questHash;
+    uint16_t stage;
+    uint8_t _pad[2];
+};
+
+struct BranchVoteCastPacket
+{
+    uint32_t peerId;
+    uint8_t yes;
+    uint8_t _pad[3];
+};
+
 struct PhaseBundlePacket
 {
     uint32_t phaseId;
@@ -1046,6 +1066,29 @@ struct EndingVoteCastPacket
     uint32_t peerId;
     uint8_t yes;
     uint8_t _pad[3];
+};
+
+struct PartyInfoPacket
+{
+    uint8_t count;
+    uint8_t _pad[3];
+    uint32_t peerIds[8];
+};
+
+struct PartyInvitePacket
+{
+    uint32_t fromId;
+    uint32_t toId;
+};
+
+struct PartyLeavePacket
+{
+    uint32_t peerId;
+};
+
+struct PartyKickPacket
+{
+    uint32_t peerId;
 };
 
 struct VehicleSnapshotPacket

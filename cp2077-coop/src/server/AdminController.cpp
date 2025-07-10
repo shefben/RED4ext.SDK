@@ -3,6 +3,8 @@
 #include "../core/ThreadSafeQueue.hpp"
 #include "../net/Net.hpp"
 #include "../net/Packets.hpp"
+#include "WorldStateIO.hpp"
+#include "../core/SessionState.hpp"
 #include "WebDash.hpp"
 #include "VehicleController.hpp"
 #include <RED4ext/RED4ext.hpp>
@@ -244,6 +246,27 @@ void AdminController_PollCommands()
         fs::remove_all("cache/plugins");
         size_t rss = GetProcessRSS();
         std::cout << "[Admin] cache purged, RSS=" << rss / (1024 * 1024) << " MB" << std::endl;
+    }
+    else if (cmd == "snapshot")
+    {
+        WorldStatePacket pkt{};
+        const auto& ws = SessionState_GetWorld();
+        pkt.sunAngleDeg = ws.sunDeg;
+        pkt.weatherId = ws.weatherId;
+        pkt.particleSeed = ws.particleSeed;
+        SaveWorldState(pkt);
+        SaveSessionState(SessionState_GetId());
+        std::cout << "[Admin] world snapshot saved" << std::endl;
+    }
+    else if (cmd == "reset")
+    {
+        WorldStatePacket pkt{};
+        if (LoadWorldState(pkt))
+        {
+            SessionState_UpdateWeather(pkt.sunAngleDeg, pkt.weatherId, pkt.particleSeed);
+            Net_BroadcastWorldState(pkt.sunAngleDeg, pkt.weatherId, pkt.particleSeed);
+            std::cout << "[Admin] world reset" << std::endl;
+        }
     }
     else if (cmd == "sv_dm")
     {

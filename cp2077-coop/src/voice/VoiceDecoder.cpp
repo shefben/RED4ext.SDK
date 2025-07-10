@@ -1,4 +1,5 @@
 #include "VoiceDecoder.hpp"
+#include "OpusDecoder.hpp"
 #include "VoiceEncoder.hpp"
 #include <AL/al.h>
 #include <AL/alc.h>
@@ -6,7 +7,6 @@
 #include <chrono>
 #include <cstring>
 #include <iostream>
-#include "OpusDecoder.hpp"
 #include <vector>
 
 namespace CoopVoice
@@ -118,8 +118,13 @@ int DecodeFrame(int16_t* pcmOut)
         std::memcpy(pcmOut, pkt.data, pkt.size);
     }
 
+    return samples;
+}
+
+static void QueuePCMInternal(const int16_t* pcm, int samples)
+{
     if (!EnsureAL())
-        return samples;
+        return;
 
     ALint processed = 0;
     alGetSourcei(g_source, AL_BUFFERS_PROCESSED, &processed);
@@ -131,16 +136,20 @@ int DecodeFrame(int16_t* pcmOut)
     ALint queued = 0;
     alGetSourcei(g_source, AL_BUFFERS_QUEUED, &queued);
     if (queued > 8)
-        return samples; // drop to avoid latency
+        return; // drop to avoid latency
 
-    alBufferData(g_buffers[g_bufIndex], AL_FORMAT_MONO16, pcmOut, samples * sizeof(int16_t), 48000);
+    alBufferData(g_buffers[g_bufIndex], AL_FORMAT_MONO16, pcm, samples * sizeof(int16_t), 48000);
     alSourceQueueBuffers(g_source, 1, &g_buffers[g_bufIndex]);
     g_bufIndex = (g_bufIndex + 1) % 4;
     ALint state = 0;
     alGetSourcei(g_source, AL_SOURCE_STATE, &state);
     if (state != AL_PLAYING)
         alSourcePlay(g_source);
-    return samples;
+}
+
+void QueuePCM(const int16_t* pcm, int samples)
+{
+    QueuePCMInternal(pcm, samples);
 }
 
 uint16_t ConsumeDropPct()

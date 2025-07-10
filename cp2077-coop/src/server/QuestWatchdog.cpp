@@ -7,6 +7,7 @@
 #include "../core/SessionState.hpp"
 #include <fstream>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace CoopNet
 {
@@ -18,10 +19,14 @@ static uint32_t g_resyncCount = 0;
 static float g_window = 0.f;
 static std::unordered_map<uint32_t, uint16_t> g_critical;                              // PX-6
 static std::unordered_map<uint32_t, std::unordered_map<uint16_t, uint32_t>> g_romance; // RM-1
+static std::unordered_set<uint32_t> g_mainQuests; // QW-1
+static std::unordered_set<uint32_t> g_sideQuests; // QW-1
 static bool g_voteActive = false;
 static uint32_t g_voteQuest = 0;
 static uint32_t g_votePhase = 0;
 static float g_voteTimer = 0.f;
+static uint16_t g_voteStage = 0;
+static bool g_branchVote = false;
 static std::unordered_map<uint32_t, bool> g_voteCast;
 static bool g_endVoteActive = false; // EG-1
 static float g_endVoteTimer = 0.f;
@@ -29,7 +34,15 @@ static std::unordered_map<uint32_t, bool> g_endVoteCast;
 
 void QuestWatchdog_Record(uint32_t phaseId, uint32_t questHash, uint16_t stage)
 {
-    g_phaseStages[phaseId][questHash] = stage;
+    auto& map = g_phaseStages[phaseId];
+    if (map.empty())
+    {
+        for (uint32_t q : g_mainQuests)
+            map[q] = 0;
+        for (uint32_t q : g_sideQuests)
+            map[q] = 0;
+    }
+    map[questHash] = stage;
     PhaseGC_Touch(phaseId);
     auto r = g_romance.find(questHash);
     if (r != g_romance.end())
@@ -183,6 +196,46 @@ void QuestWatchdog_LoadRomance()
     }
 }
 
+void QuestWatchdog_LoadMain()
+{
+    std::ifstream in("MainQuests.json");
+    if (!in.is_open())
+        return;
+    std::string json((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    size_t pos = 0;
+    while (true)
+    {
+        pos = json.find("\"questHash\"", pos);
+        if (pos == std::string::npos)
+            break;
+        pos = json.find(':', pos);
+        size_t s = json.find_first_of("0123456789", pos);
+        size_t e = json.find_first_not_of("0123456789", s);
+        uint32_t q = std::stoul(json.substr(s, e - s));
+        g_mainQuests.insert(q);
+    }
+}
+
+void QuestWatchdog_LoadSide()
+{
+    std::ifstream in("SideQuests.json");
+    if (!in.is_open())
+        return;
+    std::string json((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    size_t pos = 0;
+    while (true)
+    {
+        pos = json.find("\"questHash\"", pos);
+        if (pos == std::string::npos)
+            break;
+        pos = json.find(':', pos);
+        size_t s = json.find_first_of("0123456789", pos);
+        size_t e = json.find_first_not_of("0123456789", s);
+        uint32_t q = std::stoul(json.substr(s, e - s));
+        g_sideQuests.insert(q);
+    }
+}
+
 void QuestWatchdog_Tick(float dt)
 {
     if (g_voteActive)
@@ -197,7 +250,7 @@ void QuestWatchdog_Tick(float dt)
         bool majority = yes > total / 2 || (g_voteTimer <= 0.f && yes + uncast > total / 2);
         if (majority)
         {
-            uint16_t stage = g_phaseStages[g_votePhase][g_voteQuest];
+            uint16_t stage = g_branchVote ? g_voteStage : g_phaseStages[g_votePhase][g_voteQuest];
             for (auto& peer : g_phaseStages)
             {
                 peer.second[g_voteQuest] = stage;
@@ -210,6 +263,7 @@ void QuestWatchdog_Tick(float dt)
             }
             PhaseTrigger_Clear(g_votePhase);
             g_voteActive = false;
+            g_branchVote = false;
             g_voteCast.clear();
         }
 
@@ -239,6 +293,7 @@ void QuestWatchdog_Tick(float dt)
         else if (g_voteTimer <= 0.f)
         {
             g_voteActive = false;
+            g_branchVote = false;
             g_voteCast.clear();
         }
     }
@@ -278,24 +333,26 @@ void QuestWatchdog_Tick(float dt)
         if (mx > mn + 1)
         {
             g_diverge[hash] += 3.f;
-            if (g_diverge[hash] > 15.f && g_resyncCount < 2)
+            if (g_diverge[hash] > 15.f && !g_voteActive)
             {
-                g_resyncCount++;
+                std::unordered_map<uint16_t, size_t> count;
                 for (auto& peer : g_phaseStages)
-                {
-                    uint16_t st = peer.second[hash];
-                    if (st != mx)
+                    ++count[peer.second[hash]];
+                uint16_t best = 0;
+                size_t bestN = 0;
+                for (auto& c : count)
+                    if (c.second > bestN)
                     {
-                        Connection* conn = Net_FindConnection(peer.first);
-                        if (conn)
-                        {
-                            QuestFullSyncPacket pkt{};
-                            QuestWatchdog_BuildFullSync(peer.first, pkt);
-                            Net_SendQuestFullSync(conn, pkt);
-                            PhaseTrigger_Clear(peer.first);
-                        }
+                        bestN = c.second;
+                        best = c.first;
                     }
-                }
+                g_voteActive = true;
+                g_branchVote = true;
+                g_voteQuest = hash;
+                g_voteStage = best;
+                g_voteTimer = 30.f;
+                g_voteCast.clear();
+                Net_BroadcastBranchVoteStart(hash, best);
                 g_diverge.erase(hash);
             }
         }
