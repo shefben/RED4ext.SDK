@@ -5,6 +5,7 @@
 #include "Snapshot.hpp"
 #include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
 #include <cstdint>
+#include "../voice/VoiceEncoder.hpp"
 #include <sodium.h>
 
 namespace CoopNet
@@ -603,7 +604,7 @@ struct VoicePacket
     uint32_t peerId;
     uint16_t seq;
     uint16_t size;
-    uint8_t data[256];
+    uint8_t data[CoopVoice::kPCMFrameBytes];
 };
 
 struct VoiceCapsPacket

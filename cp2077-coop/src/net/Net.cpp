@@ -628,7 +628,7 @@ void Net_SendVoice(const uint8_t* data, uint16_t size, uint16_t seq)
         auto* c = conns[0];
         if (c->voiceMuted)
             return;
-        uint16_t cap = c->voiceFrameBytes ? c->voiceFrameBytes : CoopVoice::kMaxFrameBytes;
+        uint16_t cap = c->voiceFrameBytes ? c->voiceFrameBytes : CoopVoice::GetFrameBytes();
         uint16_t offset = 0;
         while (offset < size)
         {

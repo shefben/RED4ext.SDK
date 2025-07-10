@@ -49,6 +49,8 @@ public class ChatOverlay extends inkHUDLayer {
             Toggle();
         }
 
+        CoopVoice.SetCodec(CoopSettings.voiceUseOpus);
+
         if IsDefined(root) {
             root.SetVisible(visible);
         }
@@ -56,7 +58,7 @@ public class ChatOverlay extends inkHUDLayer {
         let input = GameInstance.GetInputSystem(GetGame());
         if input.IsPressed(CoopSettings.pushToTalk) {
             if !talking {
-                if CoopVoice.StartCapture("default", CoopSettings.voiceSampleRate, CoopSettings.voiceBitrate) {
+                if CoopVoice.StartCapture("default", CoopSettings.voiceSampleRate, CoopSettings.voiceBitrate, CoopSettings.voiceUseOpus) {
                     talking = true;
                     LogChannel(n"DEBUG", "PTT start");
                     MicIcon.Show();
@@ -67,7 +69,11 @@ public class ChatOverlay extends inkHUDLayer {
             let pcm: array<Int16>;
             pcm.Resize(Cast<Int32>(CoopSettings.voiceSampleRate / 50u));
             let buf: array<Uint8>;
-            buf.Resize(256);
+            if CoopSettings.voiceUseOpus {
+                buf.Resize(256);
+            } else {
+                buf.Resize(Cast<Int32>(CoopSettings.voiceSampleRate / 25u));
+            };
             let written = CoopVoice.EncodeFrame(pcm[0], buf[0]);
             if written > 0 {
                 Net_SendVoice(buf[0], Cast<Uint16>(written), Cast<Uint16>(seq));

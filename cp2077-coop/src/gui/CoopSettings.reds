@@ -6,6 +6,7 @@ public var interpMs: Uint16 = 100;
 public var pushToTalk: EKey = EKey.T;
 public var voiceSampleRate: Uint32 = 48000u;
 public var voiceBitrate: Uint32 = 24000u;
+public var voiceUseOpus: Bool = true;
 public var friendlyFire: Bool = false;
 public var sharedLoot: Bool = true;
 public var difficultyScaling: Bool = false;
