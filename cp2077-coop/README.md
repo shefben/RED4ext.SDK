@@ -20,3 +20,9 @@ and various gameplay sync stubs:
 The current phase focuses on stability.
 New modules improve crash reporting, ensure consistent build versions,
 and prepare dedicated server listings via periodic heartbeats.
+
+### Dedicated Server
+Run `coop_dedicated` to host a match. Supported arguments:
+
+* `--help` — print a short usage banner then exit.
+* `--port <number>` — override the listen port (default `7777`).

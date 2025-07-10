@@ -6,6 +6,7 @@
 #include <spawn.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/wait.h>
 #include <filesystem>
 extern char **environ;
 #endif
@@ -45,7 +46,16 @@ bool GameProcess_Launch(const std::string& exe, const std::string& args)
     int ret = posix_spawnp(&pid, exe.c_str(), &actions, &attr, (char* const*)argv, environ);
     posix_spawn_file_actions_destroy(&actions);
     posix_spawnattr_destroy(&attr);
-    return ret == 0;
+
+    if (ret == 0)
+    {
+        int status = 0;
+        pid_t res = waitpid(pid, &status, WNOHANG);
+        if (res == pid)
+            return false; // exited immediately
+        return true;
+    }
+    return false;
 #endif
 }
 
