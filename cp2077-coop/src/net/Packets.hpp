@@ -5,6 +5,7 @@
 #include "Snapshot.hpp"
 #include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
 #include <cstdint>
+#include <sodium.h>
 
 namespace CoopNet
 {
@@ -204,6 +205,8 @@ struct HelloPacket
 struct WelcomePacket
 {
     uint8_t pub[crypto_kx_PUBLICKEYBYTES];
+    uint64_t nonce;
+    uint8_t sig[crypto_sign_BYTES];
 };
 
 struct PingPacket
