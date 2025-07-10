@@ -32,6 +32,30 @@ void EnsureCoopSaveDirs()
     }
 }
 
+bool LoadSession(uint32_t sessionId, std::string& outJson)
+{
+    namespace fs = std::filesystem;
+    try
+    {
+        fs::path file = fs::path(kCoopSavePath) / (std::to_string(sessionId) + ".json.zst");
+        std::ifstream in(file, std::ios::binary);
+        if (!in.is_open())
+            return false;
+        std::string zdata((std::istreambuf_iterator<char>(in)), {});
+        std::vector<char> raw(65536);
+        size_t size = ZSTD_decompress(raw.data(), raw.size(), zdata.data(), zdata.size());
+        if (ZSTD_isError(size))
+            return false;
+        outJson.assign(raw.data(), size);
+        return true;
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "LoadSession error: " << e.what() << std::endl;
+        return false;
+    }
+}
+
 bool LoadCarParking(uint32_t sessionId, uint32_t peerId, CarParking& out)
 {
     namespace fs = std::filesystem;
