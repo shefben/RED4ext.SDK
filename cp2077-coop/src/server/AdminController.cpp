@@ -20,6 +20,14 @@ static std::unordered_set<uint32_t> g_banList;
 static ThreadSafeQueue<std::string> g_cmdQueue;
 static std::thread g_consoleThread;
 static std::atomic<bool> g_consoleRunning{false};
+struct VoteKickData
+{
+    bool active = false;
+    uint32_t target = 0;
+    float timer = 0.f;
+    std::unordered_set<uint32_t> votes;
+};
+static VoteKickData g_voteKick;
 
 static size_t GetProcessRSS()
 {
@@ -62,9 +70,52 @@ static void DoKick(uint32_t peerId)
     }
 }
 
+static const char* GetBanPath()
+{
+    return "server/bans.json";
+}
+
+static void LoadBans()
+{
+    std::ifstream in(GetBanPath());
+    if (!in.is_open())
+        return;
+    std::string json((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    size_t pos = 0;
+    while (true)
+    {
+        pos = json.find_first_of("0123456789", pos);
+        if (pos == std::string::npos)
+            break;
+        size_t end = json.find_first_not_of("0123456789", pos);
+        g_banList.insert(std::stoul(json.substr(pos, end - pos)));
+        pos = end;
+    }
+}
+
+static void SaveBans()
+{
+    namespace fs = std::filesystem;
+    fs::create_directories("server");
+    std::ofstream out(GetBanPath());
+    if (!out.is_open())
+        return;
+    out << "[";
+    bool first = true;
+    for (uint32_t id : g_banList)
+    {
+        if (!first)
+            out << ",";
+        out << id;
+        first = false;
+    }
+    out << "]";
+}
+
 static void DoBan(uint32_t peerId)
 {
     g_banList.insert(peerId);
+    SaveBans();
     DoKick(peerId);
 }
 
@@ -91,6 +142,18 @@ static void DoUnmute(uint32_t peerId)
     }
 }
 
+static void CastVoteKick(uint32_t voter, uint32_t target)
+{
+    if (!g_voteKick.active || g_voteKick.target != target)
+    {
+        g_voteKick.active = true;
+        g_voteKick.target = target;
+        g_voteKick.timer = 30.f;
+        g_voteKick.votes.clear();
+    }
+    g_voteKick.votes.insert(voter);
+}
+
 static void ConsoleThread()
 {
     while (g_consoleRunning)
@@ -106,6 +169,7 @@ void AdminController_Start()
 {
     if (g_consoleRunning)
         return;
+    LoadBans();
     g_consoleRunning = true;
     g_consoleThread = std::thread(ConsoleThread);
 }
@@ -114,6 +178,7 @@ void AdminController_Stop()
 {
     if (!g_consoleRunning)
         return;
+    SaveBans();
     g_consoleRunning = false;
     if (g_consoleThread.joinable())
         g_consoleThread.join();
@@ -214,6 +279,33 @@ void AdminController_Mute(uint32_t peerId, uint32_t mins)
 void AdminController_Unmute(uint32_t peerId)
 {
     DoUnmute(peerId);
+}
+
+void AdminController_HandleVoteKick(uint32_t voterId, uint32_t targetId)
+{
+    CastVoteKick(voterId, targetId);
+}
+
+void AdminController_Tick(float dt)
+{
+    AdminController_PollCommands();
+    if (g_voteKick.active)
+    {
+        g_voteKick.timer -= dt / 1000.f;
+        size_t total = Net_GetConnections().size();
+        size_t yes = g_voteKick.votes.size();
+        if (yes > total / 2)
+        {
+            DoKick(g_voteKick.target);
+            g_voteKick.active = false;
+            g_voteKick.votes.clear();
+        }
+        else if (g_voteKick.timer <= 0.f)
+        {
+            g_voteKick.active = false;
+            g_voteKick.votes.clear();
+        }
+    }
 }
 
 } // namespace CoopNet
