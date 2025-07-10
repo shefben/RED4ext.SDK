@@ -1447,6 +1447,20 @@ void Net_SendCriticalVoteCast(bool yes)
         Net_Send(conns[0], EMsg::CriticalVoteCast, &pkt, sizeof(pkt));
 }
 
+void Net_BroadcastBranchVoteStart(uint32_t questHash, uint16_t stage)
+{
+    BranchVoteStartPacket pkt{questHash, stage, {0,0}};
+    Net_Broadcast(EMsg::BranchVoteStart, &pkt, sizeof(pkt));
+}
+
+void Net_SendBranchVoteCast(bool yes)
+{
+    BranchVoteCastPacket pkt{0u, static_cast<uint8_t>(yes), {0,0,0}};
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+        Net_Send(conns[0], EMsg::BranchVoteCast, &pkt, sizeof(pkt));
+}
+
 void Net_SendPhaseBundle(Connection* conn, uint32_t phaseId, const std::vector<uint8_t>& blob)
 {
     if (!conn || blob.empty() || blob.size() > 16384)
