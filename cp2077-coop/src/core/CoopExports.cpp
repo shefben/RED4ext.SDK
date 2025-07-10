@@ -112,6 +112,14 @@ static void VoiceStopFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, voi
     CoopVoice::StopCapture();
 }
 
+static void VoiceSetVolumeFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, void*, void*)
+{
+    float vol = 1.f;
+    RED4ext::GetParameter(aFrame, &vol);
+    aFrame->code++;
+    CoopVoice::SetVolume(vol);
+}
+
 static RED4ext::TTypedClass<CoopNet::HttpResponse> g_httpRespCls("HttpResponse");
 static RED4ext::TTypedClass<CoopNet::HttpAsyncResult> g_httpAsyncCls("HttpAsyncResult");
 
@@ -214,6 +222,11 @@ RED4EXT_C_EXPORT void RED4EXT_CALL PostRegisterTypes()
     auto vstop = RED4ext::CGlobalFunction::Create("CoopVoice_StopCapture", "CoopVoice_StopCapture", &VoiceStopFn);
     vstop->flags = flags;
     rtti->RegisterFunction(vstop);
+
+    auto vvol = RED4ext::CGlobalFunction::Create("CoopVoice_SetVolume", "CoopVoice_SetVolume", &VoiceSetVolumeFn);
+    vvol->flags = flags;
+    vvol->AddParam("Float", "volume");
+    rtti->RegisterFunction(vvol);
 }
 
 RED4EXT_C_EXPORT bool RED4EXT_CALL Main(RED4ext::PluginHandle aHandle, RED4ext::EMainReason aReason, const RED4ext::Sdk* aSdk)
