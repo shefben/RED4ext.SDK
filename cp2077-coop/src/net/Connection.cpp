@@ -2001,6 +2001,20 @@ bool Connection::PopPacket(RawPacket& out)
     return m_incoming.Pop(out);
 }
 
+float Connection::GetAverageRtt() const
+{
+    float sum = 0.f;
+    int count = 0;
+    for (float v : rttHist)
+    {
+        if (v > 0.f)
+        {
+            sum += v;
+            ++count;
+        }
+    }
+    return count ? sum / count : rttMs;
+}
 void Connection::RefreshNpcInterest()
 {
     std::vector<uint32_t> ids;
