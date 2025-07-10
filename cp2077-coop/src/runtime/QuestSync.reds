@@ -44,6 +44,10 @@ public class QuestSync {
     }
 
     public static func ApplyQuestStageByHash(hash: Uint32, stage: Uint16) -> Void {
+        if !nameMap.Contains(hash) {
+            LogChannel(n"WARNING", "[QuestSync] Unknown quest hash " + IntToString(Cast<Int32>(hash)));
+            return;
+        };
         let name: CName = nameMap.Get(hash) as CName;
         ApplyQuestStage(name, stage);
     }
