@@ -48,6 +48,23 @@ static bool ValidateItems(uint32_t peerId, const TradeOfferPacket& pkt)
     return true;
 }
 
+static bool ValidateStored()
+{
+    for (auto& item : g_trade.offerA)
+    {
+        auto it = g_items.find(item.itemId);
+        if (it == g_items.end() || it->second.ownerId != g_trade.a)
+            return false;
+    }
+    for (auto& item : g_trade.offerB)
+    {
+        auto it = g_items.find(item.itemId);
+        if (it == g_items.end() || it->second.ownerId != g_trade.b)
+            return false;
+    }
+    return true;
+}
+
 void TradeController_HandleOffer(Connection* conn, const TradeOfferPacket& pkt)
 {
     if (!g_active || !conn)
@@ -73,6 +90,12 @@ void TradeController_HandleOffer(Connection* conn, const TradeOfferPacket& pkt)
 
 static void Finalize()
 {
+    if (!ValidateStored())
+    {
+        Net_BroadcastTradeFinalize(false);
+        g_active = false;
+        return;
+    }
     for (auto& item : g_trade.offerA)
     {
         ItemSnap& snap = g_items[item.itemId];
@@ -104,6 +127,13 @@ void TradeController_HandleAccept(Connection* conn, uint32_t peerId, bool accept
         g_trade.acceptA = accept;
     else if (peerId == g_trade.b)
         g_trade.acceptB = accept;
+    TradeAcceptPacket pkt{peerId, static_cast<uint8_t>(accept), {0, 0, 0}};
+    Connection* a = Net_FindConnection(g_trade.a);
+    Connection* b = Net_FindConnection(g_trade.b);
+    if (a)
+        Net_Send(a, EMsg::TradeAccept, &pkt, sizeof(pkt));
+    if (b && b != a)
+        Net_Send(b, EMsg::TradeAccept, &pkt, sizeof(pkt));
     if (g_trade.acceptA && g_trade.acceptB)
         Finalize();
 }
