@@ -88,9 +88,20 @@ void TradeController_HandleOffer(Connection* conn, const TradeOfferPacket& pkt)
         Net_Send(other, EMsg::TradeOffer, &fwd, sizeof(fwd));
 }
 
+static bool ValidateFunds()
+{
+    Connection* a = Net_FindConnection(g_trade.a);
+    Connection* b = Net_FindConnection(g_trade.b);
+    if (!a || !b)
+        return false;
+    if (a->balance < g_trade.eddiesA || b->balance < g_trade.eddiesB)
+        return false;
+    return true;
+}
+
 static void Finalize()
 {
-    if (!ValidateStored())
+    if (!ValidateStored() || !ValidateFunds())
     {
         Net_BroadcastTradeFinalize(false);
         g_active = false;
@@ -111,8 +122,18 @@ static void Finalize()
         Net_Broadcast(EMsg::ItemSnap, &pkt, sizeof(pkt));
     }
     uint64_t bal;
-    Ledger_Transfer(Net_FindConnection(g_trade.a), -static_cast<int64_t>(g_trade.eddiesA), 0, bal);
-    Ledger_Transfer(Net_FindConnection(g_trade.b), -static_cast<int64_t>(g_trade.eddiesB), 0, bal);
+    if (!Ledger_Transfer(Net_FindConnection(g_trade.a), -static_cast<int64_t>(g_trade.eddiesA), 0, bal))
+    {
+        Net_BroadcastTradeFinalize(false);
+        g_active = false;
+        return;
+    }
+    if (!Ledger_Transfer(Net_FindConnection(g_trade.b), -static_cast<int64_t>(g_trade.eddiesB), 0, bal))
+    {
+        Net_BroadcastTradeFinalize(false);
+        g_active = false;
+        return;
+    }
     Ledger_Transfer(Net_FindConnection(g_trade.a), g_trade.eddiesB, 1, bal);
     Ledger_Transfer(Net_FindConnection(g_trade.b), g_trade.eddiesA, 1, bal);
     Net_BroadcastTradeFinalize(true);

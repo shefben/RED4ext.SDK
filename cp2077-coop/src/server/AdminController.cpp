@@ -196,4 +196,24 @@ bool AdminController_IsBanned(uint32_t peerId)
     return g_banList.count(peerId) != 0;
 }
 
+void AdminController_Kick(uint32_t peerId)
+{
+    DoKick(peerId);
+}
+
+void AdminController_Ban(uint32_t peerId)
+{
+    DoBan(peerId);
+}
+
+void AdminController_Mute(uint32_t peerId, uint32_t mins)
+{
+    DoMute(peerId, mins);
+}
+
+void AdminController_Unmute(uint32_t peerId)
+{
+    DoUnmute(peerId);
+}
+
 } // namespace CoopNet

@@ -3,6 +3,8 @@
 #include "../net/Net.hpp"
 #include "PhaseGC.hpp"
 #include "PhaseTriggerController.hpp"
+#include "NpcController.hpp"
+#include "../core/SessionState.hpp"
 #include <fstream>
 #include <unordered_map>
 
@@ -57,17 +59,39 @@ void QuestWatchdog_Record(uint32_t phaseId, uint32_t questHash, uint16_t stage)
 
 void QuestWatchdog_BuildFullSync(uint32_t phaseId, QuestFullSyncPacket& outPkt)
 {
-    outPkt.count = 0;
+    outPkt.questCount = 0;
+    outPkt.npcCount = 0;
+    outPkt.eventCount = 0;
+
     auto it = g_phaseStages.find(phaseId);
-    if (it == g_phaseStages.end())
-        return;
-    for (auto& q : it->second)
+    if (it != g_phaseStages.end())
     {
-        if (outPkt.count >= 32)
-            break;
-        outPkt.entries[outPkt.count].nameHash = q.first;
-        outPkt.entries[outPkt.count].stage = q.second;
-        ++outPkt.count;
+        for (auto& q : it->second)
+        {
+            if (outPkt.questCount >= 32)
+                break;
+            outPkt.quests[outPkt.questCount].nameHash = q.first;
+            outPkt.quests[outPkt.questCount].stage = q.second;
+            ++outPkt.questCount;
+        }
+    }
+
+    const NpcSnap& npc = NpcController_GetSnap();
+    if (npc.phaseId == phaseId && outPkt.npcCount < 16)
+    {
+        outPkt.npcs[outPkt.npcCount] = npc;
+        ++outPkt.npcCount;
+    }
+
+    for (const auto& e : SessionState_GetEvents())
+    {
+        if (e.phase != phaseId || !e.active || outPkt.eventCount >= 16)
+            continue;
+        outPkt.events[outPkt.eventCount].eventId = e.eventId;
+        outPkt.events[outPkt.eventCount].phase = e.phase;
+        outPkt.events[outPkt.eventCount].active = 1u;
+        outPkt.events[outPkt.eventCount].seed = e.seed;
+        ++outPkt.eventCount;
     }
 }
 
