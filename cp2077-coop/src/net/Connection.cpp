@@ -2020,7 +2020,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(VehicleSnapshotPacket))
         {
             const VehicleSnapshotPacket* pkt = reinterpret_cast<const VehicleSnapshotPacket*>(payload);
-            RED4ext::ExecuteFunction("VehicleProxy", "UpdateSnapshot", nullptr, &pkt->snap);
+            RED4ext::ExecuteFunction("VehicleProxy", "VehicleProxy_UpdateSnap", nullptr, 1u, &pkt->snap);
         }
         break;
     case EMsg::Version:
