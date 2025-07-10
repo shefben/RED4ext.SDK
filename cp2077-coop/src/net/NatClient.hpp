@@ -13,6 +13,7 @@ class Connection;
 void Nat_PerformHandshake(Connection* conn);
 
 uint64_t Nat_GetRelayBytes();
+const std::string& Nat_GetLocalCandidate();
 void Nat_AddRemoteCandidate(const char* cand);
 
 void Nat_SetTurnCreds(const std::string& host, int port,
