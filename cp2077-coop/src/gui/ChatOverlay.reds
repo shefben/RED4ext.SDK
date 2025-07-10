@@ -56,10 +56,13 @@ public class ChatOverlay extends inkHUDLayer {
         let input = GameInstance.GetInputSystem(GetGame());
         if input.IsPressed(CoopSettings.pushToTalk) {
             if !talking {
-                CoopVoice.StartCapture("default", CoopSettings.voiceSampleRate, CoopSettings.voiceBitrate);
-                talking = true;
-                LogChannel(n"DEBUG", "PTT start");
-                MicIcon.Show();
+                if CoopVoice.StartCapture("default", CoopSettings.voiceSampleRate, CoopSettings.voiceBitrate) {
+                    talking = true;
+                    LogChannel(n"DEBUG", "PTT start");
+                    MicIcon.Show();
+                } else {
+                    CoopNotice.Show("Microphone init failed");
+                };
             };
             let pcm: array<Int16>;
             pcm.Resize(Cast<Int32>(CoopSettings.voiceSampleRate / 50u));
