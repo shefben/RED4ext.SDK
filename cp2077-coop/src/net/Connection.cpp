@@ -2,33 +2,35 @@
 #include "../core/GameClock.hpp"
 #include "../core/Hash.hpp"
 #include "../core/SessionState.hpp"
+#include "../plugin/PluginManager.hpp"
 #include "../runtime/GameModeManager.reds"
 #include "../runtime/TileGameSync.reds"
+#include "../server/AdminCommandHandler.hpp"
 #include "../server/BreachController.hpp"
+#include "../server/ChatFilter.hpp"
 #include "../server/NpcController.hpp"
 #include "../server/QuestWatchdog.hpp"
 #include "../server/StatusController.hpp"
 #include "../server/TrafficController.hpp"
-#include "InterestGrid.hpp"
+#include "../third_party/zstd/zstd.h"
 #include "../voice/VoiceDecoder.hpp"
 #include "../voice/VoiceEncoder.hpp"
-#include "../plugin/PluginManager.hpp"
-#include "../server/AdminCommandHandler.hpp"
-#include "../server/ChatFilter.hpp"
-#include "../third_party/zstd/zstd.h"
-#include <openssl/sha.h>
-#include <Python.h>
+#include "InterestGrid.hpp"
 #include "Net.hpp"
 #include "NetConfig.hpp"
 #include "StatBatch.hpp"
+#include <Python.h>
 #include <RED4ext/RED4ext.hpp>
-#include <unistd.h>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
+#include <mutex>
+#include <openssl/sha.h>
+#include <shared_mutex>
+#include <unistd.h>
 #include <unordered_map>
 #include <unordered_set>
-#include <iostream>
-#include <algorithm>
 #include <vector>
 
 // Temporary proxies for script methods.
@@ -83,6 +85,7 @@ namespace
 
     std::unordered_map<uint16_t, BundleBuf> g_bundle;
     std::unordered_map<uint16_t, std::string> g_bundleSha;
+    std::shared_mutex g_bundleMutex;
     constexpr uint64_t kBundleLimit = 128ull * 1024ull * 1024ull; // 128 MB
 
     size_t GetBundleMemory()
@@ -158,9 +161,12 @@ namespace
         unsigned char sha[SHA256_DIGEST_LENGTH];
         SHA256(comp.data(), comp.size(), sha);
         std::string s(reinterpret_cast<char*>(sha), SHA256_DIGEST_LENGTH);
-        if (g_bundleSha[pluginId] == s)
-            return true;
-        g_bundleSha[pluginId] = s;
+        {
+            std::unique_lock lock(g_bundleMutex);
+            if (g_bundleSha[pluginId] == s)
+                return true;
+            g_bundleSha[pluginId] = s;
+        }
         fs::path base = fs::path("runtime_cache") / "plugins" / std::to_string(pluginId);
         fs::create_directories(base);
         const uint8_t* p = raw.data();
@@ -348,6 +354,7 @@ static void QuickhackSync_Apply(const HackInfoNative& info)
 namespace
 {
     static std::unordered_map<uint32_t, float> g_lastHackMs;
+    static std::mutex g_lastHackMutex;
 }
 
 static void TileGameSync_Start(uint32_t phaseId, uint32_t seed)
@@ -1957,14 +1964,24 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(AssetBundlePacket) && !Net_IsAuthoritative())
         {
             const AssetBundlePacket* pkt = reinterpret_cast<const AssetBundlePacket*>(payload);
-            auto& b = g_bundle[pkt->pluginId];
-            if (b.data.empty())
-                b.expected = pkt->totalBytes;
-            b.data.insert(b.data.end(), pkt->data, pkt->data + pkt->dataBytes);
-            if (b.data.size() >= b.expected)
+            std::vector<uint8_t> complete;
+            bool ready = false;
             {
-                bool ok = HandleBundleComplete(pkt->pluginId, b.data);
-                g_bundle.erase(pkt->pluginId);
+                std::unique_lock lock(g_bundleMutex);
+                auto& b = g_bundle[pkt->pluginId];
+                if (b.data.empty())
+                    b.expected = pkt->totalBytes;
+                b.data.insert(b.data.end(), pkt->data, pkt->data + pkt->dataBytes);
+                if (b.data.size() >= b.expected)
+                {
+                    complete.swap(b.data);
+                    g_bundle.erase(pkt->pluginId);
+                    ready = true;
+                }
+            }
+            if (ready)
+            {
+                bool ok = HandleBundleComplete(pkt->pluginId, complete);
                 (void)ok;
             }
         }
@@ -2033,10 +2050,13 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
             {
                 float now = CoopNet::GameClock::GetCurrentTick() * CoopNet::GameClock::currentTickMs;
-                if (now - g_lastHackMs[peerId] >= 5000.f)
                 {
-                    g_lastHackMs[peerId] = now;
-                    Net_Broadcast(EMsg::Quickhack, pkt, sizeof(*pkt));
+                    std::lock_guard<std::mutex> lk(g_lastHackMutex);
+                    if (now - g_lastHackMs[peerId] >= 5000.f)
+                    {
+                        g_lastHackMs[peerId] = now;
+                        Net_Broadcast(EMsg::Quickhack, pkt, sizeof(*pkt));
+                    }
                 }
             }
             HackInfoNative info{pkt->targetId, pkt->hackId, pkt->durationMs, 0};
@@ -2248,7 +2268,10 @@ void Connection::Transition(ConnectionState next)
         state = next;
         std::cout << "Connection state -> " << static_cast<int>(state) << std::endl;
         if (state == ConnectionState::Disconnected)
+        {
+            std::unique_lock lock(g_bundleMutex);
             ClearBundleCache();
+        }
     }
 }
 
