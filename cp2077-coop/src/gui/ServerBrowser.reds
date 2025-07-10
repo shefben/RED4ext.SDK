@@ -5,6 +5,12 @@ public class ServerBrowser extends inkHUDLayer {
     private static let scrollCtrl: wref<inkScrollController>;
     private static let joinBtn: wref<inkButton>;
     private static let hostBtn: wref<inkButton>;
+    // Store last JSON query for quick refresh
+    private static var lastJson: String;
+    // Filters
+    private static var maxPing: Uint32 = 999u; // 0=no limit
+    private static var reqVer: Uint32 = kClientCRC; // 0=any
+    private static var hidePass: Bool = false;
 
     public struct ServerInfo {
         var id: Uint32;
@@ -80,7 +86,10 @@ public class ServerBrowser extends inkHUDLayer {
         let port: Uint32 = entry["port"] as Int32;
         let req = new HttpRequest();
         req.SetUrl("http://" + ip + ":" + IntToString(port) + "/info");
+        let ts = GameInstance.GetTimeSystem(GetGame());
+        let start = EngineTime.ToFloat(ts.GetGameTime());
         req.Send();
+        let ping = Cast<Uint32>(RoundF((EngineTime.ToFloat(ts.GetGameTime()) - start) * 1000.0));
         if req.GetStatusCode() == 0u {
             LogChannel(n"DEBUG", "Server " + ip + " unreachable");
             return null;
@@ -95,6 +104,10 @@ public class ServerBrowser extends inkHUDLayer {
             info["id"] = entry["id"];
             info["ip"] = ip;
             info["port"] = port;
+            info["ping"] = ping;
+            if !HasKey(info, "ver") {
+                info["ver"] = 0u;
+            };
         };
         return info;
     }
@@ -109,7 +122,15 @@ public class ServerBrowser extends inkHUDLayer {
             };
         };
         let json = Json.Stringify(servers);
+        lastJson = json;
         Refresh(json);
+    }
+
+    // Refresh using cached JSON from last query
+    public static func RefreshCached() -> Void {
+        if lastJson != "" {
+            Refresh(lastJson);
+        };
     }
 
     // Populate list from JSON payload with array<ServerInfo>
@@ -134,10 +155,25 @@ public class ServerBrowser extends inkHUDLayer {
             let pass: Bool = server["password"] as Bool;
             let ip: String = server["ip"] as String;
             let port: Uint32 = server["port"] as Int32;
+            let ping: Uint32 = server["ping"] as Int32;
+            let ver: Uint32 = server["ver"] as Int32;
+
+            if maxPing != 0u && ping > maxPing {
+                continue;
+            };
+            if hidePass && pass {
+                continue;
+            };
+            if reqVer != 0u && ver != reqVer {
+                continue;
+            };
             let row = new inkHorizontalPanel();
             row.SetName(IntToString(id));
             let nameLabel = new inkText();
             nameLabel.SetText(name);
+            if ver != kClientCRC {
+                nameLabel.SetTintColor(new HDRColor(1.0,0.2,0.2,1.0));
+            };
             let playersLabel = new inkText();
             playersLabel.SetText(IntToString(cur) + "/" + IntToString(max));
             let modeLabel = new inkText();
@@ -195,6 +231,22 @@ public class ServerBrowser extends inkHUDLayer {
 
     public static exec func Host() -> Void {
         HostServer();
+    }
+
+    // Update filtering options
+    public static exec func SetMaxPing(ms: Uint32) -> Void {
+        maxPing = ms;
+        RefreshCached();
+    }
+
+    public static exec func RequireVersion(crc: Uint32) -> Void {
+        reqVer = crc;
+        RefreshCached();
+    }
+
+    public static exec func HidePassworded(hide: Bool) -> Void {
+        hidePass = hide;
+        RefreshCached();
     }
 
     protected cb func OnDetach() -> Void {
