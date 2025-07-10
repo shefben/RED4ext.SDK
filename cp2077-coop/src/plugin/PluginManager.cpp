@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <vector>
 #include <rapidjson/document.h>
+#include "../server/AdminController.hpp"
 #include "../net/Net.hpp"
 #include "../core/Hash.hpp"
 #include "../third_party/zstd/zstd.h"
@@ -291,6 +292,12 @@ void PluginManager_DispatchEvent(const std::string& name, PyObject* dict)
 
 bool PluginManager_HandleChat(uint32_t peerId, const std::string& msg, bool)
 {
+    static const char* badWords[] = {"spam", "hack", nullptr};
+    for (const char** p = badWords; *p; ++p)
+    {
+        if (msg.find(*p) != std::string::npos)
+            return true;
+    }
     if (msg.rfind('/', 0) != 0)
         return false;
     std::stringstream ss(msg.substr(1));
@@ -300,6 +307,18 @@ bool PluginManager_HandleChat(uint32_t peerId, const std::string& msg, bool)
     std::string a;
     while (ss >> a)
         args.push_back(a);
+    if (cmd == "votekick" && args.size() >= 1)
+    {
+        uint32_t target = static_cast<uint32_t>(std::stoul(args[0]));
+        AdminController_AddKickVote(peerId, target);
+        return true;
+    }
+    if (cmd == "ban" && args.size() >= 1)
+    {
+        uint32_t target = static_cast<uint32_t>(std::stoul(args[0]));
+        AdminController_Ban(target);
+        return true;
+    }
     auto it = g_commands.find(cmd);
     if (it == g_commands.end())
         return false;

@@ -12,14 +12,56 @@
 #include <iostream>
 #include <sstream>
 #include <unordered_set>
+#include <unordered_map>
 
 namespace CoopNet
 {
 
 static std::unordered_set<uint32_t> g_banList;
+static std::unordered_map<uint32_t, std::unordered_set<uint32_t>> g_kickVotes;
 static ThreadSafeQueue<std::string> g_cmdQueue;
 static std::thread g_consoleThread;
 static std::atomic<bool> g_consoleRunning{false};
+static const char* g_banFile = "server/bans.json";
+static const size_t VOTE_THRESHOLD = 3;
+
+static void LoadBans()
+{
+    std::ifstream f(g_banFile);
+    if (!f.is_open())
+        return;
+    std::string data((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    size_t pos = 0;
+    while (true)
+    {
+        pos = data.find_first_of("0123456789", pos);
+        if (pos == std::string::npos)
+            break;
+        size_t end = data.find_first_not_of("0123456789", pos);
+        uint32_t id = std::stoul(data.substr(pos, end - pos));
+        g_banList.insert(id);
+        if (end == std::string::npos)
+            break;
+        pos = end;
+    }
+}
+
+static void SaveBans()
+{
+    std::ofstream f(g_banFile);
+    if (!f.is_open())
+        return;
+    f << '[';
+    bool first = true;
+    for (uint32_t id : g_banList)
+    {
+        if (!first)
+            f << ',';
+        f << id;
+        first = false;
+    }
+    f << ']';
+}
 
 static size_t GetProcessRSS()
 {
@@ -65,6 +107,7 @@ static void DoKick(uint32_t peerId)
 static void DoBan(uint32_t peerId)
 {
     g_banList.insert(peerId);
+    SaveBans();
     DoKick(peerId);
 }
 
@@ -106,6 +149,7 @@ void AdminController_Start()
 {
     if (g_consoleRunning)
         return;
+    LoadBans();
     g_consoleRunning = true;
     g_consoleThread = std::thread(ConsoleThread);
 }
@@ -114,6 +158,7 @@ void AdminController_Stop()
 {
     if (!g_consoleRunning)
         return;
+    SaveBans();
     g_consoleRunning = false;
     if (g_consoleThread.joinable())
         g_consoleThread.join();
@@ -194,6 +239,23 @@ void AdminController_PollCommands()
 bool AdminController_IsBanned(uint32_t peerId)
 {
     return g_banList.count(peerId) != 0;
+}
+
+void AdminController_Ban(uint32_t peerId)
+{
+    DoBan(peerId);
+}
+
+void AdminController_AddKickVote(uint32_t voterId, uint32_t targetId)
+{
+    auto& set = g_kickVotes[targetId];
+    set.insert(voterId);
+    if (set.size() >= VOTE_THRESHOLD)
+    {
+        Net_BroadcastChat("VoteKick passed for " + std::to_string(targetId));
+        DoKick(targetId);
+        g_kickVotes.erase(targetId);
+    }
 }
 
 } // namespace CoopNet
