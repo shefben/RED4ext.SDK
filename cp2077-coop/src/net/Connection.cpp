@@ -30,6 +30,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <shared_mutex>
+#include <mutex>
 
 // Temporary proxies for script methods.
 static void AvatarProxy_SpawnRemote(uint32_t peerId, bool isLocal, const CoopNet::TransformSnap& snap)
@@ -83,10 +85,12 @@ struct BundleBuf
 
 std::unordered_map<uint16_t, BundleBuf> g_bundle;
 std::unordered_map<uint16_t, std::string> g_bundleSha;
+std::shared_mutex g_bundleMutex;
 constexpr uint64_t kBundleLimit = 128ull * 1024ull * 1024ull; // 128 MB
 
 size_t GetBundleMemory()
 {
+    std::shared_lock lock(g_bundleMutex);
     size_t mem = 0;
     for (auto& kv : g_bundle)
         mem += kv.second.data.capacity();
@@ -97,7 +101,11 @@ size_t GetBundleMemory()
 
 void ClearBundleCache()
 {
-    size_t before = GetBundleMemory();
+    size_t before = 0;
+    for (auto& kv : g_bundle)
+        before += kv.second.data.capacity();
+    for (auto& kv : g_bundleSha)
+        before += kv.second.capacity();
     g_bundle.clear();
     g_bundleSha.clear();
     std::cerr << "[MemGuard] bundle cache freed " << before << " bytes, RSS=" << GetProcessRSS() << std::endl;
@@ -159,9 +167,12 @@ bool HandleBundleComplete(uint16_t pluginId, const std::vector<uint8_t>& comp)
     unsigned char sha[SHA256_DIGEST_LENGTH];
     SHA256(comp.data(), comp.size(), sha);
     std::string s(reinterpret_cast<char*>(sha), SHA256_DIGEST_LENGTH);
-    if (g_bundleSha[pluginId] == s)
-        return true;
-    g_bundleSha[pluginId] = s;
+    {
+        std::unique_lock lock(g_bundleMutex);
+        if (g_bundleSha[pluginId] == s)
+            return true;
+        g_bundleSha[pluginId] = s;
+    }
     fs::path base = fs::path("runtime_cache") / "plugins" / std::to_string(pluginId);
     fs::create_directories(base);
     const uint8_t* p = raw.data();
@@ -359,6 +370,7 @@ static void QuickhackSync_Apply(const HackInfoNative& info)
 namespace
 {
 static std::unordered_map<uint32_t, float> g_lastHackMs;
+static std::mutex g_lastHackMutex;
 }
 
 static void TileGameSync_Start(uint32_t phaseId, uint32_t seed)
@@ -2015,15 +2027,18 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             uint16_t expected = static_cast<uint16_t>(sizeof(AssetBundlePacket) - 1 + pkt->dataBytes);
             if (!ValidatePktSize(size, expected, "AssetBundle"))
                 break;
-            auto& b = g_bundle[pkt->pluginId];
-            if (b.data.empty())
-                b.expected = pkt->totalBytes;
-            b.data.insert(b.data.end(), pkt->data, pkt->data + pkt->dataBytes);
-            if (b.data.size() >= b.expected)
             {
-                bool ok = HandleBundleComplete(pkt->pluginId, b.data);
-                g_bundle.erase(pkt->pluginId);
-                (void)ok;
+                std::unique_lock lock(g_bundleMutex);
+                auto& b = g_bundle[pkt->pluginId];
+                if (b.data.empty())
+                    b.expected = pkt->totalBytes;
+                b.data.insert(b.data.end(), pkt->data, pkt->data + pkt->dataBytes);
+                if (b.data.size() >= b.expected)
+                {
+                    bool ok = HandleBundleComplete(pkt->pluginId, b.data);
+                    g_bundle.erase(pkt->pluginId);
+                    (void)ok;
+                }
             }
         }
         break;
@@ -2093,11 +2108,17 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
             {
                 float now = CoopNet::GameClock::GetCurrentTick() * CoopNet::GameClock::currentTickMs;
-                if (now - g_lastHackMs[peerId] >= 5000.f)
+                bool allowed = false;
                 {
-                    g_lastHackMs[peerId] = now;
-                    Net_Broadcast(EMsg::Quickhack, pkt, sizeof(*pkt));
+                    std::lock_guard<std::mutex> lock(g_lastHackMutex);
+                    if (now - g_lastHackMs[peerId] >= 5000.f)
+                    {
+                        g_lastHackMs[peerId] = now;
+                        allowed = true;
+                    }
                 }
+                if (allowed)
+                    Net_Broadcast(EMsg::Quickhack, pkt, sizeof(*pkt));
             }
             HackInfoNative info{pkt->targetId, pkt->hackId, pkt->durationMs, 0};
             QuickhackSync_Apply(info);
@@ -2316,7 +2337,10 @@ void Connection::Transition(ConnectionState next)
         state = next;
         std::cout << "Connection state -> " << static_cast<int>(state) << std::endl;
         if (state == ConnectionState::Disconnected)
+        {
+            std::unique_lock lock(g_bundleMutex);
             ClearBundleCache();
+        }
     }
 }
 
