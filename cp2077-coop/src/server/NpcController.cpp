@@ -145,4 +145,9 @@ void NpcController_Despawn(uint32_t id)
     g_interestGrid.Remove(id);
 }
 
+const NpcSnap& NpcController_GetSnap()
+{
+    return g_npc;
+}
+
 } // namespace CoopNet
