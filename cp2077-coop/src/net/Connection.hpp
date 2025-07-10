@@ -2,6 +2,7 @@
 
 #include "Packets.hpp"
 #include "core/ThreadSafeQueue.hpp"
+#include "../voice/VoiceEncoder.hpp"
 #include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
 #include <array>
 #include <cstdint>
@@ -77,6 +78,7 @@ public:
     float packetLoss = 0.f;
     uint64_t voiceBytes = 0;
     uint64_t snapBytes = 0;
+    uint16_t voiceFrameBytes = CoopVoice::kMaxFrameBytes;
     uint32_t voiceRecv = 0;
     uint32_t voiceDropped = 0;
     uint64_t lastStatTime = 0;

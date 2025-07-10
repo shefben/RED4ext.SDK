@@ -77,6 +77,11 @@ int EncodeFrame(int16_t* pcm, uint8_t* outBuf)
     return bytes;
 }
 
+uint16_t GetFrameSamples()
+{
+    return static_cast<uint16_t>(g_frameSamples);
+}
+
 void StopCapture()
 {
     if (!g_capturing)
