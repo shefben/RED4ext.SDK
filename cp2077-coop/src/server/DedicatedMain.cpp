@@ -135,6 +135,7 @@ int main(int argc, char** argv)
                 particleSeed = static_cast<uint16_t>(std::rand());
             }
             Net_BroadcastWorldState(deg, weatherId, particleSeed);
+            CoopNet::SessionState_UpdateWeather(deg, weatherId, particleSeed);
         }
         CoopNet::ElevatorController_ServerTick(tickMs);
         if (!CoopNet::ElevatorController_IsPaused())

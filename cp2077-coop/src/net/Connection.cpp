@@ -659,6 +659,14 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             NpcProxy_OnAIState(pkt->npcId, pkt->aiState);
         }
         break;
+    case EMsg::NpcReputation:
+        if (size >= sizeof(NpcReputationPacket))
+        {
+            const NpcReputationPacket* pkt = reinterpret_cast<const NpcReputationPacket*>(payload);
+            if (!Net_IsAuthoritative())
+                ; // client-side hook TBD
+        }
+        break;
     case EMsg::CrimeEventSpawn:
         if (size >= sizeof(CrimeEventSpawnPacket))
         {
@@ -1019,6 +1027,12 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
                 auto pb = CoopNet::BuildPhaseBundle(id);
                 Net_SendPhaseBundle(this, id, pb);
             }
+            const auto& ws = CoopNet::SessionState_GetWorld();
+            Net_SendWorldState(this, ws.sunDeg, ws.weatherId, ws.particleSeed);
+            for (const auto& e : CoopNet::SessionState_GetEvents())
+                Net_SendGlobalEvent(this, e.eventId, e.phase, e.active, e.seed);
+            for (const auto& kv : CoopNet::SessionState_GetReputation())
+                Net_SendNpcReputation(this, kv.first, kv.second);
         }
         break;
     case EMsg::HoloCallStart:
