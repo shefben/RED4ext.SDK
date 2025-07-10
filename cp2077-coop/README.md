@@ -26,3 +26,7 @@ Run `coop_dedicated` to host a match. Supported arguments:
 
 * `--help` — print a short usage banner then exit.
 * `--port <number>` — override the listen port (default `7777`).
+
+### Packet Handling
+All enums defined in `src/net/Packets.hpp` now have matching cases in `Connection.cpp`.
+This ensures new packet types are automatically rejected if misused.
