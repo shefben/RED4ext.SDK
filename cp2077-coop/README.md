@@ -30,3 +30,10 @@ Run `coop_dedicated` to host a match. Supported arguments:
 ### Packet Handling
 All enums defined in `src/net/Packets.hpp` now have matching cases in `Connection.cpp`.
 This ensures new packet types are automatically rejected if misused.
+
+### NAT Traversal
+`NatTraversal` wraps libjuice for STUN/TURN negotiation.
+Call `Nat_Start()` to gather a candidate, send it to peers,
+then `Nat_PerformHandshake()` to establish connectivity.
+If ICE fails after five seconds and TURN credentials were supplied
+via `Nat_SetTurnCreds()`, the connection retries through the relay.

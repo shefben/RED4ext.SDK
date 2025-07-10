@@ -1,10 +1,8 @@
 #pragma once
-#include <functional>
-#include <juice/juice.h>
+#include "NatTraversal.hpp"
 
 namespace CoopNet
 {
-using CandidateCallback = std::function<void(const char*)>;
 
 void Nat_SetCandidateCallback(CandidateCallback cb);
 void Nat_Start();
