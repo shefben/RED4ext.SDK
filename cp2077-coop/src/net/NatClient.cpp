@@ -7,6 +7,7 @@ namespace CoopNet
 {
 static CandidateCallback g_callback;
 static juice_agent_t* g_agent = nullptr;
+static std::string g_localCandidate;
 static std::string g_remoteCandidate;
 static bool g_connected = false;
 static uint64_t g_relayBytes = 0;
@@ -29,6 +30,7 @@ void Nat_Start()
     cfg.cb_candidate = [](juice_agent_t*, const char* sdp, void*) {
         if (g_callback)
             g_callback(sdp);
+        g_localCandidate = sdp ? sdp : "";
     };
     cfg.cb_state_changed = [](juice_agent_t*, juice_state_t state, void*) {
         if (state == JUICE_STATE_CONNECTED)
@@ -57,6 +59,11 @@ static bool RequestTurnCreds(std::string& host, int& port,
 uint64_t Nat_GetRelayBytes()
 {
     return g_relayBytes;
+}
+
+const std::string& Nat_GetLocalCandidate()
+{
+    return g_localCandidate;
 }
 
 void Nat_PerformHandshake(Connection* conn)
@@ -117,6 +124,10 @@ void Nat_PerformHandshake(Connection* conn)
             conn->rttMs = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start).count();
             conn->usingRelay = g_relayBytes > 0;
             std::cout << "TURN relay bytes=" << conn->relayBytes << std::endl;
+            if (conn->usingRelay)
+                std::cout << "NAT method=relay" << std::endl;
+            else
+                std::cout << "NAT method=direct" << std::endl;
         }
     }
 }
