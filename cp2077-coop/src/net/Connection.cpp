@@ -9,6 +9,7 @@
 #include "../server/QuestWatchdog.hpp"
 #include "../server/StatusController.hpp"
 #include "../server/TrafficController.hpp"
+#include "InterestGrid.hpp"
 #include "../voice/VoiceDecoder.hpp"
 #include "../plugin/PluginManager.hpp"
 #include "../third_party/zstd/zstd.h"
@@ -20,6 +21,7 @@
 #include <filesystem>
 #include <fstream>
 #include <unordered_map>
+#include <unordered_set>
 #include <iostream>
 
 // Temporary proxies for script methods.
@@ -1952,6 +1954,34 @@ void Connection::EnqueuePacket(const RawPacket& pkt)
 bool Connection::PopPacket(RawPacket& out)
 {
     return m_incoming.Pop(out);
+}
+
+void Connection::RefreshNpcInterest()
+{
+    std::vector<uint32_t> ids;
+    g_interestGrid.Query(avatarPos, 80.f, ids);
+    std::unordered_set<uint32_t> newSet(ids.begin(), ids.end());
+    for (uint32_t id : newSet)
+    {
+        if (subscribedNpcs.insert(id).second)
+        {
+            InterestPacket pkt{id};
+            Net_Send(this, EMsg::InterestAdd, &pkt, sizeof(pkt));
+        }
+    }
+    for (auto it = subscribedNpcs.begin(); it != subscribedNpcs.end();)
+    {
+        if (newSet.count(*it) == 0)
+        {
+            InterestPacket pkt{*it};
+            Net_Send(this, EMsg::InterestRemove, &pkt, sizeof(pkt));
+            it = subscribedNpcs.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
 }
 
 void Connection::Transition(ConnectionState next)
