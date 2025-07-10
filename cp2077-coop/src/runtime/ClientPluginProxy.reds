@@ -13,6 +13,10 @@ public class ClientPluginProxy {
         register_rpc(CoopNet.Fnv1a32("popup"), _popup);
     }
 
+    public static func ClearPending() -> Void {
+        callbacks.Clear();
+    }
+
     public static func OnRpc(pkt: ref<PluginRPCPacket>) -> Void {
         let fn = callbacks.Get(pkt.fnHash) as func(String);
         if IsDefined(fn) {
@@ -30,4 +34,8 @@ public static func ClientPluginProxy_OnRpc(pkt: ref<PluginRPCPacket>) -> Void {
 
 public static func ClientPluginProxy_Init() -> Void {
     ClientPluginProxy.Init();
+}
+
+public static func ClientPluginProxy_ClearPending() -> Void {
+    ClientPluginProxy.ClearPending();
 }

@@ -585,9 +585,23 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
     case EMsg::Disconnect:
         Killfeed_Broadcast("0 disconnected");
         CoopNet::VehicleController_RemovePeer(peerId);
+        CoopVoice::StopCapture();
+        CoopVoice::Reset();
+        voiceMuted = false;
+        voiceMuteEndMs = 0;
+        muteUntilMs = 0;
+        RED4ext::ExecuteFunction("MicIcon", "SetMuted", nullptr, false);
+        RED4ext::ExecuteFunction("ClientPluginProxy", "ClearPending", nullptr);
         Transition(ConnectionState::Disconnected);
         CrowdCfgSync_OnRestore();
-        CoopNet::SaveSessionState(CoopNet::SessionState_GetId());
+        ChatOverlay_Push("Disconnected from server");
+        {
+            RED4ext::CString msg("Disconnected from server");
+            RED4ext::ExecuteFunction("CoopNotice", "Show", nullptr, &msg);
+        }
+        uint32_t sid = CoopNet::SessionState_GetId();
+        if (sid != 0)
+            CoopNet::SaveSessionState(sid);
         break;
     case EMsg::AvatarSpawn:
         if (size >= sizeof(AvatarSpawnPacket))
