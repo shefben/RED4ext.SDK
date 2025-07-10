@@ -198,6 +198,16 @@ bool HandleBundleComplete(uint16_t pluginId, const std::vector<uint8_t>& comp)
 }
 } // namespace
 
+static bool ValidatePktSize(uint16_t actual, uint16_t expected, const char* name)
+{
+    if (actual != expected)
+    {
+        std::cout << "WARN: " << name << " size mismatch" << std::endl;
+        return false;
+    }
+    return true;
+}
+
 static void QuestSync_ApplyQuestStage(uint32_t hash, uint16_t stage)
 {
     RED4ext::ExecuteFunction("QuestSync", "ApplyQuestStageByHash", nullptr, &hash, &stage);
@@ -1352,17 +1362,17 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         }
         break;
     case EMsg::WorldMarkers:
-        if (size >= sizeof(uint16_t) && !Net_IsAuthoritative())
+        if (size >= sizeof(WorldMarkersPacket) && !Net_IsAuthoritative())
         {
             const WorldMarkersPacket* pkt = reinterpret_cast<const WorldMarkersPacket*>(payload);
-            if (size >= sizeof(uint16_t) + pkt->blobBytes)
-            {
-                LargeBlob lb{0u, 0u, {}};
-                lb.data.assign(pkt->zstdBlob, pkt->zstdBlob + pkt->blobBytes);
-                m_largeBlobs.Push(lb);
-                pendingLarge += 1;
-                RED4ext::ExecuteFunction("SyncProgress", "Show", nullptr);
-            }
+            uint16_t expected = static_cast<uint16_t>(sizeof(WorldMarkersPacket) + pkt->blobBytes);
+            if (!ValidatePktSize(size, expected, "WorldMarkers"))
+                break;
+            LargeBlob lb{0u, 0u, {}};
+            lb.data.assign(pkt->zstdBlob, pkt->zstdBlob + pkt->blobBytes);
+            m_largeBlobs.Push(lb);
+            pendingLarge += 1;
+            RED4ext::ExecuteFunction("SyncProgress", "Show", nullptr);
         }
         break;
     case EMsg::AdminCmd:
@@ -1542,6 +1552,9 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(AptInteriorStatePacket))
         {
             const AptInteriorStatePacket* pkt = reinterpret_cast<const AptInteriorStatePacket*>(payload);
+            uint16_t expected = static_cast<uint16_t>(sizeof(AptInteriorStatePacket) + pkt->blobBytes);
+            if (!ValidatePktSize(size, expected, "AptInteriorState"))
+                break;
             if (Net_IsAuthoritative())
             {
                 std::string json(reinterpret_cast<const char*>(pkt->json), pkt->blobBytes);
@@ -1679,14 +1692,14 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(PhaseBundlePacket) && !Net_IsAuthoritative())
         {
             const PhaseBundlePacket* pkt = reinterpret_cast<const PhaseBundlePacket*>(payload);
-            if (size >= sizeof(PhaseBundlePacket) + pkt->blobBytes)
-            {
-                LargeBlob lb{1u, pkt->phaseId, {}};
-                lb.data.assign(pkt->zstdBlob, pkt->zstdBlob + pkt->blobBytes);
-                m_largeBlobs.Push(lb);
-                pendingLarge += 1;
-                RED4ext::ExecuteFunction("SyncProgress", "Show", nullptr);
-            }
+            uint16_t expected = static_cast<uint16_t>(sizeof(PhaseBundlePacket) + pkt->blobBytes);
+            if (!ValidatePktSize(size, expected, "PhaseBundle"))
+                break;
+            LargeBlob lb{1u, pkt->phaseId, {}};
+            lb.data.assign(pkt->zstdBlob, pkt->zstdBlob + pkt->blobBytes);
+            m_largeBlobs.Push(lb);
+            pendingLarge += 1;
+            RED4ext::ExecuteFunction("SyncProgress", "Show", nullptr);
         }
         break;
     case EMsg::LootRoll:
@@ -1999,6 +2012,9 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(AssetBundlePacket) && !Net_IsAuthoritative())
         {
             const AssetBundlePacket* pkt = reinterpret_cast<const AssetBundlePacket*>(payload);
+            uint16_t expected = static_cast<uint16_t>(sizeof(AssetBundlePacket) - 1 + pkt->dataBytes);
+            if (!ValidatePktSize(size, expected, "AssetBundle"))
+                break;
             auto& b = g_bundle[pkt->pluginId];
             if (b.data.empty())
                 b.expected = pkt->totalBytes;
@@ -2057,8 +2073,10 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(PluginRPCPacket) && !Net_IsAuthoritative())
         {
             const PluginRPCPacket* pkt = reinterpret_cast<const PluginRPCPacket*>(payload);
-            if (size >= sizeof(PluginRPCPacket) - 1 + pkt->jsonBytes)
-                ClientPluginProxy_OnRpc(pkt);
+            uint16_t expected = static_cast<uint16_t>(sizeof(PluginRPCPacket) - 1 + pkt->jsonBytes);
+            if (!ValidatePktSize(size, expected, "PluginRPC"))
+                break;
+            ClientPluginProxy_OnRpc(pkt);
         }
         break;
     case EMsg::QuestStage:
