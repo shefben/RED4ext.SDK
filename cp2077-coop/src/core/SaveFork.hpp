@@ -14,6 +14,7 @@ constexpr const char* kCoopSavePath = "SavedGames/Coop/";
 
 std::string GetSessionSavePath(uint32_t sessionId);
 void EnsureCoopSaveDirs();
+bool LoadSession(uint32_t sessionId, std::string& outJson);
 void SaveSession(uint32_t sessionId, const std::string& jsonBlob);
 void SavePhase(uint32_t sessionId, uint32_t peerId, const std::string& jsonBlob);
 
