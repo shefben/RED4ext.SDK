@@ -14,4 +14,6 @@ bool PyVM_Init();
 bool PyVM_Shutdown();
 bool PyVM_RunString(const char* code);
 void PyVM_Dispatch(const std::string& name, PyObject* dict);
+void PyVM_OnCustomPacket(uint16_t id, const void* payload, uint16_t size, uint32_t peer);
+PyObject* PyVM_GetPanel(const std::string& name);
 }
