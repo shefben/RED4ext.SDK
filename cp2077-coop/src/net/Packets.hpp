@@ -819,6 +819,9 @@ struct LootRollPacket
 {
     uint32_t containerId;
     uint32_t seed;
+    uint8_t  count;
+    uint8_t  _pad[3];
+    uint64_t itemIds[16];
 };
 
 struct DealerBuyPacket
