@@ -56,6 +56,15 @@ private:
 
     ConnectionState state;
     ThreadSafeQueue<RawPacket> m_incoming; // avoids cross-thread deadlocks
+    struct LargeBlob
+    {
+        uint8_t type; // 0 = markers, 1 = phase bundle
+        uint32_t arg;
+        std::vector<uint8_t> data;
+    };
+    ThreadSafeQueue<LargeBlob> m_largeBlobs;
+    uint8_t pendingLarge = 0;
+    uint8_t processedLarge = 0;
 public:
     uint64_t lastPingSent;
     uint64_t lastRecvTime;
