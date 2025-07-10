@@ -14,6 +14,7 @@ public class ServerBrowser extends inkHUDLayer {
     private static var filterPing: Uint32 = 9999u;
     private static var filterVersion: Uint32 = 0u;
     private static var filterPassword: Int32 = -1; // -1=any,0=no,1=yes
+    private static var autoJoin: Bool = false;
 
     public struct ServerInfo {
         var id: Uint32;
@@ -158,6 +159,8 @@ public class ServerBrowser extends inkHUDLayer {
             } else {
                 passLabel.SetText(" ");
             };
+            let pingLabel = new inkText();
+            pingLabel.SetText(IntToString(ping) + "ms");
             let addrLabel = new inkText();
             addrLabel.SetText(ip + ":" + IntToString(port));
             if ver != kClientCRC {
@@ -165,6 +168,7 @@ public class ServerBrowser extends inkHUDLayer {
             };
             row.AddChild(nameLabel);
             row.AddChild(playersLabel);
+            row.AddChild(pingLabel);
             row.AddChild(modeLabel);
             row.AddChild(passLabel);
             row.AddChild(addrLabel);
@@ -210,6 +214,11 @@ public class ServerBrowser extends inkHUDLayer {
         HostServer();
     }
 
+    public static exec func QuickJoin() -> Void {
+        autoJoin = true;
+        Show();
+    }
+
     protected cb func OnDetach() -> Void {
         if IsDefined(joinBtn) {
             // Use the static instance for symmetry with registration
@@ -230,6 +239,7 @@ public class ServerBrowser extends inkHUDLayer {
         pending.Clear();
         pendingCount = 0u;
         masterToken = 0u;
+        autoJoin = false;
         if IsDefined(loadingSpinner) {
             loadingSpinner.SetVisible(false);
         };
@@ -282,6 +292,23 @@ public class ServerBrowser extends inkHUDLayer {
         }
         if pendingCount == 0u && IsDefined(loadingSpinner) && loadingSpinner.IsVisible() {
             loadingSpinner.SetVisible(false);
+        }
+
+        if autoJoin && pendingCount == 0u && results.Size() > 0 {
+            var bestPing: Uint32 = 999999u;
+            var bestId: Uint32 = 0u;
+            for r in results {
+                let p: Uint32 = r["ping"] as Int32;
+                if p < bestPing {
+                    bestPing = p;
+                    bestId = r["id"] as Int32;
+                }
+            }
+            if bestId != 0u {
+                selectedId = bestId;
+                Join();
+            }
+            autoJoin = false;
         }
     }
 }

@@ -10,5 +10,9 @@ void AdminController_Start();
 void AdminController_Stop();
 void AdminController_PollCommands();
 bool AdminController_IsBanned(uint32_t peerId);
+void AdminController_Kick(uint32_t peerId);
+void AdminController_Ban(uint32_t peerId);
+void AdminController_Mute(uint32_t peerId, uint32_t mins);
+void AdminController_Unmute(uint32_t peerId);
 
 } // namespace CoopNet

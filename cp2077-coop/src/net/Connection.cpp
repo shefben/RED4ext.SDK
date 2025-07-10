@@ -13,10 +13,12 @@
 #include "../voice/VoiceDecoder.hpp"
 #include "../voice/VoiceEncoder.hpp"
 #include "../plugin/PluginManager.hpp"
+#include "../server/AdminCommandHandler.hpp"
 #include "../third_party/zstd/zstd.h"
 #include <openssl/sha.h>
 #include <Python.h>
 #include "Net.hpp"
+#include "NetConfig.hpp"
 #include "StatBatch.hpp"
 #include <RED4ext/RED4ext.hpp>
 #include <unistd.h>
@@ -98,19 +100,23 @@ namespace
                   << " bytes, RSS=" << GetProcessRSS() << std::endl;
     }
 
-    void HandleBundleComplete(uint16_t pluginId, const std::vector<uint8_t>& comp)
+    bool HandleBundleComplete(uint16_t pluginId, const std::vector<uint8_t>& comp)
     {
         namespace fs = std::filesystem;
         std::vector<uint8_t> raw(5u * 1024u * 1024u);
         size_t size = ZSTD_decompress(raw.data(), raw.size(), comp.data(), comp.size());
         if (ZSTD_isError(size))
-            return;
+        {
+            std::cerr << "Bundle decompress failed for plugin " << pluginId
+                      << ": " << ZSTD_getErrorName(size) << std::endl;
+            return false;
+        }
         raw.resize(size);
         unsigned char sha[SHA256_DIGEST_LENGTH];
         SHA256(comp.data(), comp.size(), sha);
         std::string s(reinterpret_cast<char*>(sha), SHA256_DIGEST_LENGTH);
         if (g_bundleSha[pluginId] == s)
-            return;
+            return true;
         g_bundleSha[pluginId] = s;
         fs::path base = fs::path("runtime_cache") / "plugins" / std::to_string(pluginId);
         fs::create_directories(base);
@@ -142,6 +148,7 @@ namespace
         bool ro = true; // sandbox client scripts
         RED4ext::ExecuteFunction("ModSystem", "Mount", nullptr, &path, &ro);
         RED4ext::ExecuteFunction("ModSystem", "ReloadScriptsFrom", nullptr, &path);
+        return true;
     }
 } // namespace
 
@@ -546,6 +553,14 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             hasKey = true;
             WelcomePacket ack{};
             memcpy(ack.pub, pubKey.data(), crypto_kx_PUBLICKEYBYTES);
+            if (Net_IsAuthoritative())
+            {
+                randombytes_buf(&ack.nonce, sizeof(ack.nonce));
+                crypto_sign_detached(ack.sig, nullptr,
+                                     reinterpret_cast<unsigned char*>(&ack.nonce),
+                                     sizeof(ack.nonce),
+                                     CoopNet::kServerCertPriv.data());
+            }
             Net_Send(this, EMsg::Welcome, &ack, sizeof(ack));
             Net_SendVoiceCaps(this, CoopVoice::GetFrameBytes());
         }
@@ -572,6 +587,13 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(WelcomePacket))
         {
             const WelcomePacket* pkt = reinterpret_cast<const WelcomePacket*>(payload);
+            if (!Net_IsAuthoritative())
+            {
+                if (crypto_sign_verify_detached(pkt->sig,
+                        reinterpret_cast<const unsigned char*>(&pkt->nonce), sizeof(pkt->nonce),
+                        CoopNet::kServerCertPub.data()) != 0)
+                    break; // invalid signature
+            }
             unsigned char sec[crypto_scalarmult_BYTES];
             crypto_scalarmult(sec, privKey.data(), pkt->pub);
             crypto_generichash(key.data(), key.size(), sec, sizeof(sec), nullptr, 0);
@@ -643,6 +665,8 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (size >= sizeof(ChatPacket))
             {
                 const ChatPacket* pkt = reinterpret_cast<const ChatPacket*>(payload);
+                if (CoopNet::AdminCommandHandler_Handle(peerId, pkt->msg))
+                    break;
                 if (CoopNet::PluginManager_HandleChat(peerId, pkt->msg, false))
                     break;
                 ChatPacket out{peerId, {0}};
@@ -655,8 +679,11 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             const ChatPacket* pkt = reinterpret_cast<const ChatPacket*>(payload);
             ChatOverlay_Push(pkt->msg);
             PyObject* d = Py_BuildValue("{s:I,s:s}", "peerId", peerId, "text", pkt->msg);
-            CoopNet::PluginManager_DispatchEvent("OnChatMsg", d);
-            Py_DECREF(d);
+            if (d)
+            {
+                CoopNet::PluginManager_DispatchEvent("OnChatMsg", d);
+            }
+            Py_XDECREF(d);
         }
         break;
     case EMsg::QuestStageP2P:
@@ -1579,7 +1606,15 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(LootRollPacket) && !Net_IsAuthoritative())
         {
             const LootRollPacket* pkt = reinterpret_cast<const LootRollPacket*>(payload);
-            LootAuthority_OnLootRoll(pkt->containerId, pkt->seed);
+            array<Uint64> ids;
+            let cnt: Int32 = Cast<Int32>(pkt->count);
+            let i: Int32 = 0;
+            while i < cnt && i < 16
+            {
+                ids.PushBack(pkt->itemIds[i]);
+                i += 1;
+            }
+            LootAuthority_OnLootRoll(pkt->containerId, pkt->seed, ids);
         }
         break;
     case EMsg::PurchaseResult:
@@ -1881,8 +1916,9 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             b.data.insert(b.data.end(), pkt->data, pkt->data + pkt->dataBytes);
             if (b.data.size() >= b.expected)
             {
-                HandleBundleComplete(pkt->pluginId, b.data);
+                bool ok = HandleBundleComplete(pkt->pluginId, b.data);
                 g_bundle.erase(pkt->pluginId);
+                (void)ok;
             }
         }
         break;
@@ -1995,7 +2031,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(VehicleSnapshotPacket))
         {
             const VehicleSnapshotPacket* pkt = reinterpret_cast<const VehicleSnapshotPacket*>(payload);
-            RED4ext::ExecuteFunction("VehicleProxy", "UpdateSnapshot", nullptr, &pkt->snap);
+            RED4ext::ExecuteFunction("VehicleProxy", "VehicleProxy_UpdateSnap", nullptr, 1u, &pkt->snap);
         }
         break;
     case EMsg::Version:

@@ -46,6 +46,17 @@ public class VehicleProxy extends gameObject {
         targetLean = ClampF(snap^.leanAngle, -45.0, 45.0);
     }
 
+    public func Reconcile(authoritative: ref<TransformSnap>) -> Void {
+        let diff: Vector3 = authoritative.pos - state.pos;
+        if VectorLength(diff) > 0.25 {
+            state.pos = authoritative.pos;
+            state.vel = authoritative.vel;
+            state.rot = authoritative.rot;
+            lastVel = authoritative.vel;
+            lastAccel = Vector3.EmptyVector();
+        };
+    }
+
     // SeatIdx range 0-3
     public func EnterSeat(peerId: Uint32, idx: Uint8) -> Void {
         occupantPeer = peerId;
@@ -204,7 +215,12 @@ public static func VehicleProxy_ApplyDamage(id: Uint32, d: Uint16, side: Bool) -
 
 public static func VehicleProxy_UpdateSnap(id: Uint32, snap: ref<VehicleSnap>) -> Void {
     let v = VehicleProxy.FindProxy(id);
-    if IsDefined(v) { v.UpdateSnapshot(snap); };
+    if IsDefined(v) {
+        v.UpdateSnapshot(snap);
+        if !Net_IsAuthoritative() {
+            v.Reconcile(&snap^.transform);
+        };
+    };
 }
 
 public static func VehicleProxy_SetTurretAim(id: Uint32, yaw: Float, pitch: Float) -> Void {

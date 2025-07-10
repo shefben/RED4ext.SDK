@@ -901,10 +901,18 @@ void Net_BroadcastPingOutline(uint32_t peerId, uint16_t durationMs, const std::v
     Net_Broadcast(EMsg::PingOutline, &pkt, sizeof(uint32_t) * pkt.count + 8);
 }
 
-void Net_BroadcastLootRoll(uint32_t containerId, uint32_t seed)
+void Net_BroadcastLootRoll(uint32_t containerId, uint32_t seed, const std::vector<uint64_t>& items)
 {
-    LootRollPacket pkt{containerId, seed};
-    Net_Broadcast(EMsg::LootRoll, &pkt, sizeof(pkt));
+    if (items.size() > 16)
+        return;
+    LootRollPacket pkt{};
+    pkt.containerId = containerId;
+    pkt.seed = seed;
+    pkt.count = static_cast<uint8_t>(items.size());
+    std::fill(std::begin(pkt._pad), std::end(pkt._pad), 0);
+    for (size_t i = 0; i < items.size(); ++i)
+        pkt.itemIds[i] = items[i];
+    Net_Broadcast(EMsg::LootRoll, &pkt, 12 + sizeof(uint64_t) * pkt.count);
 }
 
 void Net_BroadcastAptPermChange(uint32_t aptId, uint32_t targetPeerId, bool allow)

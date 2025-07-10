@@ -6,6 +6,7 @@
 #include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
 #include <cstdint>
 #include "../voice/VoiceEncoder.hpp"
+#include <sodium.h>
 
 namespace CoopNet
 {
@@ -205,6 +206,8 @@ struct HelloPacket
 struct WelcomePacket
 {
     uint8_t pub[crypto_kx_PUBLICKEYBYTES];
+    uint64_t nonce;
+    uint8_t sig[crypto_sign_BYTES];
 };
 
 struct PingPacket
@@ -415,11 +418,24 @@ struct QuestEntry
     uint16_t _pad;
 };
 
+struct EventEntry
+{
+    uint32_t eventId;
+    uint8_t phase;
+    uint8_t active;
+    uint8_t _pad[2];
+    uint32_t seed;
+};
+
 struct QuestFullSyncPacket
 {
-    uint16_t count;
-    uint16_t _pad;
-    QuestEntry entries[32];
+    uint16_t questCount;
+    uint16_t npcCount;
+    uint8_t eventCount;
+    uint8_t _pad[3];
+    QuestEntry quests[32];
+    NpcSnap npcs[16];
+    EventEntry events[16];
 };
 
 struct HeatPacket
@@ -820,6 +836,9 @@ struct LootRollPacket
 {
     uint32_t containerId;
     uint32_t seed;
+    uint8_t  count;
+    uint8_t  _pad[3];
+    uint64_t itemIds[16];
 };
 
 struct DealerBuyPacket
