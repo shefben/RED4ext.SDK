@@ -1,9 +1,9 @@
 #include "VoiceEncoder.hpp"
 #include "../net/Net.hpp"
+#include <AL/alc.h>
 #include <cstring>
 #include <iostream>
 #include <opus/opus.h>
-#include <AL/alc.h>
 
 namespace CoopVoice
 {
@@ -23,13 +23,16 @@ bool StartCapture(const char* deviceName, uint32_t sampleRate, uint32_t bitrate)
     g_bitrate = bitrate;
     g_frameSamples = static_cast<int>(g_sampleRate / 50);
 
-    std::cout << "[Voice] StartCapture dev=" << (deviceName ? deviceName : "default") << " sr=" << g_sampleRate << " br=" << g_bitrate << std::endl;
+    std::cout << "[Voice] StartCapture dev=" << (deviceName ? deviceName : "default") << " sr=" << g_sampleRate
+              << " br=" << g_bitrate << std::endl;
 
     const ALCchar* dev = (deviceName && *deviceName) ? deviceName : nullptr;
     g_capDev = alcCaptureOpenDevice(dev, g_sampleRate, AL_FORMAT_MONO16, g_frameSamples * 10);
     if (!g_capDev)
     {
-        std::cerr << "Failed to open capture device" << std::endl;
+        ALenum err = alcGetError(nullptr);
+        std::cerr << "[Voice] Failed to open capture device '" << (deviceName ? deviceName : "default")
+                  << "' sr=" << g_sampleRate << " err=" << err << std::endl;
         if (g_sampleRate != 48000)
         {
             g_sampleRate = 48000;
@@ -45,7 +48,7 @@ bool StartCapture(const char* deviceName, uint32_t sampleRate, uint32_t bitrate)
     g_encoder = opus_encoder_create(g_sampleRate, 1, OPUS_APPLICATION_VOIP, &err);
     if (err != OPUS_OK)
     {
-        std::cerr << "Failed to init Opus encoder" << std::endl;
+        std::cerr << "[Voice] Failed to init Opus encoder sr=" << g_sampleRate << " err=" << err << std::endl;
         alcCaptureCloseDevice(g_capDev);
         g_capDev = nullptr;
         return false;
