@@ -25,6 +25,8 @@ void Net_Shutdown();
 void Net_Poll(uint32_t maxMs);
 bool Net_IsAuthoritative();
 bool Net_IsConnected();
+void Net_SetVerboseLogging(bool enable);
+bool Net_IsVerboseLogging();
 std::vector<CoopNet::Connection*> Net_GetConnections();
 void Net_Send(CoopNet::Connection* conn, CoopNet::EMsg type, const void* data, uint16_t size);
 void Net_Broadcast(CoopNet::EMsg type, const void* data, uint16_t size);
@@ -207,8 +209,6 @@ void Net_BroadcastArcadeStart(uint32_t cabId, uint32_t peerId, uint32_t seed);
 void Net_SendArcadeInput(uint32_t frame, uint8_t buttonMask);
 void Net_BroadcastArcadeScore(uint32_t peerId, uint32_t score);
 void Net_BroadcastArcadeHighScore(uint32_t cabId, uint32_t peerId, uint32_t score);
-void Net_SendPluginRPC(CoopNet::Connection* conn, uint16_t pluginId, uint32_t fnHash,
-                       const char* json, uint16_t len);
-void Net_BroadcastPluginRPC(uint16_t pluginId, uint32_t fnHash, const char* json,
-                            uint16_t len);
+void Net_SendPluginRPC(CoopNet::Connection* conn, uint16_t pluginId, uint32_t fnHash, const char* json, uint16_t len);
+void Net_BroadcastPluginRPC(uint16_t pluginId, uint32_t fnHash, const char* json, uint16_t len);
 void Net_BroadcastAssetBundle(uint16_t pluginId, const std::vector<uint8_t>& data);

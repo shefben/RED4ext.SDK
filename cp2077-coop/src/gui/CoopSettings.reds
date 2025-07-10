@@ -10,8 +10,10 @@ public var friendlyFire: Bool = false;
 public var sharedLoot: Bool = true;
 public var difficultyScaling: Bool = false;
 public var dynamicEvents: Bool = true;
+public var verboseLogging: Bool = false;
 public let kDefaultSettingsPath: String = "coop.ini";
 private native func SaveSettings(json: String) -> Void
+private static native func Net_SetVerboseLog(enable: Bool) -> Void
 
 public func Show() -> Void {
     // UI-4: open settings ink panel
@@ -20,6 +22,7 @@ public func Show() -> Void {
 
 public func Apply() -> Void {
     GameModeManager.SetFriendlyFire(friendlyFire);
+    Net_SetVerboseLog(verboseLogging);
 }
 
 public func Save(path: String) -> Void {
@@ -27,6 +30,7 @@ public func Save(path: String) -> Void {
                 ",\"sharedLoot\":" + BoolToString(sharedLoot) +
                 ",\"difficultyScaling\":" + BoolToString(difficultyScaling) +
                 ",\"dynamicEvents\":" + BoolToString(dynamicEvents) +
+                ",\"verboseLogging\":" + BoolToString(verboseLogging) +
                 ",\"minTickRate\":" + IntToString(Cast<Int32>(minTickRate)) +
                 ",\"maxTickRate\":" + IntToString(Cast<Int32>(maxTickRate)) + "}";
     SaveSettings(json);

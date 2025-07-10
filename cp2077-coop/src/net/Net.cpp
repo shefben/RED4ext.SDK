@@ -6,9 +6,9 @@
 #include "../server/Journal.hpp"
 #include "../server/PoliceDispatch.hpp"
 #include "../server/QuestWatchdog.hpp"
+#include "../voice/VoiceEncoder.hpp"
 #include "Connection.hpp"
 #include "NatClient.hpp"
-#include "../voice/VoiceEncoder.hpp"
 #include "NetConfig.hpp"
 #include "Packets.hpp"
 #include <algorithm>
@@ -177,6 +177,16 @@ bool Net_IsAuthoritative()
 bool Net_IsConnected()
 {
     return !g_Peers.empty();
+}
+
+void Net_SetVerboseLogging(bool enable)
+{
+    CoopNet::SetVerboseLogging(enable);
+}
+
+bool Net_IsVerboseLogging()
+{
+    return CoopNet::IsVerboseLogging();
 }
 
 std::vector<Connection*> Net_GetConnections()
@@ -671,7 +681,7 @@ void Net_SendGlobalEvent(Connection* conn, uint32_t eventId, uint8_t phase, bool
 {
     if (!conn)
         return;
-    GlobalEventPacket pkt{eventId, seed, phase, static_cast<uint8_t>(start), {0,0}};
+    GlobalEventPacket pkt{eventId, seed, phase, static_cast<uint8_t>(start), {0, 0}};
     Net_Send(conn, EMsg::GlobalEvent, &pkt, sizeof(pkt));
 }
 
@@ -679,13 +689,13 @@ void Net_SendNpcReputation(Connection* conn, uint32_t npcId, int16_t value)
 {
     if (!conn)
         return;
-    NpcReputationPacket pkt{npcId, value, {0,0}};
+    NpcReputationPacket pkt{npcId, value, {0, 0}};
     Net_Send(conn, EMsg::NpcReputation, &pkt, sizeof(pkt));
 }
 
 void Net_BroadcastNpcReputation(uint32_t npcId, int16_t value)
 {
-    NpcReputationPacket pkt{npcId, value, {0,0}};
+    NpcReputationPacket pkt{npcId, value, {0, 0}};
     Net_Broadcast(EMsg::NpcReputation, &pkt, sizeof(pkt));
 }
 
@@ -697,7 +707,7 @@ void Net_BroadcastGlobalEvent(uint32_t eventId, uint8_t phase, bool start, uint3
 
 void Net_BroadcastDynamicEvent(uint8_t eventType, uint32_t seed)
 {
-    DynamicEventPacket pkt{eventType, {0,0,0}, seed};
+    DynamicEventPacket pkt{eventType, {0, 0, 0}, seed};
     Net_Broadcast(EMsg::DynamicEvent, &pkt, sizeof(pkt));
 }
 
@@ -1381,8 +1391,7 @@ void Net_BroadcastArcadeHighScore(uint32_t cabId, uint32_t peerId, uint32_t scor
     Net_Broadcast(EMsg::ArcadeHighScore, &pkt, sizeof(pkt));
 }
 
-void Net_SendPluginRPC(Connection* conn, uint16_t pluginId, uint32_t fnHash,
-                       const char* json, uint16_t len)
+void Net_SendPluginRPC(Connection* conn, uint16_t pluginId, uint32_t fnHash, const char* json, uint16_t len)
 {
     std::vector<uint8_t> buf(sizeof(PluginRPCPacket) - 1 + len);
     auto* pkt = reinterpret_cast<PluginRPCPacket*>(buf.data());
@@ -1393,8 +1402,7 @@ void Net_SendPluginRPC(Connection* conn, uint16_t pluginId, uint32_t fnHash,
     Net_Send(conn, EMsg::PluginRPC, buf.data(), static_cast<uint16_t>(buf.size()));
 }
 
-void Net_BroadcastPluginRPC(uint16_t pluginId, uint32_t fnHash, const char* json,
-                            uint16_t len)
+void Net_BroadcastPluginRPC(uint16_t pluginId, uint32_t fnHash, const char* json, uint16_t len)
 {
     std::vector<uint8_t> buf(sizeof(PluginRPCPacket) - 1 + len);
     auto* pkt = reinterpret_cast<PluginRPCPacket*>(buf.data());

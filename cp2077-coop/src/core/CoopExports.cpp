@@ -1,12 +1,12 @@
-#include "HttpClient.hpp"
-#include <memory>
-#include "GameProcess.hpp"
 #include "../net/Net.hpp" // FIX: expose networking helpers
 #include "../voice/VoiceEncoder.hpp"
+#include "GameProcess.hpp"
+#include "HttpClient.hpp"
 #include <RED4ext/RED4ext.hpp>
+#include <memory>
 
-using CoopNet::HttpResponse;
 using CoopNet::HttpAsyncResult;
+using CoopNet::HttpResponse;
 
 static void HttpGetFn(RED4ext::IScriptable* aCtx, RED4ext::CStackFrame* aFrame, HttpResponse* aOut, void* a4)
 {
@@ -41,9 +41,13 @@ static void HttpPollAsyncFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame,
 {
     aFrame->code++;
     CoopNet::HttpAsyncResult res{};
-    if (CoopNet::Http_PollAsync(res)) {
-        if (aOut) *aOut = res;
-    } else if (aOut) {
+    if (CoopNet::Http_PollAsync(res))
+    {
+        if (aOut)
+            *aOut = res;
+    }
+    else if (aOut)
+    {
         aOut->token = 0;
         aOut->resp = {0, {}};
     }
@@ -80,6 +84,21 @@ static void NetPollFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, void*
     RED4ext::GetParameter(aFrame, &maxMs);
     aFrame->code++;
     Net_Poll(maxMs);
+}
+
+static void NetSetVerboseFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, void*, void*)
+{
+    bool enable = false;
+    RED4ext::GetParameter(aFrame, &enable);
+    aFrame->code++;
+    Net_SetVerboseLogging(enable);
+}
+
+static void NetIsVerboseFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, bool* aOut, void*)
+{
+    aFrame->code++;
+    if (aOut)
+        *aOut = Net_IsVerboseLogging();
 }
 
 static void VoiceStartFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, bool* aOut, void*)
@@ -130,10 +149,10 @@ RED4EXT_C_EXPORT void RED4EXT_CALL RegisterTypes()
     auto u16 = rtti->GetType("Uint16");
     auto str = rtti->GetType("String");
     using Flags = RED4ext::CProperty::Flags;
-    auto statusProp = RED4ext::CProperty::Create(u16, "status", &g_httpRespCls,
-                                                 offsetof(HttpResponse, status), nullptr, {.isPublic = true});
-    auto bodyProp = RED4ext::CProperty::Create(str, "body", &g_httpRespCls,
-                                               offsetof(HttpResponse, body), nullptr, {.isPublic = true});
+    auto statusProp = RED4ext::CProperty::Create(u16, "status", &g_httpRespCls, offsetof(HttpResponse, status), nullptr,
+                                                 {.isPublic = true});
+    auto bodyProp = RED4ext::CProperty::Create(str, "body", &g_httpRespCls, offsetof(HttpResponse, body), nullptr,
+                                               {.isPublic = true});
     g_httpRespCls.props.EmplaceBack(statusProp);
     g_httpRespCls.props.EmplaceBack(bodyProp);
     g_httpRespCls.size = sizeof(HttpResponse);
@@ -142,10 +161,10 @@ RED4EXT_C_EXPORT void RED4EXT_CALL RegisterTypes()
     g_httpAsyncCls.flags = {.isNative = true};
     auto u32 = rtti->GetType("Uint32");
     auto respType = &g_httpRespCls;
-    auto tokProp = RED4ext::CProperty::Create(u32, "token", &g_httpAsyncCls,
-                                             offsetof(HttpAsyncResult, token), nullptr, {.isPublic = true});
-    auto respProp = RED4ext::CProperty::Create(respType, "resp", &g_httpAsyncCls,
-                                              offsetof(HttpAsyncResult, resp), nullptr, {.isPublic = true});
+    auto tokProp = RED4ext::CProperty::Create(u32, "token", &g_httpAsyncCls, offsetof(HttpAsyncResult, token), nullptr,
+                                              {.isPublic = true});
+    auto respProp = RED4ext::CProperty::Create(respType, "resp", &g_httpAsyncCls, offsetof(HttpAsyncResult, resp),
+                                               nullptr, {.isPublic = true});
     g_httpAsyncCls.props.EmplaceBack(tokProp);
     g_httpAsyncCls.props.EmplaceBack(respProp);
     g_httpAsyncCls.size = sizeof(HttpAsyncResult);
@@ -204,6 +223,16 @@ RED4EXT_C_EXPORT void RED4EXT_CALL PostRegisterTypes()
     poll->AddParam("Uint32", "maxMs");
     rtti->RegisterFunction(poll);
 
+    auto setDbg = RED4ext::CGlobalFunction::Create("Net_SetVerboseLog", "Net_SetVerboseLog", &NetSetVerboseFn);
+    setDbg->flags = flags;
+    setDbg->AddParam("Bool", "enable");
+    rtti->RegisterFunction(setDbg);
+
+    auto getDbg = RED4ext::CGlobalFunction::Create("Net_IsVerboseLog", "Net_IsVerboseLog", &NetIsVerboseFn);
+    getDbg->flags = flags;
+    getDbg->SetReturnType("Bool");
+    rtti->RegisterFunction(getDbg);
+
     auto vs = RED4ext::CGlobalFunction::Create("CoopVoice_StartCapture", "CoopVoice_StartCapture", &VoiceStartFn);
     vs->flags = flags;
     vs->AddParam("String", "device");
@@ -229,7 +258,8 @@ RED4EXT_C_EXPORT void RED4EXT_CALL PostRegisterTypes()
     rtti->RegisterFunction(vvol);
 }
 
-RED4EXT_C_EXPORT bool RED4EXT_CALL Main(RED4ext::PluginHandle aHandle, RED4ext::EMainReason aReason, const RED4ext::Sdk* aSdk)
+RED4EXT_C_EXPORT bool RED4EXT_CALL Main(RED4ext::PluginHandle aHandle, RED4ext::EMainReason aReason,
+                                        const RED4ext::Sdk* aSdk)
 {
     RED4EXT_UNUSED_PARAMETER(aHandle);
     RED4EXT_UNUSED_PARAMETER(aSdk);

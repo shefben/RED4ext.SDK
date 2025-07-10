@@ -2,6 +2,7 @@
 #include "../core/GameClock.hpp"
 #include "../core/Hash.hpp"
 #include "../core/SessionState.hpp"
+#include "../plugin/PluginManager.hpp"
 #include "../runtime/GameModeManager.reds"
 #include "../runtime/TileGameSync.reds"
 #include "../server/BreachController.hpp"
@@ -9,22 +10,65 @@
 #include "../server/QuestWatchdog.hpp"
 #include "../server/StatusController.hpp"
 #include "../server/TrafficController.hpp"
-#include "InterestGrid.hpp"
+#include "../third_party/zstd/zstd.h"
 #include "../voice/VoiceDecoder.hpp"
 #include "../voice/VoiceEncoder.hpp"
-#include "../plugin/PluginManager.hpp"
-#include "../third_party/zstd/zstd.h"
-#include <openssl/sha.h>
-#include <Python.h>
+#include "InterestGrid.hpp"
 #include "Net.hpp"
 #include "StatBatch.hpp"
+#include <Python.h>
 #include <RED4ext/RED4ext.hpp>
-#include <unistd.h>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
+#include <openssl/sha.h>
+#include <unistd.h>
 #include <unordered_map>
 #include <unordered_set>
-#include <iostream>
+
+#ifdef DEBUG_LOG
+#define DEBUG_PRINT(X)                                                                                                 \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if (CoopNet::IsVerboseLogging())
+{
+    X;
+}
+}
+while (0)
+#else
+#define DEBUG_PRINT(X)                                                                                                 \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        (void)sizeof(X);                                                                                               \
+    } while (0)
+#endif
+
+    namespace
+    {
+#ifdef DEBUG_LOG
+    bool g_verboseLog = false;
+#endif
+    } // namespace
+
+namespace CoopNet
+{
+void SetVerboseLogging(bool enable)
+{
+#ifdef DEBUG_LOG
+    g_verboseLog = enable;
+#endif
+}
+
+bool IsVerboseLogging()
+{
+#ifdef DEBUG_LOG
+    return g_verboseLog;
+#else
+    return false;
+#endif
+}
+} // namespace CoopNet
 
 // Temporary proxies for script methods.
 static void AvatarProxy_SpawnRemote(uint32_t peerId, bool isLocal, const CoopNet::TransformSnap& snap)
@@ -41,7 +85,7 @@ static void Killfeed_Push(const char* msg)
 {
     RED4ext::CString s(msg);
     RED4ext::ExecuteFunction("Killfeed", "Push", nullptr, &s);
-    std::cout << "Killfeed: " << msg << std::endl;
+    DEBUG_PRINT(std::cout << "Killfeed: " << msg << std::endl);
 }
 
 static void Killfeed_Broadcast(const char* msg)
@@ -70,79 +114,78 @@ static size_t GetProcessRSS()
 
 namespace
 {
-    struct BundleBuf
-    {
-        std::vector<uint8_t> data;
-        uint32_t expected{0};
-    };
+struct BundleBuf
+{
+    std::vector<uint8_t> data;
+    uint32_t expected{0};
+};
 
-    std::unordered_map<uint16_t, BundleBuf> g_bundle;
-    std::unordered_map<uint16_t, std::string> g_bundleSha;
+std::unordered_map<uint16_t, BundleBuf> g_bundle;
+std::unordered_map<uint16_t, std::string> g_bundleSha;
 
-    size_t GetBundleMemory()
+size_t GetBundleMemory()
+{
+    size_t mem = 0;
+    for (auto& kv : g_bundle)
+        mem += kv.second.data.capacity();
+    for (auto& kv : g_bundleSha)
+        mem += kv.second.capacity();
+    return mem;
+}
+
+void ClearBundleCache()
+{
+    size_t before = GetBundleMemory();
+    g_bundle.clear();
+    g_bundleSha.clear();
+    std::cerr << "[MemGuard] bundle cache freed " << before << " bytes, RSS=" << GetProcessRSS() << std::endl;
+}
+
+void HandleBundleComplete(uint16_t pluginId, const std::vector<uint8_t>& comp)
+{
+    namespace fs = std::filesystem;
+    std::vector<uint8_t> raw(5u * 1024u * 1024u);
+    size_t size = ZSTD_decompress(raw.data(), raw.size(), comp.data(), comp.size());
+    if (ZSTD_isError(size))
+        return;
+    raw.resize(size);
+    unsigned char sha[SHA256_DIGEST_LENGTH];
+    SHA256(comp.data(), comp.size(), sha);
+    std::string s(reinterpret_cast<char*>(sha), SHA256_DIGEST_LENGTH);
+    if (g_bundleSha[pluginId] == s)
+        return;
+    g_bundleSha[pluginId] = s;
+    fs::path base = fs::path("runtime_cache") / "plugins" / std::to_string(pluginId);
+    fs::create_directories(base);
+    const uint8_t* p = raw.data();
+    const uint8_t* end = raw.data() + raw.size();
+    while (p + 2 <= end)
     {
-        size_t mem = 0;
-        for (auto& kv : g_bundle)
-            mem += kv.second.data.capacity();
-        for (auto& kv : g_bundleSha)
-            mem += kv.second.capacity();
-        return mem;
+        uint16_t pathLen;
+        memcpy(&pathLen, p, 2);
+        p += 2;
+        if (p + pathLen > end)
+            break;
+        std::string rel(reinterpret_cast<const char*>(p), pathLen);
+        p += pathLen;
+        if (p + 4 > end)
+            break;
+        uint32_t len;
+        memcpy(&len, p, 4);
+        p += 4;
+        if (p + len > end)
+            break;
+        fs::path out = base / rel;
+        fs::create_directories(out.parent_path());
+        std::ofstream f(out, std::ios::binary);
+        f.write(reinterpret_cast<const char*>(p), len);
+        p += len;
     }
-
-    void ClearBundleCache()
-    {
-        size_t before = GetBundleMemory();
-        g_bundle.clear();
-        g_bundleSha.clear();
-        std::cerr << "[MemGuard] bundle cache freed " << before
-                  << " bytes, RSS=" << GetProcessRSS() << std::endl;
-    }
-
-    void HandleBundleComplete(uint16_t pluginId, const std::vector<uint8_t>& comp)
-    {
-        namespace fs = std::filesystem;
-        std::vector<uint8_t> raw(5u * 1024u * 1024u);
-        size_t size = ZSTD_decompress(raw.data(), raw.size(), comp.data(), comp.size());
-        if (ZSTD_isError(size))
-            return;
-        raw.resize(size);
-        unsigned char sha[SHA256_DIGEST_LENGTH];
-        SHA256(comp.data(), comp.size(), sha);
-        std::string s(reinterpret_cast<char*>(sha), SHA256_DIGEST_LENGTH);
-        if (g_bundleSha[pluginId] == s)
-            return;
-        g_bundleSha[pluginId] = s;
-        fs::path base = fs::path("runtime_cache") / "plugins" / std::to_string(pluginId);
-        fs::create_directories(base);
-        const uint8_t* p = raw.data();
-        const uint8_t* end = raw.data() + raw.size();
-        while (p + 2 <= end)
-        {
-            uint16_t pathLen;
-            memcpy(&pathLen, p, 2);
-            p += 2;
-            if (p + pathLen > end)
-                break;
-            std::string rel(reinterpret_cast<const char*>(p), pathLen);
-            p += pathLen;
-            if (p + 4 > end)
-                break;
-            uint32_t len;
-            memcpy(&len, p, 4);
-            p += 4;
-            if (p + len > end)
-                break;
-            fs::path out = base / rel;
-            fs::create_directories(out.parent_path());
-            std::ofstream f(out, std::ios::binary);
-            f.write(reinterpret_cast<const char*>(p), len);
-            p += len;
-        }
-        RED4ext::CString path(base.string().c_str());
-        bool ro = true; // sandbox client scripts
-        RED4ext::ExecuteFunction("ModSystem", "Mount", nullptr, &path, &ro);
-        RED4ext::ExecuteFunction("ModSystem", "ReloadScriptsFrom", nullptr, &path);
-    }
+    RED4ext::CString path(base.string().c_str());
+    bool ro = true; // sandbox client scripts
+    RED4ext::ExecuteFunction("ModSystem", "Mount", nullptr, &path, &ro);
+    RED4ext::ExecuteFunction("ModSystem", "ReloadScriptsFrom", nullptr, &path);
+}
 } // namespace
 
 static void QuestSync_ApplyQuestStage(uint32_t hash, uint16_t stage)
@@ -158,12 +201,12 @@ static void QuestSync_ApplySceneTrigger(uint32_t nameHash, bool start)
 
 static void DMScoreboard_OnScorePacket(uint32_t peerId, uint16_t k, uint16_t d)
 {
-    std::cout << "ScoreUpdate " << peerId << " " << k << "/" << d << std::endl;
+    DEBUG_PRINT(std::cout << "ScoreUpdate " << peerId << " " << k << "/" << d << std::endl);
 }
 
 static void DMScoreboard_OnMatchOver(uint32_t winner)
 {
-    std::cout << "MatchOver " << winner << std::endl;
+    DEBUG_PRINT(std::cout << "MatchOver " << winner << std::endl);
 }
 
 static void StatHud_OnStats(uint32_t peerId, const CoopNet::NetStats& s)
@@ -203,17 +246,17 @@ static void Cutscene_OnDialogChoice(uint32_t peerId, uint8_t idx)
 
 static void Inventory_OnItemSnap(const CoopNet::ItemSnap& snap)
 {
-    std::cout << "ItemSnap " << snap.itemId << std::endl;
+    DEBUG_PRINT(std::cout << "ItemSnap " << snap.itemId << std::endl);
 }
 
 static void Inventory_OnCraftResult(const CoopNet::ItemSnap& snap)
 {
-    std::cout << "CraftResult item=" << snap.itemId << std::endl;
+    DEBUG_PRINT(std::cout << "CraftResult item=" << snap.itemId << std::endl);
 }
 
 static void Inventory_OnAttachResult(const CoopNet::ItemSnap& snap, bool success)
 {
-    std::cout << "AttachResult item=" << snap.itemId << " success=" << success << std::endl;
+    DEBUG_PRINT(std::cout << "AttachResult item=" << snap.itemId << " success=" << success << std::endl);
 }
 
 static void Inventory_OnReRollResult(const CoopNet::ItemSnap& snap)
@@ -238,38 +281,39 @@ static void Apartments_OnInteriorState(uint32_t phaseId, const uint8_t* data, ui
 
 static void AvatarProxy_OnSectorChange(uint32_t peerId, uint64_t hash)
 {
-    std::cout << "SectorChange " << peerId << " -> " << hash << std::endl;
+    DEBUG_PRINT(std::cout << "SectorChange " << peerId << " -> " << hash << std::endl);
 }
 
 static void VehicleProxy_Explode(uint32_t id, uint32_t vfx, uint32_t seed)
 {
-    std::cout << "Vehicle explode " << id << " vfx=" << vfx << " seed=" << seed << std::endl;
+    DEBUG_PRINT(std::cout << "Vehicle explode " << id << " vfx=" << vfx << " seed=" << seed << std::endl);
 }
 
 static void VehicleProxy_Detach(uint32_t id, uint8_t part)
 {
-    std::cout << "Vehicle detach " << id << " part " << static_cast<int>(part) << std::endl;
+    DEBUG_PRINT(std::cout << "Vehicle detach " << id << " part " << static_cast<int>(part) << std::endl);
 }
 
 static void AvatarProxy_OnEject(uint32_t peerId, const RED4ext::Vector3& vel)
 {
-    std::cout << "Eject occupant " << peerId << " vel=" << vel.X << "," << vel.Y << "," << vel.Z << std::endl;
+    DEBUG_PRINT(std::cout << "Eject occupant " << peerId << " vel=" << vel.X << "," << vel.Y << "," << vel.Z
+                          << std::endl);
 }
 
 static void BreachHud_Start(uint32_t peerId, uint32_t seed, uint8_t w, uint8_t h)
 {
-    std::cout << "Breach start seed=" << seed << " w=" << static_cast<int>(w) << " h=" << static_cast<int>(h)
-              << std::endl;
+    DEBUG_PRINT(std::cout << "Breach start seed=" << seed << " w=" << static_cast<int>(w)
+                          << " h=" << static_cast<int>(h) << std::endl);
 }
 
 static void BreachHud_Input(uint32_t peerId, uint8_t idx)
 {
-    std::cout << "Breach input peer=" << peerId << " idx=" << static_cast<int>(idx) << std::endl;
+    DEBUG_PRINT(std::cout << "Breach input peer=" << peerId << " idx=" << static_cast<int>(idx) << std::endl);
 }
 
 static void Quickhack_BreachResult(uint32_t peerId, uint8_t mask)
 {
-    std::cout << "Breach result mask=" << static_cast<int>(mask) << std::endl;
+    DEBUG_PRINT(std::cout << "Breach result mask=" << static_cast<int>(mask) << std::endl);
 }
 
 struct QuickhackPacket
@@ -295,7 +339,7 @@ static void QuickhackSync_Apply(const HackInfoNative& info)
 
 namespace
 {
-    static std::unordered_map<uint32_t, float> g_lastHackMs;
+static std::unordered_map<uint32_t, float> g_lastHackMs;
 }
 
 static void TileGameSync_Start(uint32_t phaseId, uint32_t seed)
@@ -330,7 +374,7 @@ static void VendorSync_OnRefresh(uint32_t vendorId)
 
 static void HeatSync_Apply(uint8_t level)
 {
-    std::cout << "Heat level " << static_cast<int>(level) << std::endl;
+    DEBUG_PRINT(std::cout << "Heat level " << static_cast<int>(level) << std::endl);
 }
 
 static void WeatherSync_Apply(const CoopNet::WorldStatePacket& pkt)
@@ -340,13 +384,13 @@ static void WeatherSync_Apply(const CoopNet::WorldStatePacket& pkt)
 
 static void GlobalEvent_OnPacket(const CoopNet::GlobalEventPacket& pkt)
 {
-    std::cout << "Event " << pkt.eventId << " phase=" << static_cast<int>(pkt.phase) << (pkt.start ? " start" : " stop")
-              << std::endl;
+    DEBUG_PRINT(std::cout << "Event " << pkt.eventId << " phase=" << static_cast<int>(pkt.phase)
+                          << (pkt.start ? " start" : " stop") << std::endl);
 }
 
 static void SpectatorCam_Enter(uint32_t peerId)
 {
-    std::cout << "Enter spectate " << peerId << std::endl;
+    DEBUG_PRINT(std::cout << "Enter spectate " << peerId << std::endl);
 }
 
 static void ElevatorSync_OnArrive(uint32_t id, uint64_t hash, const RED4ext::Vector3& pos)
@@ -358,17 +402,17 @@ static void ElevatorSync_OnArrive(uint32_t id, uint64_t hash, const RED4ext::Vec
 
 static void UIPauseAudit_OnHoloStart(uint32_t peerId)
 {
-    std::cout << "HoloCall start " << peerId << std::endl;
+    DEBUG_PRINT(std::cout << "HoloCall start " << peerId << std::endl);
 }
 
 static void UIPauseAudit_OnHoloEnd(uint32_t peerId)
 {
-    std::cout << "HoloCall end " << peerId << std::endl;
+    DEBUG_PRINT(std::cout << "HoloCall end " << peerId << std::endl);
 }
 
 static void GameModeManager_SetFriendlyFire(bool enable)
 {
-    std::cout << "FriendlyFire=" << (enable ? "true" : "false") << std::endl;
+    DEBUG_PRINT(std::cout << "FriendlyFire=" << (enable ? "true" : "false") << std::endl);
 }
 
 static void PoliceDispatch_OnCruiserSpawn(uint8_t idx, const uint32_t* seeds)
@@ -483,7 +527,7 @@ static void GigSpawner_OnSpawn(uint32_t questId, uint32_t seed)
 
 static void SnapshotInterpolator_OnTickRateChange(uint16_t ms)
 {
-    std::cout << "TickRateChange " << ms << " ms" << std::endl;
+    DEBUG_PRINT(std::cout << "TickRateChange " << ms << " ms" << std::endl);
 }
 
 namespace CoopNet
@@ -1297,7 +1341,8 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(AdminCmdPacket))
         {
             const AdminCmdPacket* pkt = reinterpret_cast<const AdminCmdPacket*>(payload);
-            std::cout << "AdminCmd type=" << static_cast<int>(pkt->cmdType) << " param=" << pkt->param << std::endl;
+            DEBUG_PRINT(std::cout << "AdminCmd type=" << static_cast<int>(pkt->cmdType) << " param=" << pkt->param
+                                  << std::endl);
             if (pkt->cmdType == static_cast<uint8_t>(AdminCmdType::Mute))
             {
                 voiceMuted = pkt->param != 0;
@@ -1537,7 +1582,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(CriticalVoteStartPacket))
         {
             const CriticalVoteStartPacket* pkt = reinterpret_cast<const CriticalVoteStartPacket*>(payload);
-            std::cout << "[Vote] critical quest " << pkt->questHash << std::endl;
+            DEBUG_PRINT(std::cout << "[Vote] critical quest " << pkt->questHash << std::endl);
         }
         break;
     case EMsg::CriticalVoteCast:
@@ -1551,7 +1596,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(EndingVoteStartPacket))
         {
             const EndingVoteStartPacket* pkt = reinterpret_cast<const EndingVoteStartPacket*>(payload);
-            std::cout << "[Vote] ending triggered" << std::endl;
+            DEBUG_PRINT(std::cout << "[Vote] ending triggered" << std::endl);
         }
         break;
     case EMsg::EndingVoteCast:
@@ -1861,7 +1906,8 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(AirVehSpawnPacket))
         {
             const AirVehSpawnPacket* pkt = reinterpret_cast<const AirVehSpawnPacket*>(payload);
-            RED4ext::ExecuteFunction("AirVehicleProxy", "AirVehicleProxy_Spawn", nullptr, pkt->vehId, pkt->count, pkt->points);
+            RED4ext::ExecuteFunction("AirVehicleProxy", "AirVehicleProxy_Spawn", nullptr, pkt->vehId, pkt->count,
+                                     pkt->points);
         }
         break;
     case EMsg::AirVehUpdate:
@@ -1890,42 +1936,42 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(HitConfirmPacket))
         {
             const HitConfirmPacket* pkt = reinterpret_cast<const HitConfirmPacket*>(payload);
-            std::cout << "HitConfirm id=" << pkt->targetId << " dmg=" << pkt->appliedDamage << std::endl;
+            DEBUG_PRINT(std::cout << "HitConfirm id=" << pkt->targetId << " dmg=" << pkt->appliedDamage << std::endl);
         }
         break;
     case EMsg::HitRequest:
         if (size >= sizeof(HitRequestPacket))
         {
             const HitRequestPacket* pkt = reinterpret_cast<const HitRequestPacket*>(payload);
-            std::cout << "HitRequest id=" << pkt->targetId << " dmg=" << pkt->damage << std::endl;
+            DEBUG_PRINT(std::cout << "HitRequest id=" << pkt->targetId << " dmg=" << pkt->damage << std::endl);
         }
         break;
     case EMsg::InterestAdd:
         if (size >= sizeof(InterestPacket))
         {
             const InterestPacket* pkt = reinterpret_cast<const InterestPacket*>(payload);
-            std::cout << "InterestAdd " << pkt->id << std::endl;
+            DEBUG_PRINT(std::cout << "InterestAdd " << pkt->id << std::endl);
         }
         break;
     case EMsg::InterestRemove:
         if (size >= sizeof(InterestPacket))
         {
             const InterestPacket* pkt = reinterpret_cast<const InterestPacket*>(payload);
-            std::cout << "InterestRemove " << pkt->id << std::endl;
+            DEBUG_PRINT(std::cout << "InterestRemove " << pkt->id << std::endl);
         }
         break;
     case EMsg::JoinDeny:
-        std::cout << "Join denied" << std::endl;
+        DEBUG_PRINT(std::cout << "Join denied" << std::endl);
         Transition(ConnectionState::Disconnected);
         break;
     case EMsg::JoinRequest:
-        std::cout << "Join request" << std::endl;
+        DEBUG_PRINT(std::cout << "Join request" << std::endl);
         break;
     case EMsg::LowBWMode:
         if (size >= sizeof(LowBWModePacket))
         {
             const LowBWModePacket* pkt = reinterpret_cast<const LowBWModePacket*>(payload);
-            std::cout << "LowBWMode " << static_cast<int>(pkt->enable) << std::endl;
+            DEBUG_PRINT(std::cout << "LowBWMode " << static_cast<int>(pkt->enable) << std::endl);
         }
         break;
     case EMsg::PluginRPC:
@@ -1964,7 +2010,8 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(SectorLODPacket))
         {
             const SectorLODPacket* pkt = reinterpret_cast<const SectorLODPacket*>(payload);
-            std::cout << "SectorLOD " << pkt->sectorHash << " -> " << static_cast<int>(pkt->lod) << std::endl;
+            DEBUG_PRINT(std::cout << "SectorLOD " << pkt->sectorHash << " -> " << static_cast<int>(pkt->lod)
+                                  << std::endl);
         }
         break;
     case EMsg::Seed:
@@ -1975,7 +2022,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         }
         break;
     case EMsg::SeedAck:
-        std::cout << "SeedAck" << std::endl;
+        DEBUG_PRINT(std::cout << "SeedAck" << std::endl);
         break;
     case EMsg::TurretAim:
         if (size >= sizeof(TurretAimPacket))
@@ -1999,7 +2046,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         }
         break;
     case EMsg::Version:
-        std::cout << "Version crc" << std::endl;
+        DEBUG_PRINT(std::cout << "Version crc" << std::endl);
         break;
     default:
         if (hdr.type >= 5000)
@@ -2008,10 +2055,10 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         }
         else
         {
-            std::cout << "WARN: unhandled packet id=" << hdr.type << std::endl;
+            DEBUG_PRINT(std::cout << "WARN: unhandled packet id=" << hdr.type << std::endl);
             if (hdr.size != size)
             {
-                std::cout << "WARN: malformed packet" << std::endl;
+                DEBUG_PRINT(std::cout << "WARN: malformed packet" << std::endl);
                 Transition(ConnectionState::Disconnected);
             }
         }
@@ -2067,7 +2114,7 @@ void Connection::Update(uint64_t nowMs)
         const uint64_t timeoutTicks = static_cast<uint64_t>(10000.f / CoopNet::kVehicleStepMs);
         if (CoopNet::GameClock::GetCurrentTick() - lastSectorChangeTick > timeoutTicks)
         {
-            std::cout << "SectorReady timeout" << std::endl;
+            DEBUG_PRINT(std::cout << "SectorReady timeout" << std::endl);
             sectorReady = true;
         }
     }
@@ -2102,7 +2149,7 @@ void Connection::EnqueuePacket(const RawPacket& pkt)
         rateLastMs = now;
         if (rateTokens < 1.f)
         {
-            std::cout << "WARN: rate limit drop peer=" << peerId << std::endl;
+            DEBUG_PRINT(std::cout << "WARN: rate limit drop peer=" << peerId << std::endl);
             return;
         }
         rateTokens -= 1.f;
@@ -2163,7 +2210,7 @@ void Connection::Transition(ConnectionState next)
     if (state != next)
     {
         state = next;
-        std::cout << "Connection state -> " << static_cast<int>(state) << std::endl;
+        DEBUG_PRINT(std::cout << "Connection state -> " << static_cast<int>(state) << std::endl);
         if (state == ConnectionState::Disconnected)
             ClearBundleCache();
     }
