@@ -1863,6 +1863,12 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         std::cout << "Version crc" << std::endl;
         break;
     default:
+        std::cout << "WARN: unhandled packet id=" << hdr.type << std::endl;
+        if (hdr.size != size)
+        {
+            std::cout << "WARN: malformed packet" << std::endl;
+            Transition(ConnectionState::Disconnected);
+        }
         break;
     }
 }
