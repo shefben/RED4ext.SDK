@@ -230,6 +230,11 @@ static void Apartments_OnPurchaseAck(uint32_t aptId, uint64_t balance, bool succ
     RED4ext::ExecuteFunction("Apartments", "OnPurchaseAck", nullptr, &aptId, &success, &balance);
 }
 
+static void Apartments_OnInteriorState(uint32_t phaseId, const uint8_t* data, uint16_t len)
+{
+    RED4ext::ExecuteFunction("Apartments", "OnInteriorState", nullptr, &phaseId, data, &len);
+}
+
 static void AvatarProxy_OnSectorChange(uint32_t peerId, uint64_t hash)
 {
     std::cout << "SectorChange " << peerId << " -> " << hash << std::endl;
@@ -1417,6 +1422,13 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             }
         }
         break;
+    case EMsg::AptShareChange:
+        if (size >= sizeof(AptShareChangePacket) && Net_IsAuthoritative())
+        {
+            const AptShareChangePacket* pkt = reinterpret_cast<const AptShareChangePacket*>(payload);
+            CoopNet::ApartmentController_HandleShareChange(this, pkt->aptId, pkt->targetPeerId, pkt->allow != 0);
+        }
+        break;
     case EMsg::AptPurchaseAck:
         if (size >= sizeof(AptPurchaseAckPacket) && !Net_IsAuthoritative())
         {
@@ -1429,6 +1441,21 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const AptEnterAckPacket* pkt = reinterpret_cast<const AptEnterAckPacket*>(payload);
             Apartments_OnEnterAck(pkt->allow != 0, pkt->phaseId, pkt->interiorSeed);
+        }
+        break;
+    case EMsg::AptInteriorState:
+        if (size >= sizeof(AptInteriorStatePacket))
+        {
+            const AptInteriorStatePacket* pkt = reinterpret_cast<const AptInteriorStatePacket*>(payload);
+            if (Net_IsAuthoritative())
+            {
+                std::string json(reinterpret_cast<const char*>(pkt->json), pkt->blobBytes);
+                CoopNet::ApartmentController_SetCustomization(this->peerId, json);
+            }
+            else
+            {
+                Apartments_OnInteriorState(pkt->phaseId, pkt->json, pkt->blobBytes);
+            }
         }
         break;
     case EMsg::VehicleUnlock:

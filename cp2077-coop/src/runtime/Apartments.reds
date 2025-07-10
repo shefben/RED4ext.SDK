@@ -24,3 +24,8 @@ public static func Apartments_OnEnterAck(allow: Bool, phaseId: Uint32, seed: Uin
         CoopNotice.Show("Entry denied");
     };
 }
+
+public static func Apartments_OnInteriorState(phaseId: Uint32, data: script_ref<Uint8>, len: Uint16) -> Void {
+    let json: string = FromUtf8(data, len);
+    LogChannel("coop", s"InteriorState \(phaseId) \(json)");
+}
