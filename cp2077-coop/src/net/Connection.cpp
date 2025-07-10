@@ -1635,6 +1635,34 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             CoopNet::QuestWatchdog_HandleEndingVote(peerId, pkt->yes != 0);
         }
         break;
+    case EMsg::PartyInfo:
+        if (size >= sizeof(PartyInfoPacket))
+        {
+            const PartyInfoPacket* pkt = reinterpret_cast<const PartyInfoPacket*>(payload);
+            PartyManager_OnPartyInfo(pkt->peerIds, pkt->count);
+        }
+        break;
+    case EMsg::PartyInvite:
+        if (size >= sizeof(PartyInvitePacket))
+        {
+            const PartyInvitePacket* pkt = reinterpret_cast<const PartyInvitePacket*>(payload);
+            PartyManager_OnInvite(pkt->fromId, pkt->toId);
+        }
+        break;
+    case EMsg::PartyLeave:
+        if (size >= sizeof(PartyLeavePacket))
+        {
+            const PartyLeavePacket* pkt = reinterpret_cast<const PartyLeavePacket*>(payload);
+            PartyManager_OnLeave(pkt->peerId);
+        }
+        break;
+    case EMsg::PartyKick:
+        if (size >= sizeof(PartyKickPacket))
+        {
+            const PartyKickPacket* pkt = reinterpret_cast<const PartyKickPacket*>(payload);
+            PartyManager_OnKick(pkt->peerId);
+        }
+        break;
     case EMsg::PhaseBundle:
         if (size >= sizeof(PhaseBundlePacket) && !Net_IsAuthoritative())
         {

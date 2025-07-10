@@ -162,6 +162,13 @@ void Net_SendTradeAccept(bool accept);                                          
 void Net_BroadcastTradeFinalize(bool success);                                             // TRD-1
 void Net_BroadcastEndingVoteStart(uint32_t questHash);                                     // EG-1
 void Net_SendEndingVoteCast(bool yes);                                                     // EG-1
+void Net_BroadcastPartyInfo(const uint32_t* ids, uint8_t count);
+void Net_SendPartyInvite(uint32_t targetPeerId);
+void Net_SendPartyLeave();
+void Net_SendPartyKick(uint32_t peerId);
+void Net_BroadcastPartyInvite(uint32_t fromId, uint32_t toId);
+void Net_BroadcastPartyLeave(uint32_t peerId);
+void Net_BroadcastPartyKick(uint32_t peerId);
 void Net_BroadcastVehicleSnap(const VehicleSnap& snap);                                    // VT-1
 void Net_BroadcastTurretAim(uint32_t vehId, float yaw, float pitch);                       // VT-2
 void Net_BroadcastAirVehSpawn(uint32_t vehId, const RED4ext::Vector3* pts, uint8_t count); // VT-3
