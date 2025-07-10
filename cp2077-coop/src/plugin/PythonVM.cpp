@@ -22,6 +22,9 @@ struct Listener {
     std::string plugin;
 };
 static std::unordered_map<std::string, std::vector<Listener>> g_listeners;
+static std::unordered_map<uint16_t, Listener> g_packetHandlers;
+static std::unordered_map<std::string, Listener> g_panelHandlers;
+static uint16_t g_nextPacketId = 5000u;
 
 static PyObject* Py_RegisterEvent(PyObject*, PyObject* args)
 {
@@ -56,6 +59,43 @@ static PyObject* Py_RegisterCommand(PyObject*, PyObject* args)
     PyObject* globals = PyEval_GetGlobals();
     const char* modName = PyUnicode_AsUTF8(PyDict_GetItemString(globals, "__name__"));
     PluginManager_RegisterCommand(name, help, cb, modName);
+    Py_RETURN_NONE;
+}
+
+static PyObject* Py_RegisterPacket(PyObject*, PyObject* args)
+{
+    const char* name;
+    PyObject* cb;
+    if (!PyArg_ParseTuple(args, "sO", &name, &cb))
+        return nullptr;
+    if (!PyCallable_Check(cb))
+    {
+        PyErr_SetString(PyExc_TypeError, "callback not callable");
+        return nullptr;
+    }
+    PyObject* globals = PyEval_GetGlobals();
+    const char* modName = PyUnicode_AsUTF8(PyDict_GetItemString(globals, "__name__"));
+    uint16_t id = g_nextPacketId++;
+    Py_INCREF(cb);
+    g_packetHandlers[id] = {cb, modName};
+    return PyLong_FromUnsignedLong(id);
+}
+
+static PyObject* Py_RegisterPanel(PyObject*, PyObject* args)
+{
+    const char* name;
+    PyObject* cb;
+    if (!PyArg_ParseTuple(args, "sO", &name, &cb))
+        return nullptr;
+    if (!PyCallable_Check(cb))
+    {
+        PyErr_SetString(PyExc_TypeError, "callback not callable");
+        return nullptr;
+    }
+    PyObject* globals = PyEval_GetGlobals();
+    const char* modName = PyUnicode_AsUTF8(PyDict_GetItemString(globals, "__name__"));
+    Py_INCREF(cb);
+    g_panelHandlers[name] = {cb, modName};
     Py_RETURN_NONE;
 }
 
@@ -264,6 +304,8 @@ bool PyVM_Init()
     static PyMethodDef gameMethods[] = {
         {"_register_event", Py_RegisterEvent, METH_VARARGS, nullptr},
         {"_register_command", Py_RegisterCommand, METH_VARARGS, nullptr},
+        {"_register_packet", Py_RegisterPacket, METH_VARARGS, nullptr},
+        {"_register_panel", Py_RegisterPanel, METH_VARARGS, nullptr},
         {"spawn_npc", Py_SpawnNpc, METH_VARARGS, nullptr},
         {"teleport_peer", Py_TeleportPeer, METH_VARARGS, nullptr},
         {"set_weather", Py_SetWeather, METH_VARARGS, nullptr},
@@ -290,6 +332,16 @@ bool PyVM_Init()
         "def register_command(n,h):\n"
         "    def wrap(f):\n"
         "        game._register_command(n,h,f)\n"
+        "        return f\n"
+        "    return wrap\n"
+        "def register_packet(name):\n"
+        "    def wrap(f):\n"
+        "        game._register_packet(name, f)\n"
+        "        return f\n"
+        "    return wrap\n"
+        "def register_panel(name):\n"
+        "    def wrap(f):\n"
+        "        game._register_panel(name, f)\n"
         "        return f\n"
         "    return wrap\n");
     g_init = true;
@@ -329,5 +381,30 @@ void PyVM_Dispatch(const std::string& name, PyObject* dict)
         }
         Py_XDECREF(res);
     }
+}
+
+void PyVM_OnCustomPacket(uint16_t id, const void* payload, uint16_t size, uint32_t peer)
+{
+    auto it = g_packetHandlers.find(id);
+    if (it == g_packetHandlers.end() || !PluginManager_IsEnabled(it->second.plugin))
+        return;
+    PyObject* bytes = PyBytes_FromStringAndSize(static_cast<const char*>(payload), size);
+    PyObject* res = PyObject_CallFunction(it->second.func, "IO", peer, bytes);
+    if (!res && PyErr_Occurred())
+    {
+        PluginManager_LogException(it->second.plugin);
+        PyErr_Clear();
+    }
+    Py_XDECREF(res);
+    Py_DECREF(bytes);
+}
+
+PyObject* PyVM_GetPanel(const std::string& name)
+{
+    auto it = g_panelHandlers.find(name);
+    if (it == g_panelHandlers.end() || !PluginManager_IsEnabled(it->second.plugin))
+        return nullptr;
+    Py_INCREF(it->second.func);
+    return it->second.func;
 }
 } // namespace CoopNet
