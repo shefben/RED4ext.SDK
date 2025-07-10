@@ -98,19 +98,23 @@ namespace
                   << " bytes, RSS=" << GetProcessRSS() << std::endl;
     }
 
-    void HandleBundleComplete(uint16_t pluginId, const std::vector<uint8_t>& comp)
+    bool HandleBundleComplete(uint16_t pluginId, const std::vector<uint8_t>& comp)
     {
         namespace fs = std::filesystem;
         std::vector<uint8_t> raw(5u * 1024u * 1024u);
         size_t size = ZSTD_decompress(raw.data(), raw.size(), comp.data(), comp.size());
         if (ZSTD_isError(size))
-            return;
+        {
+            std::cerr << "Bundle decompress failed for plugin " << pluginId
+                      << ": " << ZSTD_getErrorName(size) << std::endl;
+            return false;
+        }
         raw.resize(size);
         unsigned char sha[SHA256_DIGEST_LENGTH];
         SHA256(comp.data(), comp.size(), sha);
         std::string s(reinterpret_cast<char*>(sha), SHA256_DIGEST_LENGTH);
         if (g_bundleSha[pluginId] == s)
-            return;
+            return true;
         g_bundleSha[pluginId] = s;
         fs::path base = fs::path("runtime_cache") / "plugins" / std::to_string(pluginId);
         fs::create_directories(base);
@@ -142,6 +146,7 @@ namespace
         bool ro = true; // sandbox client scripts
         RED4ext::ExecuteFunction("ModSystem", "Mount", nullptr, &path, &ro);
         RED4ext::ExecuteFunction("ModSystem", "ReloadScriptsFrom", nullptr, &path);
+        return true;
     }
 } // namespace
 
@@ -1881,8 +1886,9 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             b.data.insert(b.data.end(), pkt->data, pkt->data + pkt->dataBytes);
             if (b.data.size() >= b.expected)
             {
-                HandleBundleComplete(pkt->pluginId, b.data);
+                bool ok = HandleBundleComplete(pkt->pluginId, b.data);
                 g_bundle.erase(pkt->pluginId);
+                (void)ok;
             }
         }
         break;
