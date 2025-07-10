@@ -1,0 +1,5 @@
+{
+  "name": "PopupZone",
+  "version": "1.0",
+  "rpc_allow": ["popup"]
+}

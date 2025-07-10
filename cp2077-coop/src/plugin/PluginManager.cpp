@@ -11,6 +11,7 @@
 #include <fstream>
 #include <unordered_map>
 #include <vector>
+#include <rapidjson/document.h>
 #include "../net/Net.hpp"
 #include "../core/Hash.hpp"
 #include "../third_party/zstd/zstd.h"
@@ -147,9 +148,43 @@ static PyObject* BuildDict(const std::vector<std::pair<std::string, std::string>
     return d;
 }
 
-static std::string HashFile(const std::string& path)
+static bool LoadPermissionManifest(const std::string& name, PluginInfo& info)
 {
-    std::ifstream f(path, std::ios::binary);
+    fs::path manifest = fs::path("plugins") / (name + ".manifest.json");
+    if (!fs::exists(manifest))
+    {
+        fs::path alt = fs::path("plugins") / name / "manifest.json";
+        if (fs::exists(alt))
+            manifest = alt;
+        else
+            return false;
+    }
+    std::ifstream f(manifest, std::ios::binary);
+    if (!f.is_open())
+        return false;
+    std::string data((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    rapidjson::Document doc;
+    doc.Parse(data.c_str());
+    if (doc.HasParseError())
+        return false;
+    if (doc.HasMember("name") && doc["name"].IsString())
+        info.meta.name = doc["name"].GetString();
+    if (doc.HasMember("version") && doc["version"].IsString())
+        info.meta.version = doc["version"].GetString();
+    if (doc.HasMember("rpc_allow") && doc["rpc_allow"].IsArray())
+    {
+        info.whitelist.clear();
+        for (auto& v : doc["rpc_allow"].GetArray())
+            if (v.IsString())
+                info.whitelist.push_back(Fnv1a32(v.GetString()));
+    }
+    return true;
+}
+
+static std::string HashFile(const std::string& name)
+{
+    fs::path p = fs::path("plugins") / (name + ".py");
+    std::ifstream f(p, std::ios::binary);
     std::ostringstream ss;
     ss << f.rdbuf();
     std::hash<std::string> h;
@@ -180,6 +215,7 @@ static void LoadPlugin(const std::string& path)
         }
         it->second.module = reloaded;
         it->second.hash = hash;
+        LoadPermissionManifest(path, it->second);
         PushAssets(path, it->second.meta.id);
     }
     else
@@ -196,29 +232,12 @@ static void LoadPlugin(const std::string& path)
         info.module = module;
         info.hash = hash;
         info.meta.id = g_nextPluginId++;
-        PyObject* meta = PyObject_GetAttrString(module, "__plugin__");
-        if (meta && PyDict_Check(meta))
+        if (!LoadPermissionManifest(path, info))
         {
-            PyObject* nameObj = PyDict_GetItemString(meta, "name");
-            PyObject* verObj = PyDict_GetItemString(meta, "version");
-            if (nameObj)
-                info.meta.name = PyUnicode_AsUTF8(nameObj);
-            if (verObj)
-                info.meta.version = PyUnicode_AsUTF8(verObj);
-            info.meta.hash = hash;
-            PyObject* funcs = PyDict_GetItemString(meta, "client_funcs");
-            if (funcs && PyList_Check(funcs))
-            {
-                Py_ssize_t n = PyList_Size(funcs);
-                for (Py_ssize_t i = 0; i < n; ++i)
-                {
-                    PyObject* f = PyList_GetItem(funcs, i);
-                    if (PyUnicode_Check(f))
-                        info.whitelist.push_back(Fnv1a32(PyUnicode_AsUTF8(f)));
-                }
-            }
+            std::cerr << "Missing permission manifest for plugin " << path << std::endl;
+            Py_DECREF(module);
+            return;
         }
-        Py_XDECREF(meta);
         g_plugins[path] = info;
         PyModule_AddIntConstant(module, "__plugin_id__", info.meta.id);
         PushAssets(path, info.meta.id);

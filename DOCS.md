@@ -10,6 +10,8 @@
 - `dist`
 - `spawn_vehicle`
 - `send_rpc`
+- Each plugin bundle must include `manifest.json` specifying allowed RPC names
+  under `rpc_allow`.
 
 ## Plugins
 
