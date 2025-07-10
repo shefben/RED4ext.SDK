@@ -110,7 +110,7 @@
 | ID  | Ticket | Deliverables / Acceptance Hint |
 |-----|--------|--------------------------------|
 | **P8-1** | **Thread-safety pass** – mutexes or lock-free ring buffers. | `ThreadSafeQueue.hpp` added. |
-| **P8-2** | **Crash telemetry** – auto-zip minidump + last net log. | `CrashHandler.cpp` path comment. |
+| **P8-2** | **Crash telemetry** – zip dump + net log and prompt to send. | `CrashHandler.cpp` path comment. |
 | **P8-3** | **Version hash check** – compare CRCs on connect. | `VersionCheck.reds` rejects mismatches. |
 | **P8-4** | **Master-server heartbeat** – `/register` ping every 30 s. | `Heartbeat.cpp` example JSON. |
 | **P8-5** | **Settings panel** – tick-rate, interp delay, push-to-talk. | `CoopSettings.reds` saves `coop.ini`. |
