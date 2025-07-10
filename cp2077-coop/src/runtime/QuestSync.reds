@@ -66,17 +66,30 @@ public class QuestSync {
 
     // Mirror cutscene and scene triggers between peers.
     public static func OnSceneStart(id: TweakDBID) -> Void {
-        // NetCore.BroadcastSceneTrigger(id, true);
+        let hash: Uint32 = CoopNet.Fnv1a32(TDBID.ToStringDEBUG(id));
+        Net_BroadcastSceneTrigger(localPhase, hash, true);
         LogChannel(n"DEBUG", "Send SceneTrigger start " + TDBID.ToStringDEBUG(id));
     }
 
     public static func OnSceneEnd(id: TweakDBID) -> Void {
-        // NetCore.BroadcastSceneTrigger(id, false);
+        let hash: Uint32 = CoopNet.Fnv1a32(TDBID.ToStringDEBUG(id));
+        Net_BroadcastSceneTrigger(localPhase, hash, false);
         LogChannel(n"DEBUG", "Send SceneTrigger end " + TDBID.ToStringDEBUG(id));
     }
 
     public static func ApplySceneTrigger(id: TweakDBID, isStart: Bool) -> Void {
         LogChannel(n"DEBUG", "Apply SceneTrigger " + TDBID.ToStringDEBUG(id) + " start=" + BoolToString(isStart));
+    }
+
+    public static func OnDialogChoice(peerId: Uint32, idx: Uint8) -> Void {
+        LogChannel(n"DEBUG", "DialogChoice " + IntToString(Cast<Int32>(idx)));
+        if !Net_IsAuthoritative() {
+            Net_SendDialogChoice(idx);
+        } else {
+            if CutsceneSync.ApplyDialogChoice(idx) {
+                Net_BroadcastDialogChoice(peerId, idx);
+            };
+        };
     }
 
     public static func SetFreeze(f: Bool) -> Void {

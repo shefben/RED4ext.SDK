@@ -150,9 +150,10 @@ static void QuestSync_ApplyQuestStage(uint32_t hash, uint16_t stage)
     RED4ext::ExecuteFunction("QuestSync", "ApplyQuestStageByHash", nullptr, &hash, &stage);
 }
 
-static void QuestSync_ApplySceneTrigger(const char* id, bool start)
+static void QuestSync_ApplySceneTrigger(uint32_t nameHash, bool start)
 {
-    std::cout << "SceneTrigger " << id << " start=" << start << std::endl;
+    RED4ext::TweakDBID id{nameHash, 0};
+    RED4ext::ExecuteFunction("QuestSync", "ApplySceneTrigger", nullptr, &id, &start);
 }
 
 static void DMScoreboard_OnScorePacket(uint32_t peerId, uint16_t k, uint16_t d)
@@ -683,7 +684,11 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         }
         break;
     case EMsg::SceneTrigger:
-        QuestSync_ApplySceneTrigger("0", true); // P4-2: parse payload
+        if (size >= sizeof(SceneTriggerPacket))
+        {
+            const SceneTriggerPacket* pkt = reinterpret_cast<const SceneTriggerPacket*>(payload);
+            QuestSync_ApplySceneTrigger(pkt->nameHash, pkt->start != 0);
+        }
         break;
     case EMsg::NpcSpawn:
         if (size >= sizeof(NpcSpawnPacket))

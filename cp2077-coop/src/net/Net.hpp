@@ -77,6 +77,7 @@ void Net_BroadcastCineStart(uint32_t sceneId, uint32_t startTimeMs, uint32_t pha
 void Net_BroadcastViseme(uint32_t npcId, uint8_t visemeId, uint32_t timeMs);
 void Net_SendDialogChoice(uint8_t choiceIdx);
 void Net_BroadcastDialogChoice(uint32_t peerId, uint8_t choiceIdx);
+void Net_BroadcastSceneTrigger(uint32_t phaseId, uint32_t nameHash, bool start);
 void Net_SendVoiceCaps(CoopNet::Connection* conn, uint16_t maxBytes);
 void Net_SendVoice(const uint8_t* data, uint16_t size, uint16_t seq);
 void Net_BroadcastVoice(uint32_t peerId, const uint8_t* data, uint16_t size, uint16_t seq);

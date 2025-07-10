@@ -606,6 +606,12 @@ void Net_BroadcastDialogChoice(uint32_t peerId, uint8_t choiceIdx)
     Net_Broadcast(EMsg::DialogChoice, &pkt, sizeof(pkt));
 }
 
+void Net_BroadcastSceneTrigger(uint32_t phaseId, uint32_t nameHash, bool start)
+{
+    SceneTriggerPacket pkt{phaseId, nameHash, static_cast<uint8_t>(start), {0, 0, 0}};
+    Net_Broadcast(EMsg::SceneTrigger, &pkt, sizeof(pkt));
+}
+
 void Net_SendVoiceCaps(CoopNet::Connection* conn, uint16_t maxBytes)
 {
     if (!conn)
