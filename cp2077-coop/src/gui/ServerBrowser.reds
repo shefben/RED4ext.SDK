@@ -5,6 +5,10 @@ public class ServerBrowser extends inkHUDLayer {
     private static let scrollCtrl: wref<inkScrollController>;
     private static let joinBtn: wref<inkButton>;
     private static let hostBtn: wref<inkButton>;
+    private static var masterToken: Uint32;
+    private static let pending: ref<inkHashMap> = new inkHashMap();
+    private static var pendingCount: Uint32;
+    private static let results: array<ref<IScriptable>> = [];
 
     public struct ServerInfo {
         var id: Uint32;
@@ -59,57 +63,27 @@ public class ServerBrowser extends inkHUDLayer {
         s_instance = null;
     }
 
-    private static func QueryMaster() -> array<ref<IScriptable>> {
+    private static func QueryMaster() -> Void {
         let req = new HttpRequest();
         req.SetUrl("https://coop-master/api/list");
-        req.Send();
-        if req.GetStatusCode() == 0u {
-            LogChannel(n"DEBUG", "Master server unreachable");
-            return [];
-        };
-        if req.GetStatusCode() != 200u {
-            LogChannel(n"DEBUG", "Master query failed");
-            return [];
-        };
-        let body = req.GetBody();
-        return Json.Parse(body) as array<ref<IScriptable>>;
+        masterToken = req.SendAsync();
     }
 
-    private static func QueryServer(entry: ref<IScriptable>) -> ref<IScriptable> {
+    private static func QueryServer(entry: ref<IScriptable>) -> Void {
         let ip: String = entry["ip"] as String;
         let port: Uint32 = entry["port"] as Int32;
         let req = new HttpRequest();
         req.SetUrl("http://" + ip + ":" + IntToString(port) + "/info");
-        req.Send();
-        if req.GetStatusCode() == 0u {
-            LogChannel(n"DEBUG", "Server " + ip + " unreachable");
-            return null;
-        };
-        if req.GetStatusCode() != 200u {
-            LogChannel(n"DEBUG", "Info query failed " + IntToString(req.GetStatusCode()));
-            return null;
-        };
-        let body = req.GetBody();
-        let info = Json.Parse(body) as ref<IScriptable>;
-        if IsDefined(info) {
-            info["id"] = entry["id"];
-            info["ip"] = ip;
-            info["port"] = port;
-        };
-        return info;
+        let id = req.SendAsync();
+        pending.Insert(id, entry);
+        pendingCount += 1;
     }
 
     public static func RefreshLive() -> Void {
-        let entries = QueryMaster();
-        let servers: array<ref<IScriptable>>;
-        for e in entries {
-            let data = QueryServer(e);
-            if IsDefined(data) {
-                ArrayPush(servers, data);
-            };
-        };
-        let json = Json.Stringify(servers);
-        Refresh(json);
+        pending.Clear();
+        ArrayClear(results);
+        pendingCount = 0u;
+        QueryMaster();
     }
 
     // Populate list from JSON payload with array<ServerInfo>
@@ -225,6 +199,39 @@ public class ServerBrowser extends inkHUDLayer {
                 scrollCtrl.ScrollBy(1.0);
             } else if input.GetMouseWheel() != 0 {
                 scrollCtrl.ScrollBy(input.GetMouseWheel());
+            }
+        }
+
+        let res = HttpRequest.PollAsync();
+        if res.token != 0u {
+            if res.token == masterToken {
+                if res.status == 200u {
+                    let entries = Json.Parse(res.body) as array<ref<IScriptable>>;
+                    for e in entries {
+                        QueryServer(e);
+                    }
+                } else {
+                    LogChannel(n"DEBUG", "Master server unreachable");
+                }
+            } else {
+                let entry = pending.Get(res.token) as ref<IScriptable>;
+                if IsDefined(entry) {
+                    pending.Remove(res.token);
+                    pendingCount -= 1u;
+                    if res.status == 200u {
+                        let info = Json.Parse(res.body) as ref<IScriptable>;
+                        if IsDefined(info) {
+                            info["id"] = entry["id"];
+                            info["ip"] = entry["ip"];
+                            info["port"] = entry["port"];
+                            ArrayPush(results, info);
+                        }
+                    }
+                    if pendingCount == 0u {
+                        let json = Json.Stringify(results);
+                        Refresh(json);
+                    }
+                }
             }
         }
     }

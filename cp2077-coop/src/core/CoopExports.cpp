@@ -6,6 +6,7 @@
 #include <RED4ext/RED4ext.hpp>
 
 using CoopNet::HttpResponse;
+using CoopNet::HttpAsyncResult;
 
 static void HttpGetFn(RED4ext::IScriptable* aCtx, RED4ext::CStackFrame* aFrame, HttpResponse* aOut, void* a4)
 {
@@ -25,6 +26,27 @@ static void HttpPostFn(RED4ext::IScriptable* aCtx, RED4ext::CStackFrame* aFrame,
     aFrame->code++;
     if (aOut)
         *aOut = CoopNet::Http_Post(url.c_str(), body.c_str(), mime.c_str());
+}
+
+static void HttpGetAsyncFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, uint32_t* aOut, void*)
+{
+    RED4ext::CString url;
+    RED4ext::GetParameter(aFrame, &url);
+    aFrame->code++;
+    if (aOut)
+        *aOut = CoopNet::Http_GetAsync(url.c_str(), 5000, 1);
+}
+
+static void HttpPollAsyncFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, CoopNet::HttpAsyncResult* aOut, void*)
+{
+    aFrame->code++;
+    CoopNet::HttpAsyncResult res{};
+    if (CoopNet::Http_PollAsync(res)) {
+        if (aOut) *aOut = res;
+    } else if (aOut) {
+        aOut->token = 0;
+        aOut->resp = {0, {}};
+    }
 }
 
 static void LaunchFn(RED4ext::IScriptable* aCtx, RED4ext::CStackFrame* aFrame, bool* aOut, void* a4)
@@ -87,6 +109,7 @@ static void VoiceStopFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, voi
 }
 
 static RED4ext::TTypedClass<CoopNet::HttpResponse> g_httpRespCls("HttpResponse");
+static RED4ext::TTypedClass<CoopNet::HttpAsyncResult> g_httpAsyncCls("HttpAsyncResult");
 
 RED4EXT_C_EXPORT void RED4EXT_CALL RegisterTypes()
 {
@@ -103,6 +126,18 @@ RED4EXT_C_EXPORT void RED4EXT_CALL RegisterTypes()
     g_httpRespCls.props.EmplaceBack(bodyProp);
     g_httpRespCls.size = sizeof(HttpResponse);
     rtti->RegisterType(&g_httpRespCls);
+
+    g_httpAsyncCls.flags = {.isNative = true};
+    auto u32 = rtti->GetType("Uint32");
+    auto respType = &g_httpRespCls;
+    auto tokProp = RED4ext::CProperty::Create(u32, "token", &g_httpAsyncCls,
+                                             offsetof(HttpAsyncResult, token), nullptr, {.isPublic = true});
+    auto respProp = RED4ext::CProperty::Create(respType, "resp", &g_httpAsyncCls,
+                                              offsetof(HttpAsyncResult, resp), nullptr, {.isPublic = true});
+    g_httpAsyncCls.props.EmplaceBack(tokProp);
+    g_httpAsyncCls.props.EmplaceBack(respProp);
+    g_httpAsyncCls.size = sizeof(HttpAsyncResult);
+    rtti->RegisterType(&g_httpAsyncCls);
 }
 
 RED4EXT_C_EXPORT void RED4EXT_CALL PostRegisterTypes()
@@ -123,6 +158,17 @@ RED4EXT_C_EXPORT void RED4EXT_CALL PostRegisterTypes()
     p->AddParam("String", "mime");
     p->SetReturnType("HttpResponse");
     rtti->RegisterFunction(p);
+
+    auto ga = RED4ext::CGlobalFunction::Create("HttpRequest_HttpGetAsync", "HttpRequest_HttpGetAsync", &HttpGetAsyncFn);
+    ga->flags = flags;
+    ga->AddParam("String", "url");
+    ga->SetReturnType("Uint32");
+    rtti->RegisterFunction(ga);
+
+    auto pa = RED4ext::CGlobalFunction::Create("HttpRequest_PollAsync", "HttpRequest_PollAsync", &HttpPollAsyncFn);
+    pa->flags = flags;
+    pa->SetReturnType("HttpAsyncResult");
+    rtti->RegisterFunction(pa);
 
     auto l = RED4ext::CGlobalFunction::Create("GameProcess_Launch", "GameProcess_Launch", &LaunchFn);
     l->flags = flags;
