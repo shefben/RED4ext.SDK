@@ -580,6 +580,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             for (auto* c : Net_GetConnections())
                 ids.push_back(c->peerId);
             CoopNet::SessionState_SetParty(ids);
+            RED4ext::ExecuteFunction("SyncProgress", "Show", nullptr);
         }
         break;
     case EMsg::Disconnect:
@@ -1260,8 +1261,11 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             const WorldMarkersPacket* pkt = reinterpret_cast<const WorldMarkersPacket*>(payload);
             if (size >= sizeof(uint16_t) + pkt->blobBytes)
             {
-                CoopNet::ApplyMarkerBlob(pkt->zstdBlob, pkt->blobBytes);
-                std::cout << "[HotJoin] markers ready" << std::endl;
+                LargeBlob lb{0u, 0u, {}};
+                lb.data.assign(pkt->zstdBlob, pkt->zstdBlob + pkt->blobBytes);
+                m_largeBlobs.Push(lb);
+                pendingLarge += 1;
+                RED4ext::ExecuteFunction("SyncProgress", "Show", nullptr);
             }
         }
         break;
@@ -1516,7 +1520,13 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const PhaseBundlePacket* pkt = reinterpret_cast<const PhaseBundlePacket*>(payload);
             if (size >= sizeof(PhaseBundlePacket) + pkt->blobBytes)
-                CoopNet::ApplyPhaseBundle(pkt->phaseId, pkt->zstdBlob, pkt->blobBytes);
+            {
+                LargeBlob lb{1u, pkt->phaseId, {}};
+                lb.data.assign(pkt->zstdBlob, pkt->zstdBlob + pkt->blobBytes);
+                m_largeBlobs.Push(lb);
+                pendingLarge += 1;
+                RED4ext::ExecuteFunction("SyncProgress", "Show", nullptr);
+            }
         }
         break;
     case EMsg::LootRoll:
@@ -1974,6 +1984,22 @@ void Connection::Update(uint64_t nowMs)
     if (CoopVoice::DecodeFrame(pcm) > 0)
     {
         // PCM would be sent to audio output here
+    }
+
+    LargeBlob blob;
+    if (m_largeBlobs.Pop(blob))
+    {
+        if (blob.type == 0)
+            CoopNet::ApplyMarkerBlob(blob.data.data(), blob.data.size());
+        else if (blob.type == 1)
+            CoopNet::ApplyPhaseBundle(blob.arg, blob.data.data(), blob.data.size());
+        processedLarge += 1;
+        int32_t pct = 0;
+        if (pendingLarge > 0)
+            pct = static_cast<int32_t>(processedLarge * 100 / pendingLarge);
+        RED4ext::ExecuteFunction("SyncProgress", "Update", nullptr, pct);
+        if (processedLarge >= pendingLarge)
+            RED4ext::ExecuteFunction("SyncProgress", "Hide", nullptr);
     }
 
     if (!sectorReady)
