@@ -27,6 +27,19 @@ public class SpectatorCam {
         LogChannel(n"DEBUG", "EnterSpectate " + IntToString(peerId));
     }
 
+    // Restores normal HUD and exits spectator mode.
+    public static func Exit() -> Void {
+        let hudMgr = GameInstance.GetHUDManager(GetGame());
+        let list = hudMgr.GetLayers();
+        for layer in list { layer.SetVisible(true); };
+        if IsDefined(hud) {
+            hudMgr.RemoveLayer(hud);
+            hud = null;
+        };
+        GameModeManager.current = GameModeManager.GameMode.DM;
+        LogChannel(n"DEBUG", "ExitSpectate");
+    }
+
     // Very simple free-fly camera controls using WASD.
     public static func UpdateInput(dt: Float) -> Void {
         if GameModeManager.current != GameModeManager.GameMode.Spectate { return; };

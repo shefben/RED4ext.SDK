@@ -9,6 +9,11 @@ public class Respawn {
 
     public static func RequestRespawn(peerId: Uint32) -> Void {
         LogChannel(n"DEBUG", "RequestRespawn " + IntToString(peerId));
+        // Send spectate packet so the dead player can watch others during delay.
+        let players = GameInstance.GetPlayerSystem(GetGame()).GetPlayers();
+        var target: Uint32 = 0u;
+        for p in players { if p.peerId != peerId { target = p.peerId; break; }; };
+        if target != 0u { CoopNet.Net_SendSpectateGranted(target); };
         GameInstance.GetDelaySystem(GetGame()).DelayCallback(Respawn, n"PerformRespawn", Cast<Float>(kRespawnDelayMs) / 1000.0, peerId);
     }
 
@@ -40,5 +45,6 @@ public class Respawn {
         board.deaths += 1u;
         board.Update(peerId, board.kills, board.deaths);
         CoopNet.AddStats(peerId, board.kills, board.deaths, 0u, 0u, 0u);
+        SpectatorCam.Exit();
     }
 }
