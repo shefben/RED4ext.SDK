@@ -86,6 +86,7 @@ void Net_SendGlobalEvent(CoopNet::Connection* conn, uint32_t eventId, uint8_t ph
 void Net_SendNpcReputation(CoopNet::Connection* conn, uint32_t npcId, int16_t value);
 void Net_BroadcastNpcReputation(uint32_t npcId, int16_t value);
 void Net_BroadcastGlobalEvent(uint32_t eventId, uint8_t phase, bool start, uint32_t seed);
+void Net_BroadcastDynamicEvent(uint8_t eventType, uint32_t seed); // DE-1
 void Net_BroadcastCrowdSeed(uint64_t sectorHash, uint32_t seed);
 void Net_BroadcastVendorStock(const VendorStockPacket& pkt);
 void Net_BroadcastVendorStockUpdate(const VendorStockUpdatePacket& pkt);
