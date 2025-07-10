@@ -8,6 +8,7 @@
 #include "../server/QuestWatchdog.hpp"
 #include "Connection.hpp"
 #include "NatClient.hpp"
+#include "../voice/VoiceEncoder.hpp"
 #include "NetConfig.hpp"
 #include "Packets.hpp"
 #include <algorithm>
@@ -605,17 +606,35 @@ void Net_BroadcastDialogChoice(uint32_t peerId, uint8_t choiceIdx)
     Net_Broadcast(EMsg::DialogChoice, &pkt, sizeof(pkt));
 }
 
+void Net_SendVoiceCaps(CoopNet::Connection* conn, uint16_t maxBytes)
+{
+    if (!conn)
+        return;
+    VoiceCapsPacket pkt{maxBytes, {0, 0}};
+    Net_Send(conn, EMsg::VoiceCaps, &pkt, sizeof(pkt));
+}
+
 void Net_SendVoice(const uint8_t* data, uint16_t size, uint16_t seq)
 {
     auto conns = Net_GetConnections();
     if (!conns.empty())
     {
-        if (conns[0]->voiceMuted)
+        auto* c = conns[0];
+        if (c->voiceMuted)
             return;
-        VoicePacket pkt{0u, seq, size, {0}};
-        std::memcpy(pkt.data, data, std::min<size_t>(size, sizeof(pkt.data)));
-        Net_Send(conns[0], EMsg::Voice, &pkt, static_cast<uint16_t>(sizeof(pkt)));
-        conns[0]->voiceBytes += sizeof(pkt);
+        uint16_t cap = c->voiceFrameBytes ? c->voiceFrameBytes : CoopVoice::kMaxFrameBytes;
+        uint16_t offset = 0;
+        while (offset < size)
+        {
+            uint16_t chunk = std::min<uint16_t>(cap, static_cast<uint16_t>(size - offset));
+            VoicePacket pkt{0u, seq, chunk, {0}};
+            std::memcpy(pkt.data, data + offset, chunk);
+            Net_Send(c, EMsg::Voice, &pkt, static_cast<uint16_t>(sizeof(pkt)));
+            c->voiceBytes += sizeof(pkt);
+            offset += chunk;
+            if (offset < size)
+                ++seq;
+        }
     }
 }
 

@@ -181,7 +181,8 @@ enum class EMsg : uint16_t
     ArcadeInput,
     ArcadeScore,
     PluginRPC,
-    AssetBundle
+    AssetBundle,
+    VoiceCaps
 };
 
 struct PacketHeader
@@ -582,6 +583,12 @@ struct VoicePacket
     uint16_t seq;
     uint16_t size;
     uint8_t data[256];
+};
+
+struct VoiceCapsPacket
+{
+    uint16_t maxBytes;
+    uint8_t _pad[2];
 };
 
 struct GlobalEventPacket

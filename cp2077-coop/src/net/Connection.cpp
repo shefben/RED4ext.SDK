@@ -10,6 +10,7 @@
 #include "../server/StatusController.hpp"
 #include "../server/TrafficController.hpp"
 #include "../voice/VoiceDecoder.hpp"
+#include "../voice/VoiceEncoder.hpp"
 #include "../plugin/PluginManager.hpp"
 #include "../third_party/zstd/zstd.h"
 #include <openssl/sha.h>
@@ -482,6 +483,7 @@ void Connection::StartHandshake()
     HelloPacket pkt{};
     memcpy(pkt.pub, pubKey.data(), crypto_kx_PUBLICKEYBYTES);
     Net_Send(this, EMsg::Hello, &pkt, sizeof(pkt));
+    Net_SendVoiceCaps(this, CoopVoice::kMaxFrameBytes);
 }
 
 void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint16_t size)
@@ -501,6 +503,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             WelcomePacket ack{};
             memcpy(ack.pub, pubKey.data(), crypto_kx_PUBLICKEYBYTES);
             Net_Send(this, EMsg::Welcome, &ack, sizeof(ack));
+            Net_SendVoiceCaps(this, CoopVoice::kMaxFrameBytes);
         }
         break;
     case EMsg::Ping:
@@ -1092,6 +1095,11 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(VoicePacket))
         {
             const VoicePacket* pkt = reinterpret_cast<const VoicePacket*>(payload);
+            if (pkt->size > voiceFrameBytes)
+            {
+                voiceDropped++;
+                break;
+            }
             if (Net_IsAuthoritative())
             {
                 if (!voiceMuted)
@@ -1103,6 +1111,13 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
                     CoopVoice::PushPacket(pkt->seq, pkt->data, pkt->size);
                 voiceRecv++;
             }
+        }
+        break;
+    case EMsg::VoiceCaps:
+        if (size >= sizeof(VoiceCapsPacket))
+        {
+            const VoiceCapsPacket* pkt = reinterpret_cast<const VoiceCapsPacket*>(payload);
+            voiceFrameBytes = pkt->maxBytes;
         }
         break;
     case EMsg::VOPlay:
