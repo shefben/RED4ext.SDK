@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <iostream>
 #include <unordered_map>
+#include <fstream>
 #include <vector>
 #include <algorithm>
 #include <cmath>
@@ -233,7 +234,12 @@ static PyObject* Py_SendRPC(PyObject*, PyObject* args)
     PluginManager_GetData(modName, pluginId, wl);
     uint32_t hash = Fnv1a32(fn);
     if (wl && std::find(wl->begin(), wl->end(), hash) == wl->end())
+    {
+        fs::create_directories("logs/plugins");
+        std::ofstream f("logs/plugins/" + std::string(modName) + ".log", std::ios::app);
+        f << "unauthorized rpc: " << fn << std::endl;
         Py_RETURN_NONE;
+    }
     CoopNet::Connection* c = Net_FindConnection(peer);
     if (c)
         Net_SendPluginRPC(c, pluginId, hash, js, len);
