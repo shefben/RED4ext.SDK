@@ -3,6 +3,12 @@ public struct HttpResponse {
     public var body: String;
 }
 
+public struct HttpAsyncResult {
+    public var token: Uint32;
+    public var status: Uint16;
+    public var body: String;
+}
+
 public class HttpRequest {
     private var url: String;
     private var status: Uint16;
@@ -10,6 +16,8 @@ public class HttpRequest {
 
     private static native func HttpRequest_HttpGet(url: String) -> HttpResponse
     private static native func HttpRequest_HttpPost(url: String, payload: String, mime: String) -> HttpResponse
+    private static native func HttpRequest_HttpGetAsync(url: String) -> Uint32
+    private static native func HttpRequest_PollAsync() -> HttpAsyncResult
 
     public func SetUrl(u: String) -> Void {
         url = u;
@@ -20,6 +28,12 @@ public class HttpRequest {
         status = res.status;
         text = res.body;
         url = "";
+    }
+
+    public func SendAsync() -> Uint32 {
+        let id = HttpRequest_HttpGetAsync(url);
+        url = "";
+        return id;
     }
 
     public func SendPost(payload: String, mime: String) -> Void {
@@ -41,5 +55,9 @@ public class HttpRequest {
         url = "";
         status = 0u;
         text = "";
+    }
+
+    public static func PollAsync() -> HttpAsyncResult {
+        return HttpRequest_PollAsync();
     }
 }
