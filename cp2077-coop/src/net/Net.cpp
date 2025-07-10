@@ -1375,6 +1375,12 @@ void Net_BroadcastArcadeScore(uint32_t peerId, uint32_t score)
     Net_Broadcast(EMsg::ArcadeScore, &pkt, sizeof(pkt));
 }
 
+void Net_BroadcastArcadeHighScore(uint32_t cabId, uint32_t peerId, uint32_t score)
+{
+    ArcadeHighScorePacket pkt{cabId, peerId, score};
+    Net_Broadcast(EMsg::ArcadeHighScore, &pkt, sizeof(pkt));
+}
+
 void Net_SendPluginRPC(Connection* conn, uint16_t pluginId, uint32_t fnHash,
                        const char* json, uint16_t len)
 {

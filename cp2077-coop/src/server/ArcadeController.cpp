@@ -18,6 +18,7 @@ void Arcade_Start(uint32_t cabId, uint32_t peerId, uint32_t seed)
     g_games[cabId] = {peerId, 0u, seed, true};
     ArcadeStartPacket pkt{cabId, peerId, seed};
     Net_Broadcast(EMsg::ArcadeStart, &pkt, sizeof(pkt));
+    Arcade_BroadcastHighScore(cabId);
 }
 
 void Arcade_Input(uint32_t frame, uint8_t buttons)
@@ -42,7 +43,10 @@ void Arcade_End(uint32_t peerId, uint32_t score)
             kv.second.score = score;
             uint32_t hiPeer = 0, hiScore = 0;
             if (!LoadArcadeHighScore(kv.first, hiPeer, hiScore) || score > hiScore)
+            {
                 SaveArcadeHighScore(kv.first, peerId, score);
+                Arcade_BroadcastHighScore(kv.first);
+            }
             break;
         }
     }
@@ -64,6 +68,13 @@ void Arcade_Tick(float dt)
         ArcadeScorePacket pkt{kv.second.peerId, kv.second.score};
         Net_Broadcast(EMsg::ArcadeScore, &pkt, sizeof(pkt));
     }
+}
+
+void Arcade_BroadcastHighScore(uint32_t cabId)
+{
+    uint32_t peer = 0, score = 0;
+    if (LoadArcadeHighScore(cabId, peer, score))
+        Net_BroadcastArcadeHighScore(cabId, peer, score);
 }
 
 } // namespace CoopNet

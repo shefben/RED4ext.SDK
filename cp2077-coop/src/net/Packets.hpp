@@ -182,6 +182,7 @@ enum class EMsg : uint16_t
     ArcadeStart,    // AM-1
     ArcadeInput,
     ArcadeScore,
+    ArcadeHighScore,
     PluginRPC,
     AssetBundle,
     VoiceCaps,
@@ -1292,6 +1293,13 @@ struct ArcadeInputPacket
 
 struct ArcadeScorePacket
 {
+    uint32_t peerId;
+    uint32_t score;
+};
+
+struct ArcadeHighScorePacket
+{
+    uint32_t cabId;
     uint32_t peerId;
     uint32_t score;
 };

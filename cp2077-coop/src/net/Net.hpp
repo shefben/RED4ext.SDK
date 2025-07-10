@@ -206,6 +206,7 @@ void Net_BroadcastSmartCamEnd(uint32_t projId);                                 
 void Net_BroadcastArcadeStart(uint32_t cabId, uint32_t peerId, uint32_t seed);
 void Net_SendArcadeInput(uint32_t frame, uint8_t buttonMask);
 void Net_BroadcastArcadeScore(uint32_t peerId, uint32_t score);
+void Net_BroadcastArcadeHighScore(uint32_t cabId, uint32_t peerId, uint32_t score);
 void Net_SendPluginRPC(CoopNet::Connection* conn, uint16_t pluginId, uint32_t fnHash,
                        const char* json, uint16_t len);
 void Net_BroadcastPluginRPC(uint16_t pluginId, uint32_t fnHash, const char* json,

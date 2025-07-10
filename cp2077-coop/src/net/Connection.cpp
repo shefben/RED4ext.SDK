@@ -1848,6 +1848,13 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             RED4ext::ExecuteFunction("ArcadeSync", "OnScore", nullptr, pkt);
         }
         break;
+    case EMsg::ArcadeHighScore:
+        if (size >= sizeof(ArcadeHighScorePacket))
+        {
+            const ArcadeHighScorePacket* pkt = reinterpret_cast<const ArcadeHighScorePacket*>(payload);
+            RED4ext::ExecuteFunction("ArcadeSync", "OnHighScore", nullptr, pkt);
+        }
+        break;
 
     // --- audit omissions ---------------------------------------------------
     case EMsg::AirVehSpawn:
