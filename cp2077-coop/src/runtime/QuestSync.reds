@@ -54,13 +54,29 @@ public class QuestSync {
 
     public static func ApplyFullSync(pkt: ref<QuestFullSyncPacket>) -> Void {
         LogChannel(n"quest", "[Watchdog] forced sync");
-        let count: Uint16 = pkt.count;
+        let qCount: Uint16 = pkt.questCount;
         let i: Uint16 = 0u;
-        while i < count {
-            let entry = pkt.entries[i];
+        while i < qCount {
+            let entry = pkt.quests[i];
             nameMap.Insert(entry.nameHash, StringToName(IntToString(entry.nameHash)));
             ApplyQuestStageByHash(entry.nameHash, entry.stage);
             i += 1u;
+        };
+
+        let nCount: Uint16 = pkt.npcCount;
+        let j: Uint16 = 0u;
+        while j < nCount {
+            let snap = pkt.npcs[j];
+            NpcController.ClientApplySnap(&snap);
+            j += 1u;
+        };
+
+        let eCount: Uint8 = pkt.eventCount;
+        let k: Uint8 = 0u;
+        while k < eCount {
+            let ev = pkt.events[k];
+            GlobalEventManager.OnEvent(ev.eventId, ev.phase, ev.seed, ev.active == 1u);
+            k += 1u;
         };
     }
 
