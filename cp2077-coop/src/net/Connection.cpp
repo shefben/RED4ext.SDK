@@ -28,6 +28,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <iostream>
+#include <algorithm>
+#include <vector>
 
 // Temporary proxies for script methods.
 static void AvatarProxy_SpawnRemote(uint32_t peerId, bool isLocal, const CoopNet::TransformSnap& snap)
@@ -81,6 +83,7 @@ namespace
 
     std::unordered_map<uint16_t, BundleBuf> g_bundle;
     std::unordered_map<uint16_t, std::string> g_bundleSha;
+    constexpr uint64_t kBundleLimit = 128ull * 1024ull * 1024ull; // 128 MB
 
     size_t GetBundleMemory()
     {
@@ -99,6 +102,45 @@ namespace
         g_bundleSha.clear();
         std::cerr << "[MemGuard] bundle cache freed " << before
                   << " bytes, RSS=" << GetProcessRSS() << std::endl;
+    }
+
+    uint64_t DirSize(const std::filesystem::path& p)
+    {
+        uint64_t total = 0;
+        for (auto& f : std::filesystem::recursive_directory_iterator(p))
+            if (f.is_regular_file())
+                total += f.file_size();
+        return total;
+    }
+
+    void EnforceBundleLimit()
+    {
+        namespace fs = std::filesystem;
+        fs::path base = fs::path("runtime_cache") / "plugins";
+        if (!fs::exists(base))
+            return;
+        struct Entry { fs::path path; uint64_t size; fs::file_time_type mtime; };
+        std::vector<Entry> ent;
+        uint64_t total = 0;
+        for (auto& dir : fs::directory_iterator(base))
+        {
+            if (!dir.is_directory())
+                continue;
+            uint64_t sz = DirSize(dir.path());
+            ent.push_back({dir.path(), sz, fs::last_write_time(dir.path())});
+            total += sz;
+        }
+        std::sort(ent.begin(), ent.end(), [](const Entry& a, const Entry& b)
+                  { return a.mtime < b.mtime; });
+        for (const auto& e : ent)
+        {
+            if (total <= kBundleLimit)
+                break;
+            fs::remove_all(e.path);
+            total -= e.size;
+            std::cerr << "[AssetCache] purged bundle " << e.path.filename().string()
+                      << std::endl;
+        }
     }
 
     bool HandleBundleComplete(uint16_t pluginId, const std::vector<uint8_t>& comp)
@@ -145,6 +187,8 @@ namespace
             f.write(reinterpret_cast<const char*>(p), len);
             p += len;
         }
+        std::filesystem::last_write_time(base, std::filesystem::file_time_type::clock::now());
+        EnforceBundleLimit();
         RED4ext::CString path(base.string().c_str());
         bool ro = true; // sandbox client scripts
         RED4ext::ExecuteFunction("ModSystem", "Mount", nullptr, &path, &ro);

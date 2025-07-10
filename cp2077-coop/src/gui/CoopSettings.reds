@@ -12,6 +12,8 @@ public var sharedLoot: Bool = true;
 public var difficultyScaling: Bool = false;
 public var difficultyLevel: Uint8 = 1u;
 public var dynamicEvents: Bool = true;
+public var bundleCacheLimitMb: Uint32 = 128u;
+public static func GetBundleCacheLimitMb() -> Uint32 { return bundleCacheLimitMb; }
 public let kDefaultSettingsPath: String = "coop.ini";
 private native func SaveSettings(json: String) -> Void
 
