@@ -1063,6 +1063,63 @@ void Net_SendEndingVoteCast(bool yes)
     }
 }
 
+void Net_BroadcastPartyInfo(const uint32_t* ids, uint8_t count)
+{
+    PartyInfoPacket pkt{};
+    pkt.count = count > 8 ? 8 : count;
+    for (uint8_t i = 0; i < pkt.count; ++i)
+        pkt.peerIds[i] = ids[i];
+    Net_Broadcast(EMsg::PartyInfo, &pkt, sizeof(pkt));
+}
+
+void Net_SendPartyInvite(uint32_t targetPeerId)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        PartyInvitePacket pkt{Net_GetPeerId(), targetPeerId};
+        Net_Send(conns[0], EMsg::PartyInvite, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_SendPartyLeave()
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        PartyLeavePacket pkt{Net_GetPeerId()};
+        Net_Send(conns[0], EMsg::PartyLeave, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_SendPartyKick(uint32_t peerId)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        PartyKickPacket pkt{peerId};
+        Net_Send(conns[0], EMsg::PartyKick, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_BroadcastPartyInvite(uint32_t fromId, uint32_t toId)
+{
+    PartyInvitePacket pkt{fromId, toId};
+    Net_Broadcast(EMsg::PartyInvite, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastPartyLeave(uint32_t peerId)
+{
+    PartyLeavePacket pkt{peerId};
+    Net_Broadcast(EMsg::PartyLeave, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastPartyKick(uint32_t peerId)
+{
+    PartyKickPacket pkt{peerId};
+    Net_Broadcast(EMsg::PartyKick, &pkt, sizeof(pkt));
+}
+
 void Net_SendDealerBuy(uint32_t vehicleTpl, uint32_t price)
 {
     auto conns = Net_GetConnections();

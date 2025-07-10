@@ -6,6 +6,7 @@ public class ServerBrowser extends inkHUDLayer {
     private static let joinBtn: wref<inkButton>;
     private static let hostBtn: wref<inkButton>;
     private static let loadingSpinner: wref<inkText>;
+    private static let partyText: wref<inkText>;
     private static var masterToken: Uint32;
     private static let pending: ref<inkHashMap> = new inkHashMap();
     private static var pendingCount: Uint32;
@@ -54,6 +55,9 @@ public class ServerBrowser extends inkHUDLayer {
         loadingSpinner.SetText("Loading...");
         loadingSpinner.SetVisible(false);
         root.AddChild(loadingSpinner);
+        partyText = new inkText();
+        partyText.SetText("Party: " + IntToString(Cast<Int32>(SessionState_GetActivePlayerCount())));
+        root.AddChild(partyText);
         RefreshLive();
     }
 
@@ -255,6 +259,10 @@ public class ServerBrowser extends inkHUDLayer {
             } else if input.GetMouseWheel() != 0 {
                 scrollCtrl.ScrollBy(input.GetMouseWheel());
             }
+        }
+
+        if IsDefined(partyText) {
+            partyText.SetText("Party: " + IntToString(Cast<Int32>(SessionState_GetActivePlayerCount())));
         }
 
         let res = HttpRequest.PollAsync();
