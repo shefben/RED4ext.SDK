@@ -121,7 +121,7 @@ void Net_BroadcastGigSpawn(uint32_t questId, uint32_t seed);
 void Net_BroadcastVehicleSummon(uint32_t vehId, uint32_t ownerId, const TransformSnap& pos);
 void Net_BroadcastAppearance(uint32_t peerId, uint32_t meshId, uint32_t tintId);
 void Net_BroadcastPingOutline(uint32_t peerId, uint16_t durationMs, const std::vector<uint32_t>& ids);
-void Net_BroadcastLootRoll(uint32_t containerId, uint32_t seed);
+void Net_BroadcastLootRoll(uint32_t containerId, uint32_t seed, const std::vector<uint64_t>& items);
 void Net_SendDealerBuy(uint32_t vehicleTpl, uint32_t price);
 void Net_BroadcastVehicleUnlock(uint32_t peerId, uint32_t vehicleTpl);
 void Net_BroadcastVehicleHitHighSpeed(uint32_t vehA, uint32_t vehB, const RED4ext::Vector3& delta);

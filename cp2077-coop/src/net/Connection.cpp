@@ -1606,7 +1606,15 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(LootRollPacket) && !Net_IsAuthoritative())
         {
             const LootRollPacket* pkt = reinterpret_cast<const LootRollPacket*>(payload);
-            LootAuthority_OnLootRoll(pkt->containerId, pkt->seed);
+            array<Uint64> ids;
+            let cnt: Int32 = Cast<Int32>(pkt->count);
+            let i: Int32 = 0;
+            while i < cnt && i < 16
+            {
+                ids.PushBack(pkt->itemIds[i]);
+                i += 1;
+            }
+            LootAuthority_OnLootRoll(pkt->containerId, pkt->seed, ids);
         }
         break;
     case EMsg::PurchaseResult:
