@@ -11,4 +11,7 @@ void SaveRollbackSnapshot(uint32_t sessionId, const std::string& jsonBlob);
 
 // Validate session file and restore from snapshot on failure
 bool ValidateSessionState(uint32_t sessionId);
+
+// Merge inventory and quest data from a single-player save
+bool MergeSinglePlayerData(uint32_t sessionId);
 }
