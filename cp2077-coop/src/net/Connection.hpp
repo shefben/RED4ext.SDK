@@ -65,6 +65,8 @@ private:
     ThreadSafeQueue<LargeBlob> m_largeBlobs;
     uint8_t pendingLarge = 0;
     uint8_t processedLarge = 0;
+    uint8_t pendingAssets = 0;
+    uint8_t processedAssets = 0;
 public:
     uint64_t lastPingSent;
     uint64_t lastRecvTime;
