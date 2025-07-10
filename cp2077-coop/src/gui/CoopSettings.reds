@@ -9,6 +9,7 @@ public var voiceBitrate: Uint32 = 24000u;
 public var friendlyFire: Bool = false;
 public var sharedLoot: Bool = true;
 public var difficultyScaling: Bool = false;
+public var difficultyLevel: Uint8 = 1u;
 public var dynamicEvents: Bool = true;
 public let kDefaultSettingsPath: String = "coop.ini";
 private native func SaveSettings(json: String) -> Void
@@ -27,6 +28,7 @@ public func Save(path: String) -> Void {
                 ",\"sharedLoot\":" + BoolToString(sharedLoot) +
                 ",\"difficultyScaling\":" + BoolToString(difficultyScaling) +
                 ",\"dynamicEvents\":" + BoolToString(dynamicEvents) +
+                ",\"difficulty\":" + IntToString(Cast<Int32>(difficultyLevel)) +
                 ",\"minTickRate\":" + IntToString(Cast<Int32>(minTickRate)) +
                 ",\"maxTickRate\":" + IntToString(Cast<Int32>(maxTickRate)) + "}";
     SaveSettings(json);

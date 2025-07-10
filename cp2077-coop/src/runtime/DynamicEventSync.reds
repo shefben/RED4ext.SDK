@@ -5,13 +5,15 @@ public enum DynamicEventType {
 
 public class DynamicEventSync {
     public static func OnEvent(eventType: Uint8, seed: Uint32) -> Void {
-        LogChannel(n"event", "Dynamic event " + IntToString(Cast<Int32>(eventType)) + " seed=" + IntToString(Cast<Int32>(seed)));
+        let players: Uint32 = SessionState.GetActivePlayerCount();
+        LogChannel(n"event", "Dynamic event " + IntToString(Cast<Int32>(eventType)) + " seed=" + IntToString(Cast<Int32>(seed)) + " players=" + IntToString(Cast<Int32>(players)));
     }
 
     public static func SendEvent(eventType: Uint8) -> Void {
         if !CoopSettings.dynamicEvents { return; };
         if Net_IsAuthoritative() {
-            let s: Uint32 = CoopNet.Fnv1a32(IntToString(Cast<Int32>(eventType)) + IntToString(Cast<Int32>(CoopNet.GameClock.GetCurrentTick())));
+            let players: Uint32 = SessionState.GetActivePlayerCount();
+            let s: Uint32 = CoopNet.Fnv1a32(IntToString(Cast<Int32>(eventType)) + IntToString(Cast<Int32>(CoopNet.GameClock.GetCurrentTick())) + IntToString(Cast<Int32>(players)));
             CoopNet.Net_BroadcastDynamicEvent(eventType, s);
         };
     }
