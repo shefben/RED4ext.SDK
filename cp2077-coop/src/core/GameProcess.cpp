@@ -5,7 +5,8 @@
 #else
 #include <spawn.h>
 #include <unistd.h>
-#include <sys/wait.h>
+#include <fcntl.h>
+#include <filesystem>
 extern char **environ;
 #endif
 
@@ -22,18 +23,29 @@ bool GameProcess_Launch(const std::string& exe, const std::string& args)
     CloseHandle(pi.hProcess);
     return true;
 #else
+    namespace fs = std::filesystem;
+    fs::create_directories("logs/server");
+    std::string logPath = "logs/server/" + exe + ".log";
+    int fd = open(logPath.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (fd == -1)
+        return false;
+
+    posix_spawn_file_actions_t actions;
+    posix_spawn_file_actions_init(&actions);
+    posix_spawn_file_actions_adddup2(&actions, fd, STDOUT_FILENO);
+    posix_spawn_file_actions_adddup2(&actions, fd, STDERR_FILENO);
+    posix_spawn_file_actions_addclose(&actions, fd);
+
+    posix_spawnattr_t attr;
+    posix_spawnattr_init(&attr);
+    posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSID);
+
     pid_t pid = 0;
-    std::string cmdExe = exe;
-    std::string argStr = args;
-    const char* argv[] = { cmdExe.c_str(), argStr.c_str(), nullptr };
-    int ret = posix_spawnp(&pid, cmdExe.c_str(), nullptr, nullptr, (char* const*)argv, environ);
-    if (ret != 0)
-        return false;
-    int status = 0;
-    pid_t wp = waitpid(pid, &status, WNOHANG);
-    if (wp == -1 || (wp == pid && (!WIFEXITED(status) || WEXITSTATUS(status) != 0)))
-        return false;
-    return true;
+    const char* argv[] = { exe.c_str(), args.c_str(), nullptr };
+    int ret = posix_spawnp(&pid, exe.c_str(), &actions, &attr, (char* const*)argv, environ);
+    posix_spawn_file_actions_destroy(&actions);
+    posix_spawnattr_destroy(&attr);
+    return ret == 0;
 #endif
 }
 
