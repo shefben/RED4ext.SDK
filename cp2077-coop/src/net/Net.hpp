@@ -132,6 +132,10 @@ void Net_BroadcastSlowMoFinisher(uint32_t peerId, uint32_t targetId, uint16_t du
 void Net_BroadcastTextureBiasChange(uint8_t bias);
 void Net_BroadcastCriticalVoteStart(uint32_t questHash);                                                 // PX-6
 void Net_SendCriticalVoteCast(bool yes);                                                                 // PX-6
+void Net_BroadcastBranchVoteStart(uint32_t questHash, uint16_t stage);
+                         // QW-1
+void Net_SendBranchVoteCast(bool yes);
+                         // QW-1
 void Net_SendPhaseBundle(CoopNet::Connection* conn, uint32_t phaseId, const std::vector<uint8_t>& blob); // PX-7
 std::vector<uint32_t> QuestWatchdog_ListPhases();                                                        // PX-7 helper
 std::vector<uint8_t> BuildPhaseBundle(uint32_t phaseId);                                                 // PX-7

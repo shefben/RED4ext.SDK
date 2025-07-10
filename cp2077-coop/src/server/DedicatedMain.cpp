@@ -53,6 +53,8 @@ int main(int argc, char** argv)
     CoopNet::ApartmentController_Load();
     CoopNet::QuestWatchdog_LoadCritical();
     CoopNet::QuestWatchdog_LoadRomance();
+    CoopNet::QuestWatchdog_LoadMain();
+    CoopNet::QuestWatchdog_LoadSide();
     Net_Init();
     CoopNet::MigrateSinglePlayerSave();
     CoopNet::CarParking park{};

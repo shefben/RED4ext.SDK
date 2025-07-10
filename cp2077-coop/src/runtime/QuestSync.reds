@@ -126,3 +126,21 @@ protected func QuestSystem_AdvanceStage(original: func(ref<QuestSystem>, CName),
     original(self, questName);
     QuestSync.OnAdvanceStage(questName);
 }
+
+@hook(questSceneManager.StartScene)
+protected func questSceneManager_StartScene(original: func(ref<questSceneManager>, TweakDBID), self: ref<questSceneManager>, id: TweakDBID) -> Void {
+    original(self, id);
+    QuestSync.OnSceneStart(id);
+}
+
+@hook(questSceneManager.EndScene)
+protected func questSceneManager_EndScene(original: func(ref<questSceneManager>, TweakDBID), self: ref<questSceneManager>, id: TweakDBID) -> Void {
+    original(self, id);
+    QuestSync.OnSceneEnd(id);
+}
+
+@hook(DialogChoiceHubController.OnOptionSelected)
+protected func DialogChoiceHubController_OnOptionSelected(original: func(ref<DialogChoiceHubController>, Int32), self: ref<DialogChoiceHubController>, idx: Int32) -> Void {
+    original(self, idx);
+    QuestSync.OnDialogChoice(CoopNet.Net_GetPeerId(), Cast<Uint8>(idx));
+}
