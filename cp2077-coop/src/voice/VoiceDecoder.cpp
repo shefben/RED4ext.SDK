@@ -142,4 +142,36 @@ uint16_t ConsumeDropPct()
     g_dropped = 0;
     return pct;
 }
+
+void Reset()
+{
+    g_buffer.clear();
+    g_lastSeq = 0;
+    g_recv = 0;
+    g_dropped = 0;
+    if (g_decoder)
+    {
+        opus_decoder_destroy(g_decoder);
+        g_decoder = nullptr;
+    }
+    if (g_source)
+    {
+        alSourceStop(g_source);
+        alDeleteSources(1, &g_source);
+        g_source = 0;
+    }
+    alDeleteBuffers(4, g_buffers);
+    if (g_ctx)
+    {
+        alcMakeContextCurrent(nullptr);
+        alcDestroyContext(g_ctx);
+        g_ctx = nullptr;
+    }
+    if (g_dev)
+    {
+        alcCloseDevice(g_dev);
+        g_dev = nullptr;
+    }
+    g_bufIndex = 0;
+}
 } // namespace CoopVoice
