@@ -13,6 +13,7 @@
 #include "../voice/VoiceDecoder.hpp"
 #include "../voice/VoiceEncoder.hpp"
 #include "../plugin/PluginManager.hpp"
+#include "../server/AdminCommandHandler.hpp"
 #include "../third_party/zstd/zstd.h"
 #include <openssl/sha.h>
 #include <Python.h>
@@ -643,6 +644,8 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (size >= sizeof(ChatPacket))
             {
                 const ChatPacket* pkt = reinterpret_cast<const ChatPacket*>(payload);
+                if (CoopNet::AdminCommandHandler_Handle(peerId, pkt->msg))
+                    break;
                 if (CoopNet::PluginManager_HandleChat(peerId, pkt->msg, false))
                     break;
                 ChatPacket out{peerId, {0}};
