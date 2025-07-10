@@ -167,7 +167,7 @@ int main(int argc, char** argv)
                         });
         CoopNet::QuestWatchdog_Tick(tickMs);
         CoopNet::PhaseGC_Tick(CoopNet::GameClock::GetCurrentTick());
-        CoopNet::AdminController_PollCommands();
+        CoopNet::AdminController_Tick(tickMs);
         CoopNet::PluginManager_Tick(tickMs / 1000.f);
         hbTimer += tickMs / 1000.f;
         memTimer += tickMs / 1000.f;

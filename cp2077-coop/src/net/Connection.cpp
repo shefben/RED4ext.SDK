@@ -14,6 +14,7 @@
 #include "../voice/VoiceEncoder.hpp"
 #include "../plugin/PluginManager.hpp"
 #include "../server/AdminCommandHandler.hpp"
+#include "../server/ChatFilter.hpp"
 #include "../third_party/zstd/zstd.h"
 #include <openssl/sha.h>
 #include <Python.h>
@@ -668,6 +669,8 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
                 if (CoopNet::AdminCommandHandler_Handle(peerId, pkt->msg))
                     break;
                 if (CoopNet::PluginManager_HandleChat(peerId, pkt->msg, false))
+                    break;
+                if (!CoopNet::ChatFilter_IsAllowed(pkt->msg))
                     break;
                 ChatPacket out{peerId, {0}};
                 std::strncpy(out.msg, pkt->msg, sizeof(out.msg) - 1);

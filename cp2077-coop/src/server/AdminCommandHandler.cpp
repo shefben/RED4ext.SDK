@@ -33,6 +33,15 @@ bool AdminCommandHandler_Handle(uint32_t senderId, const std::string& text)
         }
         return true;
     }
+    else if (cmd == "votekick")
+    {
+        uint32_t id;
+        if (ss >> id)
+        {
+            AdminController_HandleVoteKick(senderId, id);
+        }
+        return true;
+    }
     else if (cmd == "mute")
     {
         uint32_t id = 0;
