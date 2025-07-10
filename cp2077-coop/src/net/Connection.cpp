@@ -420,6 +420,11 @@ static void PanicSync_OnEvent(const CoopNet::PanicEventPacket& pkt)
     RED4ext::ExecuteFunction("PanicSync", "OnEvent", nullptr, &pkt);
 }
 
+static void DynamicEventSync_OnEvent(const CoopNet::DynamicEventPacket& pkt)
+{
+    RED4ext::ExecuteFunction("DynamicEventSync", "OnEvent", nullptr, &pkt);
+}
+
 static void AIHackSync_OnHack(uint32_t target, uint8_t effectId)
 {
     RED4ext::ExecuteFunction("AIHackSync", "OnHack", nullptr, target, effectId);
@@ -729,6 +734,13 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const PanicEventPacket* pkt = reinterpret_cast<const PanicEventPacket*>(payload);
             PanicSync_OnEvent(*pkt);
+        }
+        break;
+    case EMsg::DynamicEvent:
+        if (size >= sizeof(DynamicEventPacket))
+        {
+            const DynamicEventPacket* pkt = reinterpret_cast<const DynamicEventPacket*>(payload);
+            DynamicEventSync_OnEvent(*pkt);
         }
         break;
     case EMsg::BossPhase:

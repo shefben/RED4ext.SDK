@@ -4,6 +4,7 @@ public class CrimeTriggerVolume extends ScriptedTriggerBase {
     protected cb func OnEnter(instigator: ref<GameObject>) -> Bool {
         if triggered { return false; };
         if !Net_IsAuthoritative() { return false; };
+        if !CoopSettings.dynamicEvents { return false; };
         triggered = true;
         let name: String = NameToString(GetEntityName());
         let eventId: Uint32 = CoopNet.Fnv1a32(name);

@@ -12,6 +12,7 @@ public class PoliceDispatch {
     }
 
     public static func Tick(dtMs: Uint32) -> Void {
+        if !CoopSettings.dynamicEvents { return; };
         waveTimerMs += dtMs;
         let interval: Uint32 = HeatSync.heatLevel >= 3u ? 15000u : 30000u;
         if waveTimerMs >= interval {

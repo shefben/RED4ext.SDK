@@ -182,8 +182,9 @@ enum class EMsg : uint16_t
     ArcadeScore,
     PluginRPC,
     AssetBundle,
-    VoiceCaps
-    NpcReputation
+    VoiceCaps,
+    NpcReputation,
+    DynamicEvent // DE-1
 };
 
 struct PacketHeader
@@ -1060,6 +1061,13 @@ struct BossPhasePacket
     uint32_t npcId;
     uint8_t phaseIdx;
     uint8_t _pad[3];
+};
+
+struct DynamicEventPacket
+{
+    uint8_t eventType; // 1=PoliceDispatch,2=GangWar
+    uint8_t _pad[3];
+    uint32_t seed;
 };
 
 struct SectorLODPacket

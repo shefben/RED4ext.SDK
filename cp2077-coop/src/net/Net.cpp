@@ -689,6 +689,12 @@ void Net_BroadcastGlobalEvent(uint32_t eventId, uint8_t phase, bool start, uint3
     Net_Broadcast(EMsg::GlobalEvent, &pkt, sizeof(pkt));
 }
 
+void Net_BroadcastDynamicEvent(uint8_t eventType, uint32_t seed)
+{
+    DynamicEventPacket pkt{eventType, {0,0,0}, seed};
+    Net_Broadcast(EMsg::DynamicEvent, &pkt, sizeof(pkt));
+}
+
 void Net_BroadcastCrowdSeed(uint64_t sectorHash, uint32_t seed)
 {
     CrowdSeedPacket pkt{sectorHash, seed};
