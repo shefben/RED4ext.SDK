@@ -33,6 +33,11 @@ void InterestGrid::Query(const RED4ext::Vector3& center, float radius, std::vect
     m_grid.QueryCircle(center, radius, out);
 }
 
+size_t InterestGrid::GetSize() const
+{
+    return m_posMap.size();
+}
+
 InterestGrid g_interestGrid;
 
 } // namespace CoopNet

@@ -10,6 +10,7 @@ public:
     void Move(uint32_t id, const RED4ext::Vector3& pos);
     void Remove(uint32_t id);
     void Query(const RED4ext::Vector3& center, float radius, std::vector<uint32_t>& out) const;
+    size_t GetSize() const;
 
 private:
     SpatialGrid m_grid;

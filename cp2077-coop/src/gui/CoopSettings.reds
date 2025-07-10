@@ -14,6 +14,10 @@ public var difficultyScaling: Bool = false;
 public var difficultyLevel: Uint8 = 1u;
 public var dynamicEvents: Bool = true;
 public var bundleCacheLimitMb: Uint32 = 128u;
+public var sectorTimeoutSec: Float = 10.0;
+public var mapSize: Float = 512.0;
+public static func GetSectorTimeoutSec() -> Float { return sectorTimeoutSec; }
+public static func GetMapSize() -> Float { return mapSize; }
 public static func GetBundleCacheLimitMb() -> Uint32 { return bundleCacheLimitMb; }
 public let kDefaultSettingsPath: String = "coop.ini";
 private native func SaveSettings(json: String) -> Void
@@ -36,6 +40,8 @@ public func Save(path: String) -> Void {
                 ",\"difficulty\":" + IntToString(Cast<Int32>(difficultyLevel)) +
                 ",\"minTickRate\":" + IntToString(Cast<Int32>(minTickRate)) +
                 ",\"maxTickRate\":" + IntToString(Cast<Int32>(maxTickRate)) +
+                ",\"sectorTimeoutSec\":" + FloatToString(sectorTimeoutSec) +
+                ",\"mapSize\":" + FloatToString(mapSize) + "}";
                 ",\"voiceVolume\":" + FloatToString(voiceVolume) + "}";
     SaveSettings(json);
     LogChannel(n"DEBUG", "Saved settings");
