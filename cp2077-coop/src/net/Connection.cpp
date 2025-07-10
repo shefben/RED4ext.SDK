@@ -655,8 +655,11 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             const ChatPacket* pkt = reinterpret_cast<const ChatPacket*>(payload);
             ChatOverlay_Push(pkt->msg);
             PyObject* d = Py_BuildValue("{s:I,s:s}", "peerId", peerId, "text", pkt->msg);
-            CoopNet::PluginManager_DispatchEvent("OnChatMsg", d);
-            Py_DECREF(d);
+            if (d)
+            {
+                CoopNet::PluginManager_DispatchEvent("OnChatMsg", d);
+            }
+            Py_XDECREF(d);
         }
         break;
     case EMsg::QuestStageP2P:
