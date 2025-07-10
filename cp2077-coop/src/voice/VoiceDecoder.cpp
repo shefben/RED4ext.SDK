@@ -28,6 +28,7 @@ static ALCcontext* g_ctx = nullptr;
 static ALuint g_source = 0;
 static ALuint g_buffers[4];
 static int g_bufIndex = 0;
+static float g_volume = 1.0f;
 
 void PushPacket(uint16_t seq, const uint8_t* data, uint16_t size)
 {
@@ -86,6 +87,7 @@ static bool EnsureAL()
     alGenSources(1, &g_source);
     alGenBuffers(4, g_buffers);
     g_bufIndex = 0;
+    alSourcef(g_source, AL_GAIN, g_volume);
     return true;
 }
 
@@ -173,5 +175,12 @@ void Reset()
         g_dev = nullptr;
     }
     g_bufIndex = 0;
+}
+
+void SetVolume(float volume)
+{
+    g_volume = std::clamp(volume, 0.0f, 2.0f);
+    if (g_source)
+        alSourcef(g_source, AL_GAIN, g_volume);
 }
 } // namespace CoopVoice

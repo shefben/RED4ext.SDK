@@ -1170,6 +1170,8 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             {
                 if (!voiceMuted)
                     CoopVoice::PushPacket(pkt->seq, pkt->data, pkt->size);
+                if (!voiceMuted)
+                    RED4ext::ExecuteFunction("VoiceIndicator", "OnVoice", nullptr, peerId);
                 voiceRecv++;
             }
         }
