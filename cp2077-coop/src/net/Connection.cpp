@@ -1621,6 +1621,20 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             CoopNet::QuestWatchdog_HandleVote(peerId, pkt->yes != 0);
         }
         break;
+    case EMsg::BranchVoteStart:
+        if (size >= sizeof(BranchVoteStartPacket))
+        {
+            const BranchVoteStartPacket* pkt = reinterpret_cast<const BranchVoteStartPacket*>(payload);
+            std::cout << "[Vote] branch quest " << pkt->questHash << std::endl;
+        }
+        break;
+    case EMsg::BranchVoteCast:
+        if (size >= sizeof(BranchVoteCastPacket) && Net_IsAuthoritative())
+        {
+            const BranchVoteCastPacket* pkt = reinterpret_cast<const BranchVoteCastPacket*>(payload);
+            CoopNet::QuestWatchdog_HandleVote(peerId, pkt->yes != 0);
+        }
+        break;
     case EMsg::EndingVoteStart:
         if (size >= sizeof(EndingVoteStartPacket))
         {

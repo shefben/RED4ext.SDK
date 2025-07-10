@@ -119,6 +119,8 @@ enum class EMsg : uint16_t
     TextureBiasChange,
     CriticalVoteStart, // PX-6
     CriticalVoteCast,
+    BranchVoteStart,  // QW-1
+    BranchVoteCast,
     PhaseBundle,
     AptPurchase,
     AptPurchaseAck,
@@ -893,6 +895,20 @@ struct CriticalVoteStartPacket
 };
 
 struct CriticalVoteCastPacket
+{
+    uint32_t peerId;
+    uint8_t yes;
+    uint8_t _pad[3];
+};
+
+struct BranchVoteStartPacket
+{
+    uint32_t questHash;
+    uint16_t stage;
+    uint8_t _pad[2];
+};
+
+struct BranchVoteCastPacket
 {
     uint32_t peerId;
     uint8_t yes;
