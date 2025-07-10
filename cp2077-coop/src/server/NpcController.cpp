@@ -1,6 +1,6 @@
 #include "NpcController.hpp"
 #include "../core/Hash.hpp"
-#include "../core/SpatialGrid.hpp"
+#include "../net/InterestGrid.hpp"
 #include "../net/Net.hpp"
 #include "../net/Packets.hpp"
 #include <RED4ext/RED4ext.hpp>
@@ -26,7 +26,6 @@ static NpcSnap g_npc{1u,
                      {0, 0}};
 static bool g_alwaysRelevant = false;
 static NpcSnap g_prevSnap = g_npc;
-static SpatialGrid g_grid;
 static bool g_gridInit = false;
 static float g_walkDir = 0.f;
 static float g_dirTimer = 0.f;
@@ -68,7 +67,7 @@ void NpcController_ServerTick(float dt)
     if (!g_gridInit)
     {
         g_npc.sectorHash = Fnv1a64Pos(g_npc.pos.X, g_npc.pos.Y);
-        g_grid.Insert(g_npc.npcId, g_npc.pos);
+        g_interestGrid.Insert(g_npc.npcId, g_npc.pos);
         g_gridInit = true;
         g_npc.health = static_cast<uint16_t>(100u * g_healthMult);
     }
@@ -83,45 +82,17 @@ void NpcController_ServerTick(float dt)
     float speed = 0.5f; // m/s
     g_npc.pos.X += std::cos(g_walkDir) * speed * dt;
     g_npc.pos.Y += std::sin(g_walkDir) * speed * dt;
-    g_grid.Move(g_npc.npcId, g_prevSnap.pos, g_npc.pos);
+    g_interestGrid.Move(g_npc.npcId, g_npc.pos);
 
     std::cout << "[NPC] tick seed=" << g_seed << " pos=" << g_npc.pos.X << std::endl;
 
     bool changed = std::memcmp(&g_prevSnap, &g_npc, sizeof(NpcSnap)) != 0;
 
-    auto conns = Net_GetConnections();
-    std::vector<uint32_t> ids;
     for (auto* c : conns)
     {
         if (!c->sectorReady)
             continue;
-        // Build interest set: nearby NPCs plus combatants.
-        g_grid.QueryCircle(c->avatarPos, 80.f, ids);
-        std::unordered_set<uint32_t> newSet(ids.begin(), ids.end());
-        if (g_npc.state == NpcState::Combat)
-            newSet.insert(g_npc.npcId);
-        for (uint32_t id : newSet)
-        {
-            if (c->subscribedNpcs.insert(id).second)
-            {
-                InterestPacket pkt{id};
-                Net_Send(c, EMsg::InterestAdd, &pkt, sizeof(pkt));
-            }
-        }
-        for (auto it = c->subscribedNpcs.begin(); it != c->subscribedNpcs.end();)
-        {
-            if (newSet.count(*it) == 0)
-            {
-                InterestPacket pkt{*it};
-                Net_Send(c, EMsg::InterestRemove, &pkt, sizeof(pkt));
-                it = c->subscribedNpcs.erase(it);
-            }
-            else
-            {
-                ++it;
-            }
-        }
-
+        c->RefreshNpcInterest();
         if (c->subscribedNpcs.count(g_npc.npcId) && changed)
         {
             NpcSnapshotPacket pkt{g_npc};
@@ -147,6 +118,7 @@ void NpcController_ServerTick(float dt)
                 s.health = static_cast<uint16_t>(100u * g_healthMult);
                 NpcSpawnPacket pkt{s};
                 Net_Broadcast(EMsg::NpcSpawn, &pkt, sizeof(pkt));
+                g_interestGrid.Insert(s.npcId, s.pos);
             }
         }
     }
@@ -170,6 +142,7 @@ void NpcController_ApplyCrowdSeed(uint64_t hash, uint32_t seed)
 void NpcController_Despawn(uint32_t id)
 {
     RED4ext::ExecuteFunction("NpcController", "DespawnNpc", nullptr, id);
+    g_interestGrid.Remove(id);
 }
 
 } // namespace CoopNet

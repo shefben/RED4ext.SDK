@@ -5,10 +5,15 @@ public class ServerBrowser extends inkHUDLayer {
     private static let scrollCtrl: wref<inkScrollController>;
     private static let joinBtn: wref<inkButton>;
     private static let hostBtn: wref<inkButton>;
+    private static let loadingSpinner: wref<inkText>;
     private static var masterToken: Uint32;
     private static let pending: ref<inkHashMap> = new inkHashMap();
     private static var pendingCount: Uint32;
     private static let results: array<ref<IScriptable>> = [];
+    private static var lastQuery: String;
+    private static var filterPing: Uint32 = 9999u;
+    private static var filterVersion: Uint32 = 0u;
+    private static var filterPassword: Int32 = -1; // -1=any,0=no,1=yes
 
     public struct ServerInfo {
         var id: Uint32;
@@ -43,6 +48,11 @@ public class ServerBrowser extends inkHUDLayer {
         hostBtn.SetText("HOST");
         hostBtn.RegisterToCallback(n"OnRelease", layer, n"OnHostClick");
         root.AddChild(hostBtn);
+
+        loadingSpinner = new inkText();
+        loadingSpinner.SetText("Loading...");
+        loadingSpinner.SetVisible(false);
+        root.AddChild(loadingSpinner);
         RefreshLive();
     }
 
@@ -83,12 +93,32 @@ public class ServerBrowser extends inkHUDLayer {
         pending.Clear();
         ArrayClear(results);
         pendingCount = 0u;
+        lastQuery = "";
+        if IsDefined(loadingSpinner) {
+            loadingSpinner.SetVisible(true);
+        };
         QueryMaster();
+    }
+
+    public static func RefreshCached() -> Void {
+        if lastQuery != "" {
+            Refresh(lastQuery);
+        } else {
+            RefreshLive();
+        };
+    }
+
+    public static func SetFilters(maxPing: Uint32, ver: Uint32, passReq: Int32) -> Void {
+        filterPing = maxPing;
+        filterVersion = ver;
+        filterPassword = passReq;
+        RefreshCached();
     }
 
     // Populate list from JSON payload with array<ServerInfo>
     public static func Refresh(jsonList: String) -> Void {
         LogChannel(n"DEBUG", "ServerBrowser.Refresh");
+        lastQuery = jsonList;
         let servers = Json.Parse(jsonList) as array<ref<IScriptable>>;
         if IsDefined(listCtrl) {
             while listCtrl.GetNumChildren() > 0 {
@@ -108,6 +138,12 @@ public class ServerBrowser extends inkHUDLayer {
             let pass: Bool = server["password"] as Bool;
             let ip: String = server["ip"] as String;
             let port: Uint32 = server["port"] as Int32;
+            let ping: Uint32 = server["ping"] as Int32;
+            let ver: Uint32 = server["version"] as Int32;
+            if ping > filterPing { continue; };
+            if filterVersion != 0u && ver != filterVersion { continue; };
+            if filterPassword == 1 && !pass { continue; };
+            if filterPassword == 0 && pass { continue; };
             let row = new inkHorizontalPanel();
             row.SetName(IntToString(id));
             let nameLabel = new inkText();
@@ -124,6 +160,9 @@ public class ServerBrowser extends inkHUDLayer {
             };
             let addrLabel = new inkText();
             addrLabel.SetText(ip + ":" + IntToString(port));
+            if ver != kClientCRC {
+                row.SetTintColor(new HDRColor(1.0, 0.4, 0.4, 1.0));
+            };
             row.AddChild(nameLabel);
             row.AddChild(playersLabel);
             row.AddChild(modeLabel);
@@ -188,6 +227,12 @@ public class ServerBrowser extends inkHUDLayer {
                 idx += 1;
             };
         };
+        pending.Clear();
+        pendingCount = 0u;
+        masterToken = 0u;
+        if IsDefined(loadingSpinner) {
+            loadingSpinner.SetVisible(false);
+        };
     }
 
     public func OnUpdate(dt: Float) -> Void {
@@ -229,10 +274,14 @@ public class ServerBrowser extends inkHUDLayer {
                     }
                     if pendingCount == 0u {
                         let json = Json.Stringify(results);
+                        lastQuery = json;
                         Refresh(json);
                     }
                 }
             }
+        }
+        if pendingCount == 0u && IsDefined(loadingSpinner) && loadingSpinner.IsVisible() {
+            loadingSpinner.SetVisible(false);
         }
     }
 }

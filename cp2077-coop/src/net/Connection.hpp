@@ -37,6 +37,7 @@ public:
     void HandlePacket(const PacketHeader& hdr, const void* payload, uint16_t size);
     void EnqueuePacket(const RawPacket& pkt);
     void Update(uint64_t nowMs);
+    void RefreshNpcInterest();
 
     bool PopPacket(RawPacket& out);
 
@@ -47,6 +48,8 @@ public:
     {
         return state;
     }
+
+    float GetAverageRtt() const;
 
 private:
     void Transition(ConnectionState next);

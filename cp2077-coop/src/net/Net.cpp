@@ -653,6 +653,36 @@ void Net_BroadcastWorldState(uint16_t sunAngleDeg, uint8_t weatherId, uint16_t p
     Net_SendUnreliableToAll(EMsg::WorldState, &pkt, sizeof(pkt));
 }
 
+void Net_SendWorldState(Connection* conn, uint16_t sunAngleDeg, uint8_t weatherId, uint16_t particleSeed)
+{
+    if (!conn)
+        return;
+    WorldStatePacket pkt{sunAngleDeg, weatherId, particleSeed};
+    Net_Send(conn, EMsg::WorldState, &pkt, sizeof(pkt));
+}
+
+void Net_SendGlobalEvent(Connection* conn, uint32_t eventId, uint8_t phase, bool start, uint32_t seed)
+{
+    if (!conn)
+        return;
+    GlobalEventPacket pkt{eventId, seed, phase, static_cast<uint8_t>(start), {0,0}};
+    Net_Send(conn, EMsg::GlobalEvent, &pkt, sizeof(pkt));
+}
+
+void Net_SendNpcReputation(Connection* conn, uint32_t npcId, int16_t value)
+{
+    if (!conn)
+        return;
+    NpcReputationPacket pkt{npcId, value, {0,0}};
+    Net_Send(conn, EMsg::NpcReputation, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastNpcReputation(uint32_t npcId, int16_t value)
+{
+    NpcReputationPacket pkt{npcId, value, {0,0}};
+    Net_Broadcast(EMsg::NpcReputation, &pkt, sizeof(pkt));
+}
+
 void Net_BroadcastGlobalEvent(uint32_t eventId, uint8_t phase, bool start, uint32_t seed)
 {
     GlobalEventPacket pkt{eventId, seed, phase, static_cast<uint8_t>(start), {0, 0}};

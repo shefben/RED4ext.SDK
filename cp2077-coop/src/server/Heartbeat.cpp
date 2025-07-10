@@ -54,9 +54,10 @@ void Heartbeat_Send(const std::string& sessionJson)
         return;
     std::string auth = Sign(nonce);
     std::string payload = sessionJson;
+    std::string cand = Nat_GetLocalCandidate();
     if (!payload.empty() && payload.back() == '}')
         payload.pop_back();
-    payload += ",\"nonce\":\"" + nonce + "\",\"auth\":\"" + auth + "\"}";
+    payload += ",\"cand\":\"" + cand + "\",\"nonce\":\"" + nonce + "\",\"auth\":\"" + auth + "\"}";
 
     httplib::SSLClient cli("coop-master", 443);
     auto res = cli.Post("/api/heartbeat", payload, "application/json");
@@ -89,6 +90,13 @@ void Heartbeat_Send(const std::string& sessionJson)
             size_t pend = body.find('"', pp + 5);
             std::string pass = body.substr(pp + 5, pend - (pp + 5));
             Nat_SetTurnCreds(host, port, user, pass);
+            size_t cc = body.find("\"cand\":\"", pend);
+            if (cc != std::string::npos)
+            {
+                size_t cend = body.find('"', cc + 8);
+                std::string rcand = body.substr(cc + 8, cend - (cc + 8));
+                Nat_AddRemoteCandidate(rcand.c_str());
+            }
         }
     }
 }

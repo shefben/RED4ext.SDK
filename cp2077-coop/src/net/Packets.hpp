@@ -183,6 +183,7 @@ enum class EMsg : uint16_t
     PluginRPC,
     AssetBundle,
     VoiceCaps
+    NpcReputation
 };
 
 struct PacketHeader
@@ -672,6 +673,13 @@ struct NpcStatePacket
     uint32_t npcId;
     uint8_t aiState;
     uint8_t _pad[3];
+};
+
+struct NpcReputationPacket
+{
+    uint32_t npcId;
+    int16_t value;
+    uint8_t _pad[2];
 };
 
 struct CrimeEventSpawnPacket

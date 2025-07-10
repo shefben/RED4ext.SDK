@@ -94,6 +94,7 @@ int main(int argc, char** argv)
     float goodTime = 0.f;
     float hbTimer = 0.f;
     float memTimer = 0.f;
+    float latencyTimer = 0.f;
     float scaleTimer = 0.f;
     float scaleAccum = 0.f;
     int scaleFrames = 0;
@@ -135,6 +136,7 @@ int main(int argc, char** argv)
                 particleSeed = static_cast<uint16_t>(std::rand());
             }
             Net_BroadcastWorldState(deg, weatherId, particleSeed);
+            CoopNet::SessionState_UpdateWeather(deg, weatherId, particleSeed);
         }
         CoopNet::ElevatorController_ServerTick(tickMs);
         if (!CoopNet::ElevatorController_IsPaused())
@@ -171,6 +173,7 @@ int main(int argc, char** argv)
         memTimer += tickMs / 1000.f;
         CoopNet::TextureGuard_Tick(tickMs / 1000.f);
         CoopNet::SectorLODController_Tick(tickMs / 1000.f);
+        latencyTimer += tickMs / 1000.f;
         for (auto* c : Net_GetConnections())
         {
             uint64_t now = CoopNet::GameClock::GetTimeMs();
@@ -189,6 +192,33 @@ int main(int argc, char** argv)
                     Net_SendLowBWMode(c, false);
                 }
             }
+        }
+        if (latencyTimer >= 10.f)
+        {
+            float sum = 0.f;
+            int cnt = 0;
+            for (auto* c : Net_GetConnections())
+            {
+                sum += c->GetAverageRtt();
+                ++cnt;
+            }
+            if (cnt > 0)
+            {
+                float avgRtt = sum / cnt;
+                if (avgRtt > 200.f && tickMs < 40.f)
+                {
+                    tickMs = 40.f;
+                    CoopNet::GameClock::SetTickMs(tickMs);
+                    Net_BroadcastTickRateChange(static_cast<uint16_t>(tickMs));
+                }
+                else if (avgRtt < 120.f && tickMs > 25.f)
+                {
+                    tickMs = 25.f;
+                    CoopNet::GameClock::SetTickMs(tickMs);
+                    Net_BroadcastTickRateChange(static_cast<uint16_t>(tickMs));
+                }
+            }
+            latencyTimer = 0.f;
         }
         // Heartbeat every six minutes so master server can prune stale hosts
         if (hbTimer >= 360.f)
