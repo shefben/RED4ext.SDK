@@ -624,6 +624,32 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         }
         Killfeed_Broadcast("0 disconnected");
         break;
+    case EMsg::Snapshot:
+        if (size >= sizeof(uint32_t) + sizeof(SnapshotHeader) + sizeof(SnapshotFieldFlags))
+        {
+            const uint8_t* ptr = reinterpret_cast<const uint8_t*>(payload);
+            uint32_t entId = *reinterpret_cast<const uint32_t*>(ptr);
+            SnapshotReader reader;
+            reader.Attach(ptr + sizeof(uint32_t), size - sizeof(uint32_t));
+            TransformSnap snap{};
+            if (reader.Has(0))
+                snap.pos = reader.Read<RED4ext::Vector3>();
+            if (reader.Has(1))
+                snap.vel = reader.Read<RED4ext::Vector3>();
+            if (reader.Has(2))
+                snap.rot = reader.Read<RED4ext::Quaternion>();
+            if (reader.Has(3))
+                snap.health = reader.Read<uint16_t>();
+            if (reader.Has(4))
+                snap.armor = reader.Read<uint16_t>();
+            if (reader.Has(5))
+                snap.ownerId = reader.Read<uint32_t>();
+            if (reader.Has(6))
+                snap.seq = reader.Read<uint16_t>();
+            avatarPos = snap.pos;
+            std::cout << "Snapshot entity=" << entId << " seq=" << snap.seq << std::endl;
+        }
+        break;
     case EMsg::Chat:
         if (Net_IsAuthoritative())
         {
