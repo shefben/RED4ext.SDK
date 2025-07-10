@@ -10,7 +10,7 @@ and various gameplay sync stubs:
 * Vehicle damage sync placeholder
 * Deathmatch mode manager and respawn/scoreboard stubs
 * Thread-safe queue utility for cross-thread tasks
-* Crash capture helper referencing last network log chunk
+* Crash capture packs dump and network log into a zip and prompts to send
 * Build version check with CRC packet
 * Master-server heartbeat JSON stub
 * User settings panel storing tick rate and keys
