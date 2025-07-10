@@ -1,20 +1,20 @@
 #include "VoiceEncoder.hpp"
+#include "OpusEncoder.hpp"
 #include "../net/Net.hpp"
 #include <AL/alc.h>
 #include <cstring>
 #include <iostream>
-#include <opus/opus.h>
 
 namespace CoopVoice
 {
 static bool g_capturing = false;
-static OpusEncoder* g_encoder = nullptr;
 static ALCdevice* g_capDev = nullptr;
 static uint32_t g_sampleRate = 48000;
 static uint32_t g_bitrate = 24000;
 static int g_frameSamples = 960;
+static Codec g_codec = Codec::Opus;
 
-bool StartCapture(const char* deviceName, uint32_t sampleRate, uint32_t bitrate)
+bool StartCapture(const char* deviceName, uint32_t sampleRate, uint32_t bitrate, Codec codec)
 {
     if (g_capturing)
         return true;
@@ -22,6 +22,7 @@ bool StartCapture(const char* deviceName, uint32_t sampleRate, uint32_t bitrate)
     g_sampleRate = sampleRate;
     g_bitrate = bitrate;
     g_frameSamples = static_cast<int>(g_sampleRate / 50);
+    g_codec = codec;
 
     std::cout << "[Voice] StartCapture dev=" << (deviceName ? deviceName : "default") << " sr=" << g_sampleRate
               << " br=" << g_bitrate << std::endl;
@@ -44,19 +45,14 @@ bool StartCapture(const char* deviceName, uint32_t sampleRate, uint32_t bitrate)
     }
     alcCaptureStart(g_capDev);
 
-    int err = 0;
-    g_encoder = opus_encoder_create(g_sampleRate, 1, OPUS_APPLICATION_VOIP, &err);
-    if (err != OPUS_OK)
+    if (g_codec == Codec::Opus)
     {
-        std::cerr << "[Voice] Failed to init Opus encoder sr=" << g_sampleRate << " err=" << err << std::endl;
-        alcCaptureCloseDevice(g_capDev);
-        g_capDev = nullptr;
-        return false;
-    }
-    if (opus_encoder_ctl(g_encoder, OPUS_SET_BITRATE(g_bitrate)) != OPUS_OK)
-    {
-        opus_encoder_ctl(g_encoder, OPUS_SET_BITRATE(24000));
-        g_bitrate = 24000;
+        if (!Opus_Init(g_sampleRate, g_bitrate))
+        {
+            alcCaptureCloseDevice(g_capDev);
+            g_capDev = nullptr;
+            return false;
+        }
     }
 
     g_capturing = true;
@@ -65,7 +61,7 @@ bool StartCapture(const char* deviceName, uint32_t sampleRate, uint32_t bitrate)
 
 int EncodeFrame(int16_t* pcm, uint8_t* outBuf)
 {
-    if (!g_capturing || !g_encoder || !g_capDev)
+    if (!g_capturing || !g_capDev)
         return 0;
 
     ALCint avail = 0;
@@ -74,15 +70,24 @@ int EncodeFrame(int16_t* pcm, uint8_t* outBuf)
         return 0;
 
     alcCaptureSamples(g_capDev, pcm, g_frameSamples);
-    int bytes = opus_encode(g_encoder, pcm, g_frameSamples, outBuf, 256);
-    if (bytes < 0)
-        return 0;
-    return bytes;
+    if (g_codec == Codec::Opus)
+    {
+        return Opus_EncodeFrame(pcm, g_frameSamples, outBuf, kOpusFrameBytes);
+    }
+    std::memcpy(outBuf, pcm, g_frameSamples * sizeof(int16_t));
+    return g_frameSamples * sizeof(int16_t);
 }
 
 uint16_t GetFrameSamples()
 {
     return static_cast<uint16_t>(g_frameSamples);
+}
+
+uint16_t GetFrameBytes()
+{
+    if (g_codec == Codec::Opus)
+        return kOpusFrameBytes;
+    return static_cast<uint16_t>(g_frameSamples * sizeof(int16_t));
 }
 
 void StopCapture()
@@ -95,12 +100,14 @@ void StopCapture()
         alcCaptureCloseDevice(g_capDev);
         g_capDev = nullptr;
     }
-    if (g_encoder)
-    {
-        opus_encoder_destroy(g_encoder);
-        g_encoder = nullptr;
-    }
+    if (g_codec == Codec::Opus)
+        Opus_Shutdown();
     g_capturing = false;
+}
+
+void SetCodec(Codec codec)
+{
+    g_codec = codec;
 }
 
 } // namespace CoopVoice

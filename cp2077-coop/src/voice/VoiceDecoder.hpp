@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "VoiceEncoder.hpp"
 
 namespace CoopVoice
 {
@@ -8,4 +9,5 @@ int DecodeFrame(int16_t* pcmOut);
 uint16_t ConsumeDropPct();
 void Reset();
 void SetVolume(float volume);
+void SetCodec(Codec codec);
 } // namespace CoopVoice

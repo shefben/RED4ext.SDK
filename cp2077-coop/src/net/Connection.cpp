@@ -527,7 +527,7 @@ void Connection::StartHandshake()
     HelloPacket pkt{};
     memcpy(pkt.pub, pubKey.data(), crypto_kx_PUBLICKEYBYTES);
     Net_Send(this, EMsg::Hello, &pkt, sizeof(pkt));
-    Net_SendVoiceCaps(this, CoopVoice::kMaxFrameBytes);
+    Net_SendVoiceCaps(this, CoopVoice::GetFrameBytes());
 }
 
 void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint16_t size)
@@ -547,7 +547,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             WelcomePacket ack{};
             memcpy(ack.pub, pubKey.data(), crypto_kx_PUBLICKEYBYTES);
             Net_Send(this, EMsg::Welcome, &ack, sizeof(ack));
-            Net_SendVoiceCaps(this, CoopVoice::kMaxFrameBytes);
+            Net_SendVoiceCaps(this, CoopVoice::GetFrameBytes());
         }
         break;
     case EMsg::Ping:

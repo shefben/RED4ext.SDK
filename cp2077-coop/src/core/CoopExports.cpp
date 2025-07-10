@@ -87,12 +87,14 @@ static void VoiceStartFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, bo
     RED4ext::CString dev;
     uint32_t sr = 48000;
     uint32_t br = 24000;
+    bool opus = true;
     RED4ext::GetParameter(aFrame, &dev);
     RED4ext::GetParameter(aFrame, &sr);
     RED4ext::GetParameter(aFrame, &br);
+    RED4ext::GetParameter(aFrame, &opus);
     aFrame->code++;
     if (aOut)
-        *aOut = CoopVoice::StartCapture(dev.c_str(), sr, br);
+        *aOut = CoopVoice::StartCapture(dev.c_str(), sr, br, opus ? CoopVoice::Codec::Opus : CoopVoice::Codec::PCM);
 }
 
 static void VoiceEncodeFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, int32_t* aOut, void*)
@@ -118,6 +120,14 @@ static void VoiceSetVolumeFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame
     RED4ext::GetParameter(aFrame, &vol);
     aFrame->code++;
     CoopVoice::SetVolume(vol);
+}
+
+static void VoiceSetCodecFn(RED4ext::IScriptable*, RED4ext::CStackFrame* aFrame, void*, void*)
+{
+    bool opus = true;
+    RED4ext::GetParameter(aFrame, &opus);
+    aFrame->code++;
+    CoopVoice::SetCodec(opus ? CoopVoice::Codec::Opus : CoopVoice::Codec::PCM);
 }
 
 static RED4ext::TTypedClass<CoopNet::HttpResponse> g_httpRespCls("HttpResponse");
@@ -209,6 +219,7 @@ RED4EXT_C_EXPORT void RED4EXT_CALL PostRegisterTypes()
     vs->AddParam("String", "device");
     vs->AddParam("Uint32", "sampleRate");
     vs->AddParam("Uint32", "bitrate");
+    vs->AddParam("Bool", "opus");
     vs->SetReturnType("Bool");
     rtti->RegisterFunction(vs);
 
@@ -227,6 +238,11 @@ RED4EXT_C_EXPORT void RED4EXT_CALL PostRegisterTypes()
     vvol->flags = flags;
     vvol->AddParam("Float", "volume");
     rtti->RegisterFunction(vvol);
+
+    auto vc = RED4ext::CGlobalFunction::Create("CoopVoice_SetCodec", "CoopVoice_SetCodec", &VoiceSetCodecFn);
+    vc->flags = flags;
+    vc->AddParam("Bool", "opus");
+    rtti->RegisterFunction(vc);
 }
 
 RED4EXT_C_EXPORT bool RED4EXT_CALL Main(RED4ext::PluginHandle aHandle, RED4ext::EMainReason aReason, const RED4ext::Sdk* aSdk)

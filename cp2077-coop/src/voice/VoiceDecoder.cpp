@@ -1,11 +1,12 @@
 #include "VoiceDecoder.hpp"
+#include "VoiceEncoder.hpp"
 #include <AL/al.h>
 #include <AL/alc.h>
 #include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <iostream>
-#include <opus/opus.h>
+#include "OpusDecoder.hpp"
 #include <vector>
 
 namespace CoopVoice
@@ -14,11 +15,12 @@ struct JitterPkt
 {
     uint16_t seq;
     uint16_t size;
-    uint8_t data[256];
+    uint8_t data[kPCMFrameBytes];
 };
 
 static std::vector<JitterPkt> g_buffer;
 static OpusDecoder* g_decoder = nullptr;
+static Codec g_codec = Codec::Opus;
 static uint16_t g_lastSeq = 0;
 static uint32_t g_recv = 0;
 static uint32_t g_dropped = 0;
@@ -93,11 +95,9 @@ static bool EnsureAL()
 
 int DecodeFrame(int16_t* pcmOut)
 {
-    if (!g_decoder)
+    if (g_codec == Codec::Opus && !g_decoder)
     {
-        int err = 0;
-        g_decoder = opus_decoder_create(48000, 1, &err);
-        if (err != OPUS_OK)
+        if (!OpusDecoder_Init(48000))
             return 0;
     }
 
@@ -105,9 +105,18 @@ int DecodeFrame(int16_t* pcmOut)
     if (!NextPacket(pkt))
         return 0;
 
-    int samples = opus_decode(g_decoder, pkt.data, pkt.size, pcmOut, 960, 0);
-    if (samples < 0)
-        return 0;
+    int samples = 0;
+    if (g_codec == Codec::Opus)
+    {
+        samples = Opus_DecodeFrame(pkt.data, pkt.size, pcmOut, 960);
+        if (samples <= 0)
+            return 0;
+    }
+    else
+    {
+        samples = static_cast<int>(pkt.size / sizeof(int16_t));
+        std::memcpy(pcmOut, pkt.data, pkt.size);
+    }
 
     if (!EnsureAL())
         return samples;
@@ -151,11 +160,8 @@ void Reset()
     g_lastSeq = 0;
     g_recv = 0;
     g_dropped = 0;
-    if (g_decoder)
-    {
-        opus_decoder_destroy(g_decoder);
-        g_decoder = nullptr;
-    }
+    if (g_codec == Codec::Opus)
+        OpusDecoder_Shutdown();
     if (g_source)
     {
         alSourceStop(g_source);
@@ -182,5 +188,10 @@ void SetVolume(float volume)
     g_volume = std::clamp(volume, 0.0f, 2.0f);
     if (g_source)
         alSourcef(g_source, AL_GAIN, g_volume);
+}
+
+void SetCodec(Codec codec)
+{
+    g_codec = codec;
 }
 } // namespace CoopVoice
