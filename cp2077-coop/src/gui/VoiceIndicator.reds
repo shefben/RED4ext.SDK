@@ -1,7 +1,13 @@
 public class VoiceIndicator extends inkHUDLayer {
     private struct IconInfo {
         public let peer: Uint32;
-        public let widget: ref<inkRectangle>;
+        public let root: ref<inkCanvas>;
+        public let icon: ref<inkRectangle>;
+        public let muteBtn: ref<inkText>;
+        public let volUp: ref<inkText>;
+        public let volDown: ref<inkText>;
+        public var volume: Float;
+        public var muted: Bool;
         public var fade: Float;
     }
     private static let s_instance: ref<VoiceIndicator>;
@@ -30,15 +36,33 @@ public class VoiceIndicator extends inkHUDLayer {
         if idx == icons.Size() {
             let info: IconInfo;
             info.peer = peerId;
-            info.widget = new inkRectangle();
-            info.widget.SetSize(32.0,32.0);
-            info.widget.SetTintColor(new HDRColor(1.0,1.0,1.0,1.0));
-            AddChild(info.widget);
+            info.root = new inkCanvas();
+            info.root.SetName(StringToName(IntToString(peerId)));
+            info.icon = MicIcon.CreateWidget();
+            info.root.AddChild(info.icon);
+            info.muteBtn = new inkText();
+            info.muteBtn.SetText("M");
+            info.muteBtn.SetTranslation(new Vector2(36.0, 0.0));
+            info.muteBtn.RegisterToCallback(n"OnRelease", this, n"OnPeerMute");
+            info.root.AddChild(info.muteBtn);
+            info.volUp = new inkText();
+            info.volUp.SetText("+");
+            info.volUp.SetTranslation(new Vector2(36.0, 16.0));
+            info.volUp.RegisterToCallback(n"OnRelease", this, n"OnPeerVolUp");
+            info.root.AddChild(info.volUp);
+            info.volDown = new inkText();
+            info.volDown.SetText("-");
+            info.volDown.SetTranslation(new Vector2(36.0, 32.0));
+            info.volDown.RegisterToCallback(n"OnRelease", this, n"OnPeerVolDown");
+            info.root.AddChild(info.volDown);
+            info.volume = 1.0;
+            info.muted = false;
+            AddChild(info.root);
             icons.PushBack(info);
             idx = icons.Size() - 1;
         };
         icons[idx].fade = 1.0;
-        icons[idx].widget.SetOpacity(1.0);
+        icons[idx].root.SetOpacity(1.0);
     }
 
     protected func OnCreate() -> Void {
@@ -87,6 +111,42 @@ public class VoiceIndicator extends inkHUDLayer {
         return true;
     }
 
+    protected cb func OnPeerMute(widget: ref<inkWidget>) -> Bool {
+        let peerId = StringToUint(NameToString(widget.GetParentWidget().GetName()));
+        var i: Int32 = 0;
+        while i < icons.Size() && icons[i].peer != peerId { i += 1; };
+        if i < icons.Size() {
+            icons[i].muted = !icons[i].muted;
+            if icons[i].muted {
+                icons[i].icon.SetTintColor(new HDRColor(0.5,0.5,0.5,1.0));
+            } else {
+                icons[i].icon.SetTintColor(new HDRColor(1.0,1.0,1.0,1.0));
+            };
+        };
+        return true;
+    }
+
+    protected cb func OnPeerVolUp(widget: ref<inkWidget>) -> Bool {
+        let peerId = StringToUint(NameToString(widget.GetParentWidget().GetName()));
+        var i: Int32 = 0;
+        while i < icons.Size() && icons[i].peer != peerId { i += 1; };
+        if i < icons.Size() {
+            icons[i].volume += 0.1;
+        };
+        return true;
+    }
+
+    protected cb func OnPeerVolDown(widget: ref<inkWidget>) -> Bool {
+        let peerId = StringToUint(NameToString(widget.GetParentWidget().GetName()));
+        var i: Int32 = 0;
+        while i < icons.Size() && icons[i].peer != peerId { i += 1; };
+        if i < icons.Size() {
+            icons[i].volume -= 0.1;
+            if icons[i].volume < 0.0 { icons[i].volume = 0.0; };
+        };
+        return true;
+    }
+
     public func OnUpdate(dt: Float) -> Void {
         let playerSys = GameInstance.GetPlayerSystem(GetGame());
         let players = playerSys.GetPlayers();
@@ -94,7 +154,7 @@ public class VoiceIndicator extends inkHUDLayer {
         while i < icons.Size() {
             icons[i].fade -= dt*2.0;
             if icons[i].fade <= 0.0 {
-                RemoveChild(icons[i].widget);
+                RemoveChild(icons[i].root);
                 icons.Erase(i);
                 continue;
             };
@@ -102,9 +162,9 @@ public class VoiceIndicator extends inkHUDLayer {
             if IsDefined(av) {
                 let pos = av.pos + new Vector3(0.0,0.0,1.8);
                 let screen = GameInstance.GetViewportManager(GetGame()).WorldToScreen(pos);
-                icons[i].widget.SetMargin(new inkMargin(screen.X-16.0, screen.Y-60.0,0.0,0.0));
+                icons[i].root.SetMargin(new inkMargin(screen.X-16.0, screen.Y-60.0,0.0,0.0));
             };
-            icons[i].widget.SetOpacity(icons[i].fade);
+            icons[i].root.SetOpacity(icons[i].fade);
             i += 1;
         };
     }
