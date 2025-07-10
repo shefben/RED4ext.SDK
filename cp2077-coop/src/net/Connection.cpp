@@ -17,6 +17,7 @@
 #include <openssl/sha.h>
 #include <Python.h>
 #include "Net.hpp"
+#include "NetConfig.hpp"
 #include "StatBatch.hpp"
 #include <RED4ext/RED4ext.hpp>
 #include <unistd.h>
@@ -546,6 +547,14 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             hasKey = true;
             WelcomePacket ack{};
             memcpy(ack.pub, pubKey.data(), crypto_kx_PUBLICKEYBYTES);
+            if (Net_IsAuthoritative())
+            {
+                randombytes_buf(&ack.nonce, sizeof(ack.nonce));
+                crypto_sign_detached(ack.sig, nullptr,
+                                     reinterpret_cast<unsigned char*>(&ack.nonce),
+                                     sizeof(ack.nonce),
+                                     CoopNet::kServerCertPriv.data());
+            }
             Net_Send(this, EMsg::Welcome, &ack, sizeof(ack));
             Net_SendVoiceCaps(this, CoopVoice::kMaxFrameBytes);
         }
@@ -572,6 +581,13 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(WelcomePacket))
         {
             const WelcomePacket* pkt = reinterpret_cast<const WelcomePacket*>(payload);
+            if (!Net_IsAuthoritative())
+            {
+                if (crypto_sign_verify_detached(pkt->sig,
+                        reinterpret_cast<const unsigned char*>(&pkt->nonce), sizeof(pkt->nonce),
+                        CoopNet::kServerCertPub.data()) != 0)
+                    break; // invalid signature
+            }
             unsigned char sec[crypto_scalarmult_BYTES];
             crypto_scalarmult(sec, privKey.data(), pkt->pub);
             crypto_generichash(key.data(), key.size(), sec, sizeof(sec), nullptr, 0);
