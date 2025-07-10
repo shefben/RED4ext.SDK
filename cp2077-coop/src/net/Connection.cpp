@@ -17,6 +17,7 @@
 #include "Net.hpp"
 #include "StatBatch.hpp"
 #include <RED4ext/RED4ext.hpp>
+#include <unistd.h>
 #include <filesystem>
 #include <fstream>
 #include <unordered_map>
@@ -53,6 +54,17 @@ static void ChatOverlay_Push(const char* msg)
     RED4ext::ExecuteFunction("ChatOverlay", "PushGlobal", nullptr, &s);
 }
 
+static size_t GetProcessRSS()
+{
+#ifdef __linux__
+    std::ifstream f("/proc/self/statm");
+    size_t pages = 0, rss = 0;
+    if (f >> pages >> rss)
+        return rss * static_cast<size_t>(sysconf(_SC_PAGESIZE));
+#endif
+    return 0;
+}
+
 namespace
 {
     struct BundleBuf
@@ -63,6 +75,25 @@ namespace
 
     std::unordered_map<uint16_t, BundleBuf> g_bundle;
     std::unordered_map<uint16_t, std::string> g_bundleSha;
+
+    size_t GetBundleMemory()
+    {
+        size_t mem = 0;
+        for (auto& kv : g_bundle)
+            mem += kv.second.data.capacity();
+        for (auto& kv : g_bundleSha)
+            mem += kv.second.capacity();
+        return mem;
+    }
+
+    void ClearBundleCache()
+    {
+        size_t before = GetBundleMemory();
+        g_bundle.clear();
+        g_bundleSha.clear();
+        std::cerr << "[MemGuard] bundle cache freed " << before
+                  << " bytes, RSS=" << GetProcessRSS() << std::endl;
+    }
 
     void HandleBundleComplete(uint16_t pluginId, const std::vector<uint8_t>& comp)
     {
@@ -1960,6 +1991,8 @@ void Connection::Transition(ConnectionState next)
     {
         state = next;
         std::cout << "Connection state -> " << static_cast<int>(state) << std::endl;
+        if (state == ConnectionState::Disconnected)
+            ClearBundleCache();
     }
 }
 
