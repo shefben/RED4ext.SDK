@@ -26,6 +26,7 @@ file(GLOB_RECURSE COOP_SOURCES
     src/core/*.cpp
     src/net/*.cpp
     src/server/*.cpp
+    src/physics/*.cpp
     src/voice/*.cpp
 )
 
