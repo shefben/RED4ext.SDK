@@ -5,6 +5,7 @@ public class ServerBrowser extends inkHUDLayer {
     private static let scrollCtrl: wref<inkScrollController>;
     private static let joinBtn: wref<inkButton>;
     private static let hostBtn: wref<inkButton>;
+    private static let loadingSpinner: wref<inkText>;
     private static var masterToken: Uint32;
     private static let pending: ref<inkHashMap> = new inkHashMap();
     private static var pendingCount: Uint32;
@@ -47,6 +48,11 @@ public class ServerBrowser extends inkHUDLayer {
         hostBtn.SetText("HOST");
         hostBtn.RegisterToCallback(n"OnRelease", layer, n"OnHostClick");
         root.AddChild(hostBtn);
+
+        loadingSpinner = new inkText();
+        loadingSpinner.SetText("Loading...");
+        loadingSpinner.SetVisible(false);
+        root.AddChild(loadingSpinner);
         RefreshLive();
     }
 
@@ -88,6 +94,9 @@ public class ServerBrowser extends inkHUDLayer {
         ArrayClear(results);
         pendingCount = 0u;
         lastQuery = "";
+        if IsDefined(loadingSpinner) {
+            loadingSpinner.SetVisible(true);
+        };
         QueryMaster();
     }
 
@@ -218,6 +227,12 @@ public class ServerBrowser extends inkHUDLayer {
                 idx += 1;
             };
         };
+        pending.Clear();
+        pendingCount = 0u;
+        masterToken = 0u;
+        if IsDefined(loadingSpinner) {
+            loadingSpinner.SetVisible(false);
+        };
     }
 
     public func OnUpdate(dt: Float) -> Void {
@@ -264,6 +279,9 @@ public class ServerBrowser extends inkHUDLayer {
                     }
                 }
             }
+        }
+        if pendingCount == 0u && IsDefined(loadingSpinner) && loadingSpinner.IsVisible() {
+            loadingSpinner.SetVisible(false);
         }
     }
 }
