@@ -24,6 +24,7 @@ struct AptInfo
 };
 static std::unordered_map<uint32_t, AptInfo> g_info;
 static std::unordered_map<uint32_t, std::unordered_set<uint32_t>> g_owned;
+static std::unordered_map<uint32_t, std::unordered_set<uint32_t>> g_aptOwners;
 static std::unordered_map<uint32_t, bool> g_loaded;
 struct PermInfo
 {
@@ -31,6 +32,7 @@ struct PermInfo
     std::unordered_set<uint32_t> peers;
 };
 static std::unordered_map<uint32_t, PermInfo> g_perms;
+static std::unordered_map<uint32_t, std::string> g_customization;
 
 void ApartmentController_Load()
 {
@@ -91,6 +93,7 @@ void ApartmentController_HandlePurchase(Connection* conn, uint32_t aptId)
         return;
     }
     g_owned[conn->peerId].insert(aptId);
+    g_aptOwners[aptId].insert(conn->peerId);
     Journal_Log(GameClock::GetCurrentTick(), conn->peerId, "purchase", aptId, -static_cast<int32_t>(it->second.price));
     std::stringstream ss;
     ss << "{\"ApartmentOwnership\":[";
@@ -118,9 +121,12 @@ const AptInfo* ApartmentController_GetInfo(uint32_t aptId)
 bool ApartmentController_IsOwned(uint32_t peerId, uint32_t aptId)
 {
     auto it = g_owned.find(peerId);
-    if (it == g_owned.end())
+    if (it != g_owned.end() && it->second.count(aptId))
+        return true;
+    auto ownIt = g_aptOwners.find(aptId);
+    if (ownIt == g_aptOwners.end())
         return false;
-    return it->second.find(aptId) != it->second.end();
+    return ownIt->second.count(peerId) != 0;
 }
 
 void ApartmentController_HandleEnter(Connection* conn, uint32_t aptId, uint32_t ownerPhaseId)
@@ -138,7 +144,7 @@ void ApartmentController_HandleEnter(Connection* conn, uint32_t aptId, uint32_t 
         Net_SendAptEnterAck(conn, false, 0, 0);
         return;
     }
-    if (conn->peerId != ownerPhaseId)
+    if (conn->peerId != ownerPhaseId && !ApartmentController_IsOwned(conn->peerId, aptId))
     {
         auto permIt = g_perms.find(aptId);
         bool allowed = permIt != g_perms.end() && (permIt->second.pub || permIt->second.peers.count(conn->peerId));
@@ -157,6 +163,10 @@ void ApartmentController_HandleEnter(Connection* conn, uint32_t aptId, uint32_t 
 
     uint32_t seed = static_cast<uint32_t>(std::hash<std::string>{}(infoIt->second.interiorScene) ^ ownerPhaseId);
     Net_SendAptEnterAck(conn, true, ownerPhaseId, seed);
+    if (auto* js = ApartmentController_GetCustomization(ownerPhaseId))
+    {
+        Net_BroadcastAptInteriorState(ownerPhaseId, js->c_str(), static_cast<uint16_t>(js->size()));
+    }
 }
 
 void ApartmentController_HandlePermChange(Connection* conn, uint32_t aptId, uint32_t targetPeerId, bool allow)
@@ -178,6 +188,38 @@ void ApartmentController_HandlePermChange(Connection* conn, uint32_t aptId, uint
     }
     AptPermChangePacket pkt{aptId, targetPeerId, static_cast<uint8_t>(allow), {0, 0, 0}};
     Net_Broadcast(EMsg::AptPermChange, &pkt, sizeof(pkt));
+}
+
+void ApartmentController_SetCustomization(uint32_t phaseId, const std::string& json)
+{
+    g_customization[phaseId] = json;
+    Net_BroadcastAptInteriorState(phaseId, json.c_str(), static_cast<uint16_t>(json.size()));
+}
+
+const std::string* ApartmentController_GetCustomization(uint32_t phaseId)
+{
+    auto it = g_customization.find(phaseId);
+    if (it == g_customization.end())
+        return nullptr;
+    return &it->second;
+}
+void ApartmentController_HandleShareChange(Connection* conn, uint32_t aptId, uint32_t targetPeerId, bool allow)
+{
+    if (!conn || !ApartmentController_IsOwned(conn->peerId, aptId))
+        return;
+    if (allow)
+    {
+        g_owned[targetPeerId].insert(aptId);
+        g_aptOwners[aptId].insert(targetPeerId);
+    }
+    else
+    {
+        g_owned[targetPeerId].erase(aptId);
+        if (auto it = g_aptOwners.find(aptId); it != g_aptOwners.end())
+            it->second.erase(targetPeerId);
+    }
+    AptShareChangePacket pkt{aptId, targetPeerId, static_cast<uint8_t>(allow), {0, 0, 0}};
+    Net_Broadcast(EMsg::AptShareChange, &pkt, sizeof(pkt));
 }
 
 } // namespace CoopNet

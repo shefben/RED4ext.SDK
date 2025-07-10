@@ -123,6 +123,8 @@ enum class EMsg : uint16_t
     AptEnterReq,
     AptEnterAck,
     AptPermChange,
+    AptShareChange, // shared ownership
+    AptInteriorState, // interior customization sync
     VehicleHitHighSpeed,
     VehicleTowRequest,
     VehicleTowAck,
@@ -916,6 +918,21 @@ struct AptPermChangePacket
     uint32_t targetPeerId;
     uint8_t allow;
     uint8_t _pad[3];
+};
+
+struct AptShareChangePacket
+{
+    uint32_t aptId;
+    uint32_t targetPeerId;
+    uint8_t allow;
+    uint8_t _pad[3];
+};
+
+struct AptInteriorStatePacket
+{
+    uint32_t phaseId;
+    uint16_t blobBytes;
+    uint8_t json[1];
 };
 
 struct VehicleTowRequestPacket

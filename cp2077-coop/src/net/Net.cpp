@@ -907,6 +907,16 @@ void Net_BroadcastAptPermChange(uint32_t aptId, uint32_t targetPeerId, bool allo
     Net_Broadcast(EMsg::AptPermChange, &pkt, sizeof(pkt));
 }
 
+void Net_BroadcastAptInteriorState(uint32_t phaseId, const char* json, uint16_t len)
+{
+    std::vector<uint8_t> buf(sizeof(AptInteriorStatePacket) + len);
+    auto* pkt = reinterpret_cast<AptInteriorStatePacket*>(buf.data());
+    pkt->phaseId = phaseId;
+    pkt->blobBytes = len;
+    std::memcpy(pkt->json, json, len);
+    Net_Broadcast(EMsg::AptInteriorState, pkt, static_cast<uint16_t>(buf.size()));
+}
+
 void Net_SendVehicleTowRequest(const RED4ext::Vector3& pos)
 {
     auto conns = Net_GetConnections();
@@ -1456,6 +1466,30 @@ void Net_SendAptPermChange(uint32_t aptId, uint32_t targetPeerId, bool allow)
     {
         AptPermChangePacket pkt{aptId, targetPeerId, static_cast<uint8_t>(allow), {0, 0, 0}};
         Net_Send(conns[0], EMsg::AptPermChange, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_SendAptShareChange(uint32_t aptId, uint32_t targetPeerId, bool allow)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        AptShareChangePacket pkt{aptId, targetPeerId, static_cast<uint8_t>(allow), {0, 0, 0}};
+        Net_Send(conns[0], EMsg::AptShareChange, &pkt, sizeof(pkt));
+    }
+}
+
+void Net_SendAptInteriorStateReq(const char* json, uint32_t len)
+{
+    auto conns = Net_GetConnections();
+    if (!conns.empty())
+    {
+        std::vector<uint8_t> buf(sizeof(AptInteriorStatePacket) + len);
+        auto* pkt = reinterpret_cast<AptInteriorStatePacket*>(buf.data());
+        pkt->phaseId = 0; // filled by server
+        pkt->blobBytes = static_cast<uint16_t>(len);
+        std::memcpy(pkt->json, json, len);
+        Net_Send(conns[0], EMsg::AptInteriorState, pkt, static_cast<uint16_t>(buf.size()));
     }
 }
 
