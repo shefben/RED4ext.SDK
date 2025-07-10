@@ -24,6 +24,7 @@
 #include <fstream>
 #include <unordered_map>
 #include <unordered_set>
+#include <algorithm>
 #include <iostream>
 
 // Temporary proxies for script methods.
@@ -76,8 +77,15 @@ namespace
         uint32_t expected{0};
     };
 
+    struct BundleMeta
+    {
+        size_t size{0};
+        uint64_t lastUse{0};
+    };
+
     std::unordered_map<uint16_t, BundleBuf> g_bundle;
     std::unordered_map<uint16_t, std::string> g_bundleSha;
+    std::unordered_map<uint16_t, BundleMeta> g_bundleMeta;
 
     size_t GetBundleMemory()
     {
@@ -94,6 +102,7 @@ namespace
         size_t before = GetBundleMemory();
         g_bundle.clear();
         g_bundleSha.clear();
+        g_bundleMeta.clear();
         std::cerr << "[MemGuard] bundle cache freed " << before
                   << " bytes, RSS=" << GetProcessRSS() << std::endl;
     }
@@ -113,9 +122,11 @@ namespace
             return;
         g_bundleSha[pluginId] = s;
         fs::path base = fs::path("runtime_cache") / "plugins" / std::to_string(pluginId);
+        fs::remove_all(base);
         fs::create_directories(base);
         const uint8_t* p = raw.data();
         const uint8_t* end = raw.data() + raw.size();
+        size_t written = 0;
         while (p + 2 <= end)
         {
             uint16_t pathLen;
@@ -136,12 +147,36 @@ namespace
             fs::create_directories(out.parent_path());
             std::ofstream f(out, std::ios::binary);
             f.write(reinterpret_cast<const char*>(p), len);
+            written += len;
             p += len;
         }
         RED4ext::CString path(base.string().c_str());
         bool ro = true; // sandbox client scripts
         RED4ext::ExecuteFunction("ModSystem", "Mount", nullptr, &path, &ro);
         RED4ext::ExecuteFunction("ModSystem", "ReloadScriptsFrom", nullptr, &path);
+
+        g_bundleMeta[pluginId] = {written, GameClock::GetTimeMs()};
+
+        uint32_t limitMb = 0;
+        if (!RED4ext::ExecuteFunction("CoopSettings", "GetBundleCacheLimit", nullptr, &limitMb))
+            limitMb = 100;
+        size_t limitBytes = static_cast<size_t>(limitMb) * 1024u * 1024u;
+        size_t total = 0;
+        for (auto& kv : g_bundleMeta)
+            total += kv.second.size;
+        while (total > limitBytes && !g_bundleMeta.empty())
+        {
+            auto it = std::min_element(g_bundleMeta.begin(), g_bundleMeta.end(),
+                                      [](const auto& a, const auto& b)
+                                      { return a.second.lastUse < b.second.lastUse; });
+            fs::path oldPath = fs::path("runtime_cache") / "plugins" / std::to_string(it->first);
+            fs::remove_all(oldPath);
+            std::cerr << "[MemGuard] purged bundle " << it->first
+                      << " size=" << it->second.size << std::endl;
+            g_bundleSha.erase(it->first);
+            total -= it->second.size;
+            g_bundleMeta.erase(it);
+        }
     }
 } // namespace
 
