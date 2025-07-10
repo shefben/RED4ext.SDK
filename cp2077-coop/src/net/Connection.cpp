@@ -2147,10 +2147,17 @@ void Connection::Update(uint64_t nowMs)
 
     if (!sectorReady)
     {
-        const uint64_t timeoutTicks = static_cast<uint64_t>(10000.f / CoopNet::kVehicleStepMs);
+        float timeoutSec = 10.f;
+        RED4ext::ExecuteFunction("CoopSettings", "GetSectorTimeoutSec", &timeoutSec);
+        float maxSize = 512.f;
+        RED4ext::ExecuteFunction("CoopSettings", "GetMapSize", &maxSize);
+        size_t mapCount = CoopNet::g_interestGrid.GetSize();
+        float factor = maxSize > 0.f ? static_cast<float>(mapCount) / maxSize : 1.f;
+        float timeoutMs = timeoutSec * 1000.f * factor;
+        const uint64_t timeoutTicks = static_cast<uint64_t>(timeoutMs / CoopNet::GameClock::GetTickMs());
         if (CoopNet::GameClock::GetCurrentTick() - lastSectorChangeTick > timeoutTicks)
         {
-            std::cout << "SectorReady timeout" << std::endl;
+            std::cout << "SectorReady timeout (" << mapCount << " entries)" << std::endl;
             sectorReady = true;
         }
     }
