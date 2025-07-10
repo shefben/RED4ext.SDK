@@ -6,6 +6,9 @@
 #include "WebDash.hpp"
 #include "VehicleController.hpp"
 #include <RED4ext/RED4ext.hpp>
+#include <filesystem>
+#include <unistd.h>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <unordered_set>
@@ -17,6 +20,17 @@ static std::unordered_set<uint32_t> g_banList;
 static ThreadSafeQueue<std::string> g_cmdQueue;
 static std::thread g_consoleThread;
 static std::atomic<bool> g_consoleRunning{false};
+
+static size_t GetProcessRSS()
+{
+#ifdef __linux__
+    std::ifstream f("/proc/self/statm");
+    size_t pages = 0, rss = 0;
+    if (f >> pages >> rss)
+        return rss * static_cast<size_t>(sysconf(_SC_PAGESIZE));
+#endif
+    return 0;
+}
 
 static void GameModeManager_SetMode(uint32_t mode)
 {
@@ -157,6 +171,14 @@ void AdminController_PollCommands()
             if (Connection* c = Net_FindConnection(id))
                 VehicleController_HandleTowRequest(c, c->avatarPos);
         }
+    }
+    else if (cmd == "purgecache")
+    {
+        namespace fs = std::filesystem;
+        fs::remove_all("runtime_cache/plugins");
+        fs::remove_all("cache/plugins");
+        size_t rss = GetProcessRSS();
+        std::cout << "[Admin] cache purged, RSS=" << rss / (1024 * 1024) << " MB" << std::endl;
     }
     else if (cmd == "sv_dm")
     {
