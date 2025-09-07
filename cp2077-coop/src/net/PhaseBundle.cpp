@@ -1,6 +1,7 @@
 #include "../../third_party/zstd/zstd.h"
 #include "../server/QuestWatchdog.hpp"
 #include "Net.hpp"
+#include "../core/Red4extUtils.hpp"
 #include <cstring>
 #include <vector>
 
@@ -33,7 +34,7 @@ void ApplyPhaseBundle(uint32_t phaseId, const uint8_t* buf, size_t len)
     std::memcpy(&pkt, raw.data(), sizeof(QuestFullSyncPacket));
     if (RED4ext::Function* fn = RED4ext::CRTTISystem::Get()->GetFunction("QuestSync", "ApplyFullSync"))
     {
-        RED4ext::ExecuteFunction("QuestSync", "ApplyFullSync", nullptr, &pkt);
+        RED4EXT_EXECUTE("QuestSync", "ApplyFullSync", nullptr, &pkt);
     }
 }
 

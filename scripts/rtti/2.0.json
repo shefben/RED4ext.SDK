@@ -1,0 +1,5 @@
+{
+    "GameInstance": {
+        "GetTimeSystem": "IScriptable*()"
+    }
+}

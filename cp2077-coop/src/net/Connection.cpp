@@ -31,22 +31,24 @@
 #include <vector>
 #include <shared_mutex>
 #include <mutex>
+#include "../core/Red4extUtils.hpp"
+
 
 // Temporary proxies for script methods.
 static void AvatarProxy_SpawnRemote(uint32_t peerId, bool isLocal, const CoopNet::TransformSnap& snap)
 {
-    RED4ext::ExecuteFunction("AvatarProxy", "SpawnRemote", nullptr, peerId, isLocal, &snap);
+    RED4EXT_EXECUTE("AvatarProxy", "SpawnRemote", nullptr, peerId, isLocal, &snap);
 }
 
 static void AvatarProxy_DespawnRemote(uint32_t peerId)
 {
-    RED4ext::ExecuteFunction("AvatarProxy", "DespawnRemote", nullptr, peerId);
+    RED4EXT_EXECUTE("AvatarProxy", "DespawnRemote", nullptr, peerId);
 }
 
 static void Killfeed_Push(const char* msg)
 {
     RED4ext::CString s(msg);
-    RED4ext::ExecuteFunction("Killfeed", "Push", nullptr, &s);
+    RED4EXT_EXECUTE("Killfeed", "Push", nullptr, &s);
     std::cout << "Killfeed: " << msg << std::endl;
 }
 
@@ -60,7 +62,7 @@ static void Killfeed_Broadcast(const char* msg)
 static void ChatOverlay_Push(const char* msg)
 {
     RED4ext::CString s(msg);
-    RED4ext::ExecuteFunction("ChatOverlay", "PushGlobal", nullptr, &s);
+    RED4EXT_EXECUTE("ChatOverlay", "PushGlobal", nullptr, &s);
 }
 
 static size_t GetProcessRSS()
@@ -123,13 +125,13 @@ static bool ValidatePktSize(uint16_t actual, uint16_t expected, const char* name
 
 static void QuestSync_ApplyQuestStage(uint32_t hash, uint16_t stage)
 {
-    RED4ext::ExecuteFunction("QuestSync", "ApplyQuestStageByHash", nullptr, &hash, &stage);
+    RED4EXT_EXECUTE("QuestSync", "ApplyQuestStageByHash", nullptr, &hash, &stage);
 }
 
 static void QuestSync_ApplySceneTrigger(uint32_t nameHash, bool start)
 {
     RED4ext::TweakDBID id{nameHash, 0};
-    RED4ext::ExecuteFunction("QuestSync", "ApplySceneTrigger", nullptr, &id, &start);
+    RED4EXT_EXECUTE("QuestSync", "ApplySceneTrigger", nullptr, &id, &start);
 }
 
 static void DMScoreboard_OnScorePacket(uint32_t peerId, uint16_t k, uint16_t d)
@@ -144,7 +146,7 @@ static void DMScoreboard_OnMatchOver(uint32_t winner)
 
 static void StatHud_OnStats(uint32_t peerId, const CoopNet::NetStats& s)
 {
-    RED4ext::ExecuteFunction("StatHud", "OnNetStats", nullptr, peerId, &s);
+    RED4EXT_EXECUTE("StatHud", "OnNetStats", nullptr, peerId, &s);
 }
 
 static void NpcProxy_Spawn(const CoopNet::NpcSnap& snap)
@@ -194,22 +196,22 @@ static void Inventory_OnAttachResult(const CoopNet::ItemSnap& snap, bool success
 
 static void Inventory_OnReRollResult(const CoopNet::ItemSnap& snap)
 {
-    RED4ext::ExecuteFunction("Inventory", "OnReRollResult", nullptr, &snap);
+    RED4EXT_EXECUTE("Inventory", "OnReRollResult", nullptr, &snap);
 }
 
 static void Inventory_OnPurchaseResult(uint64_t itemId, uint64_t balance, bool success)
 {
-    RED4ext::ExecuteFunction("Inventory", "OnPurchaseResult", nullptr, &itemId, &balance, &success);
+    RED4EXT_EXECUTE("Inventory", "OnPurchaseResult", nullptr, &itemId, &balance, &success);
 }
 
 static void Apartments_OnPurchaseAck(uint32_t aptId, uint64_t balance, bool success)
 {
-    RED4ext::ExecuteFunction("Apartments", "OnPurchaseAck", nullptr, &aptId, &success, &balance);
+    RED4EXT_EXECUTE("Apartments", "OnPurchaseAck", nullptr, &aptId, &success, &balance);
 }
 
 static void Apartments_OnInteriorState(uint32_t phaseId, const uint8_t* data, uint16_t len)
 {
-    RED4ext::ExecuteFunction("Apartments", "OnInteriorState", nullptr, &phaseId, data, &len);
+    RED4EXT_EXECUTE("Apartments", "OnInteriorState", nullptr, &phaseId, data, &len);
 }
 
 static void AvatarProxy_OnSectorChange(uint32_t peerId, uint64_t hash)
@@ -266,7 +268,7 @@ struct HackInfoNative
 
 static void QuickhackSync_Apply(const HackInfoNative& info)
 {
-    RED4ext::ExecuteFunction("QuickhackSync", "ApplyHack", nullptr, &info);
+    RED4EXT_EXECUTE("QuickhackSync", "ApplyHack", nullptr, &info);
 }
 
 namespace
@@ -277,32 +279,32 @@ static std::mutex g_lastHackMutex;
 
 static void TileGameSync_Start(uint32_t phaseId, uint32_t seed)
 {
-    RED4ext::ExecuteFunction("TileGameSync", "OnStart", nullptr, &phaseId, &seed);
+    RED4EXT_EXECUTE("TileGameSync", "OnStart", nullptr, &phaseId, &seed);
 }
 
 static void TileGameSync_Select(uint32_t peerId, uint8_t row, uint8_t col)
 {
-    RED4ext::ExecuteFunction("TileGameSync", "OnSelect", nullptr, &peerId, &row, &col);
+    RED4EXT_EXECUTE("TileGameSync", "OnSelect", nullptr, &peerId, &row, &col);
 }
 
 static void TileGameSync_Progress(uint8_t percent)
 {
-    RED4ext::ExecuteFunction("TileGameSync", "OnProgress", nullptr, &percent);
+    RED4EXT_EXECUTE("TileGameSync", "OnProgress", nullptr, &percent);
 }
 
 static void VendorSync_OnStock(const CoopNet::VendorStockPacket& pkt)
 {
-    RED4ext::ExecuteFunction("VendorSync", "OnStock", nullptr, &pkt);
+    RED4EXT_EXECUTE("VendorSync", "OnStock", nullptr, &pkt);
 }
 
 static void VendorSync_OnStockUpdate(const CoopNet::VendorStockUpdatePacket& pkt)
 {
-    RED4ext::ExecuteFunction("VendorSync", "OnStockUpdate", nullptr, &pkt);
+    RED4EXT_EXECUTE("VendorSync", "OnStockUpdate", nullptr, &pkt);
 }
 
 static void VendorSync_OnRefresh(uint32_t vendorId)
 {
-    RED4ext::ExecuteFunction("VendorSync", "OnRefresh", nullptr, &vendorId);
+    RED4EXT_EXECUTE("VendorSync", "OnRefresh", nullptr, &vendorId);
 }
 
 static void HeatSync_Apply(uint8_t level)
@@ -312,7 +314,7 @@ static void HeatSync_Apply(uint8_t level)
 
 static void WeatherSync_Apply(const CoopNet::WorldStatePacket& pkt)
 {
-    RED4ext::ExecuteFunction("WeatherSync", "ApplyWorldState", nullptr, &pkt);
+    RED4EXT_EXECUTE("WeatherSync", "ApplyWorldState", nullptr, &pkt);
 }
 
 static void GlobalEvent_OnPacket(const CoopNet::GlobalEventPacket& pkt)
@@ -350,112 +352,112 @@ static void GameModeManager_SetFriendlyFire(bool enable)
 
 static void PoliceDispatch_OnCruiserSpawn(uint8_t idx, const uint32_t* seeds)
 {
-    RED4ext::ExecuteFunction("PoliceDispatch", "OnCruiserSpawn", nullptr, idx, seeds[0], seeds[1], seeds[2], seeds[3]);
+    RED4EXT_EXECUTE("PoliceDispatch", "OnCruiserSpawn", nullptr, idx, seeds[0], seeds[1], seeds[2], seeds[3]);
 }
 
 static void NpcProxy_OnAIState(uint32_t npcId, uint8_t state)
 {
-    RED4ext::ExecuteFunction("NpcProxy", "OnAIState", nullptr, npcId, state);
+    RED4EXT_EXECUTE("NpcProxy", "OnAIState", nullptr, npcId, state);
 }
 
 static void PerkSync_OnUnlock(uint32_t peerId, uint32_t perkId, uint8_t rank)
 {
-    RED4ext::ExecuteFunction("PerkSync", "OnUnlock", nullptr, peerId, perkId, rank);
+    RED4EXT_EXECUTE("PerkSync", "OnUnlock", nullptr, peerId, perkId, rank);
 }
 
 static void PerkSync_OnRespecAck(uint32_t peerId, uint16_t pts)
 {
-    RED4ext::ExecuteFunction("PerkSync", "OnRespecAck", nullptr, peerId, pts);
+    RED4EXT_EXECUTE("PerkSync", "OnRespecAck", nullptr, peerId, pts);
 }
 
 static void StatusEffectSync_OnApply(uint32_t targetId, uint8_t effectId, uint16_t durMs, uint8_t amp)
 {
-    RED4ext::ExecuteFunction("StatusEffectSync", "OnApply", nullptr, targetId, effectId, durMs, amp);
+    RED4EXT_EXECUTE("StatusEffectSync", "OnApply", nullptr, targetId, effectId, durMs, amp);
 }
 
 static void StatusEffectSync_OnTick(uint32_t targetId, int16_t delta)
 {
-    RED4ext::ExecuteFunction("StatusEffectSync", "OnTick", nullptr, targetId, delta);
+    RED4EXT_EXECUTE("StatusEffectSync", "OnTick", nullptr, targetId, delta);
 }
 
 static void SkillSync_OnXP(uint32_t peerId, uint16_t skillId, int16_t delta)
 {
-    RED4ext::ExecuteFunction("SkillSync", "OnXP", nullptr, peerId, skillId, delta);
+    RED4EXT_EXECUTE("SkillSync", "OnXP", nullptr, peerId, skillId, delta);
 }
 
 static void TrafficSync_OnSeed(uint64_t hash, uint64_t seed)
 {
-    RED4ext::ExecuteFunction("TrafficSync", "OnSeed", nullptr, hash, seed);
+    RED4EXT_EXECUTE("TrafficSync", "OnSeed", nullptr, hash, seed);
 }
 
 static void TrafficSync_OnDespawn(uint32_t id)
 {
-    RED4ext::ExecuteFunction("TrafficSync", "OnDespawn", nullptr, id);
+    RED4EXT_EXECUTE("TrafficSync", "OnDespawn", nullptr, id);
 }
 
 static void CrimeSpawner_OnEvent(const CoopNet::CrimeEventSpawnPacket& pkt)
 {
-    RED4ext::ExecuteFunction("CrimeSpawner", "OnEvent", nullptr, &pkt);
+    RED4EXT_EXECUTE("CrimeSpawner", "OnEvent", nullptr, &pkt);
 }
 
 static void PanicSync_OnEvent(const CoopNet::PanicEventPacket& pkt)
 {
-    RED4ext::ExecuteFunction("PanicSync", "OnEvent", nullptr, &pkt);
+    RED4EXT_EXECUTE("PanicSync", "OnEvent", nullptr, &pkt);
 }
 
 static void DynamicEventSync_OnEvent(const CoopNet::DynamicEventPacket& pkt)
 {
-    RED4ext::ExecuteFunction("DynamicEventSync", "OnEvent", nullptr, &pkt);
+    RED4EXT_EXECUTE("DynamicEventSync", "OnEvent", nullptr, &pkt);
 }
 
 static void AIHackSync_OnHack(uint32_t target, uint8_t effectId)
 {
-    RED4ext::ExecuteFunction("AIHackSync", "OnHack", nullptr, target, effectId);
+    RED4EXT_EXECUTE("AIHackSync", "OnHack", nullptr, target, effectId);
 }
 
 static void BossPhaseSync_OnSwitch(uint32_t npcId, uint8_t phase)
 {
-    RED4ext::ExecuteFunction("BossPhaseSync", "OnSwitch", nullptr, npcId, phase);
+    RED4EXT_EXECUTE("BossPhaseSync", "OnSwitch", nullptr, npcId, phase);
 }
 
 static void PropSync_OnBreak(uint32_t id, uint32_t seed)
 {
-    RED4ext::ExecuteFunction("PropSync", "OnBreak", nullptr, id, seed);
+    RED4EXT_EXECUTE("PropSync", "OnBreak", nullptr, id, seed);
 }
 
 static void PropSync_OnIgnite(uint32_t id, uint16_t delay)
 {
-    RED4ext::ExecuteFunction("PropSync", "OnIgnite", nullptr, id, delay);
+    RED4EXT_EXECUTE("PropSync", "OnIgnite", nullptr, id, delay);
 }
 
 static void CrowdCfgSync_OnApply(uint8_t density)
 {
-    RED4ext::ExecuteFunction("CrowdCfgSync", "OnApply", nullptr, density);
+    RED4EXT_EXECUTE("CrowdCfgSync", "OnApply", nullptr, density);
 }
 
 static void CrowdCfgSync_OnRestore()
 {
-    RED4ext::ExecuteFunction("CrowdCfgSync", "OnRestore", nullptr);
+    RED4EXT_EXECUTE("CrowdCfgSync", "OnRestore", nullptr);
 }
 
 static void VoiceOverQueue_OnPlay(uint32_t lineId)
 {
-    RED4ext::ExecuteFunction("VoiceOverQueue", "OnPlay", nullptr, lineId);
+    RED4EXT_EXECUTE("VoiceOverQueue", "OnPlay", nullptr, lineId);
 }
 
 static void FixerCallSync_OnStart(uint32_t id)
 {
-    RED4ext::ExecuteFunction("FixerCallSync", "OnStart", nullptr, id);
+    RED4EXT_EXECUTE("FixerCallSync", "OnStart", nullptr, id);
 }
 
 static void FixerCallSync_OnEnd(uint32_t id)
 {
-    RED4ext::ExecuteFunction("FixerCallSync", "OnEnd", nullptr, id);
+    RED4EXT_EXECUTE("FixerCallSync", "OnEnd", nullptr, id);
 }
 
 static void GigSpawner_OnSpawn(uint32_t questId, uint32_t seed)
 {
-    RED4ext::ExecuteFunction("GigSpawner", "OnSpawn", nullptr, questId, seed);
+    RED4EXT_EXECUTE("GigSpawner", "OnSpawn", nullptr, questId, seed);
 }
 
 static void SnapshotInterpolator_OnTickRateChange(uint16_t ms)
@@ -518,7 +520,11 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const HelloPacket* pkt = reinterpret_cast<const HelloPacket*>(payload);
             unsigned char sec[crypto_scalarmult_BYTES];
-            crypto_scalarmult(sec, privKey.data(), pkt->pub);
+            if (crypto_scalarmult(sec, privKey.data(), pkt->pub) != 0)
+            {
+                std::cerr << "Handshake failed: crypto_scalarmult" << std::endl;
+                break;
+            }
             crypto_generichash(key.data(), key.size(), sec, sizeof(sec), nullptr, 0);
             hasKey = true;
             WelcomePacket ack{};
@@ -559,10 +565,17 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             {
                 if (crypto_sign_verify_detached(pkt->sig, reinterpret_cast<const unsigned char*>(&pkt->nonce),
                                                 sizeof(pkt->nonce), CoopNet::kServerCertPub.data()) != 0)
-                    break; // invalid signature
+                {
+                    std::cerr << "Handshake failed: invalid signature" << std::endl;
+                    break;
+                }
             }
             unsigned char sec[crypto_scalarmult_BYTES];
-            crypto_scalarmult(sec, privKey.data(), pkt->pub);
+            if (crypto_scalarmult(sec, privKey.data(), pkt->pub) != 0)
+            {
+                std::cerr << "Handshake failed: crypto_scalarmult" << std::endl;
+                break;
+            }
             crypto_generichash(key.data(), key.size(), sec, sizeof(sec), nullptr, 0);
             hasKey = true;
             if (state == ConnectionState::Handshaking)
@@ -580,7 +593,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             for (auto* c : Net_GetConnections())
                 ids.push_back(c->peerId);
             CoopNet::SessionState_SetParty(ids);
-            RED4ext::ExecuteFunction("SyncProgress", "Show", nullptr);
+            RED4EXT_EXECUTE("SyncProgress", "Show", nullptr);
         }
         break;
     case EMsg::Disconnect:
@@ -591,14 +604,14 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         voiceMuted = false;
         voiceMuteEndMs = 0;
         muteUntilMs = 0;
-        RED4ext::ExecuteFunction("MicIcon", "SetMuted", nullptr, false);
-        RED4ext::ExecuteFunction("ClientPluginProxy", "ClearPending", nullptr);
+        RED4EXT_EXECUTE("MicIcon", "SetMuted", nullptr, false);
+        RED4EXT_EXECUTE("ClientPluginProxy", "ClearPending", nullptr);
         Transition(ConnectionState::Disconnected);
         CrowdCfgSync_OnRestore();
         ChatOverlay_Push("Disconnected from server");
         {
             RED4ext::CString msg("Disconnected from server");
-            RED4ext::ExecuteFunction("CoopNotice", "Show", nullptr, &msg);
+            RED4EXT_EXECUTE("CoopNotice", "Show", nullptr, &msg);
         }
         uint32_t sid = CoopNet::SessionState_GetId();
         if (sid != 0)
@@ -702,7 +715,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(QuestFullSyncPacket))
         {
             const QuestFullSyncPacket* pkt = reinterpret_cast<const QuestFullSyncPacket*>(payload);
-            RED4ext::ExecuteFunction("QuestSync", "ApplyFullSync", nullptr, pkt);
+            RED4EXT_EXECUTE("QuestSync", "ApplyFullSync", nullptr, pkt);
         }
         break;
     case EMsg::SceneTrigger:
@@ -1134,14 +1147,14 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(HolocallStartPacket))
         {
             const HolocallStartPacket* pkt = reinterpret_cast<const HolocallStartPacket*>(payload);
-            RED4ext::ExecuteFunction("HoloCallSync", "OnStart", nullptr, pkt);
+            RED4EXT_EXECUTE("HoloCallSync", "OnStart", nullptr, pkt);
         }
         break;
     case EMsg::HoloCallEnd:
         if (size >= sizeof(HolocallEndPacket))
         {
             const HolocallEndPacket* pkt = reinterpret_cast<const HolocallEndPacket*>(payload);
-            RED4ext::ExecuteFunction("HoloCallSync", "OnEnd", nullptr, &pkt->callId);
+            RED4EXT_EXECUTE("HoloCallSync", "OnEnd", nullptr, &pkt->callId);
         }
         break;
     case EMsg::SpectateRequest:
@@ -1216,7 +1229,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
                 if (!voiceMuted)
                     CoopVoice::PushPacket(pkt->seq, pkt->data, pkt->size);
                 if (!voiceMuted)
-                    RED4ext::ExecuteFunction("VoiceIndicator", "OnVoice", nullptr, peerId);
+                    RED4EXT_EXECUTE("VoiceIndicator", "OnVoice", nullptr, peerId);
                 voiceRecv++;
             }
         }
@@ -1312,7 +1325,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             lb.data.assign(pkt->zstdBlob, pkt->zstdBlob + pkt->blobBytes);
             m_largeBlobs.Push(lb);
             pendingLarge += 1;
-            RED4ext::ExecuteFunction("SyncProgress", "Show", nullptr);
+            RED4EXT_EXECUTE("SyncProgress", "Show", nullptr);
         }
         break;
     case EMsg::AdminCmd:
@@ -1323,7 +1336,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (pkt->cmdType == static_cast<uint8_t>(AdminCmdType::Mute))
             {
                 voiceMuted = pkt->param != 0;
-                RED4ext::ExecuteFunction("MicIcon", "SetMuted", nullptr, voiceMuted);
+                RED4EXT_EXECUTE("MicIcon", "SetMuted", nullptr, voiceMuted);
             }
         }
         break;
@@ -1541,7 +1554,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 Net_BroadcastSlowMoFinisher(pkt->peerId, pkt->targetId, pkt->durationMs);
             else
-                RED4ext::ExecuteFunction("SlowMoFinisherSync", "OnStart", nullptr, pkt);
+                RED4EXT_EXECUTE("SlowMoFinisherSync", "OnStart", nullptr, pkt);
         }
         break;
     case EMsg::TextureBiasChange:
@@ -1639,7 +1652,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             lb.data.assign(pkt->zstdBlob, pkt->zstdBlob + pkt->blobBytes);
             m_largeBlobs.Push(lb);
             pendingLarge += 1;
-            RED4ext::ExecuteFunction("SyncProgress", "Show", nullptr);
+            RED4EXT_EXECUTE("SyncProgress", "Show", nullptr);
         }
         break;
     case EMsg::LootRoll:
@@ -1732,14 +1745,14 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(HTableOpenPacket))
         {
             const HTableOpenPacket* pkt = reinterpret_cast<const HTableOpenPacket*>(payload);
-            RED4ext::ExecuteFunction("HoloTableSync", "OnOpen", nullptr, &pkt->sceneId);
+            RED4EXT_EXECUTE("HoloTableSync", "OnOpen", nullptr, &pkt->sceneId);
         }
         break;
     case EMsg::HTableScrub:
         if (size >= sizeof(HTableScrubPacket))
         {
             const HTableScrubPacket* pkt = reinterpret_cast<const HTableScrubPacket*>(payload);
-            RED4ext::ExecuteFunction("HoloTableSync", "OnScrub", nullptr, &pkt->timestampMs);
+            RED4EXT_EXECUTE("HoloTableSync", "OnScrub", nullptr, &pkt->timestampMs);
         }
         break;
     case EMsg::QuestGadgetFire:
@@ -1749,7 +1762,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 CoopNet::QuestGadget_HandleFire(this, *pkt);
             else
-                RED4ext::ExecuteFunction("QuestGadgetSync", "OnFire", nullptr, pkt);
+                RED4EXT_EXECUTE("QuestGadgetSync", "OnFire", nullptr, pkt);
         }
         break;
     case EMsg::ItemGrab:
@@ -1759,7 +1772,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 Net_BroadcastItemGrab(pkt->peerId, pkt->itemId);
             else
-                RED4ext::ExecuteFunction("ItemGrabSync", "OnGrab", nullptr, pkt);
+                RED4EXT_EXECUTE("ItemGrabSync", "OnGrab", nullptr, pkt);
         }
         break;
     case EMsg::ItemDrop:
@@ -1769,7 +1782,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 Net_BroadcastItemDrop(pkt->peerId, pkt->itemId, pkt->pos);
             else
-                RED4ext::ExecuteFunction("ItemGrabSync", "OnDrop", nullptr, pkt);
+                RED4EXT_EXECUTE("ItemGrabSync", "OnDrop", nullptr, pkt);
         }
         break;
     case EMsg::ItemStore:
@@ -1779,7 +1792,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 Net_BroadcastItemStore(pkt->peerId, pkt->itemId);
             else
-                RED4ext::ExecuteFunction("ItemGrabSync", "OnStore", nullptr, pkt);
+                RED4EXT_EXECUTE("ItemGrabSync", "OnStore", nullptr, pkt);
         }
         break;
     case EMsg::MetroBoard:
@@ -1789,7 +1802,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 Net_BroadcastMetroBoard(pkt->peerId, pkt->lineId, pkt->carIdx);
             else
-                RED4ext::ExecuteFunction("TransitSystem", "OnBoard", nullptr, pkt);
+                RED4EXT_EXECUTE("TransitSystem", "OnBoard", nullptr, pkt);
         }
         break;
     case EMsg::MetroArrive:
@@ -1799,7 +1812,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 Net_BroadcastMetroArrive(pkt->peerId, pkt->stationId);
             else
-                RED4ext::ExecuteFunction("TransitSystem", "OnArrive", nullptr, pkt);
+                RED4EXT_EXECUTE("TransitSystem", "OnArrive", nullptr, pkt);
         }
         break;
     case EMsg::RadioChange:
@@ -1809,7 +1822,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 Net_BroadcastRadioChange(pkt->vehId, pkt->stationId, pkt->offsetSec);
             else
-                RED4ext::ExecuteFunction("RadioSync", "OnChange", nullptr, pkt);
+                RED4EXT_EXECUTE("RadioSync", "OnChange", nullptr, pkt);
         }
         break;
     case EMsg::CamHijack:
@@ -1819,14 +1832,14 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 Net_BroadcastCamHijack(pkt->camId, pkt->peerId);
             else
-                RED4ext::ExecuteFunction("CamSync", "OnHijack", nullptr, pkt);
+                RED4EXT_EXECUTE("CamSync", "OnHijack", nullptr, pkt);
         }
         break;
     case EMsg::CamFrameStart:
         if (size >= sizeof(CamFrameStartPacket))
         {
             const CamFrameStartPacket* pkt = reinterpret_cast<const CamFrameStartPacket*>(payload);
-            RED4ext::ExecuteFunction("CamSync", "OnFrame", nullptr, &pkt->camId);
+            RED4EXT_EXECUTE("CamSync", "OnFrame", nullptr, &pkt->camId);
         }
         break;
     case EMsg::CarryBegin:
@@ -1836,7 +1849,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 Net_BroadcastCarryBegin(pkt->carrierId, pkt->entityId);
             else
-                RED4ext::ExecuteFunction("CarrySync", "OnBegin", nullptr, pkt);
+                RED4EXT_EXECUTE("CarrySync", "OnBegin", nullptr, pkt);
         }
         break;
     case EMsg::CarrySnap:
@@ -1846,7 +1859,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 Net_BroadcastCarrySnap(pkt->entityId, pkt->pos, pkt->vel);
             else
-                RED4ext::ExecuteFunction("CarrySync", "OnSnap", nullptr, pkt);
+                RED4EXT_EXECUTE("CarrySync", "OnSnap", nullptr, pkt);
         }
         break;
     case EMsg::CarryEnd:
@@ -1856,7 +1869,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 Net_BroadcastCarryEnd(pkt->entityId, pkt->pos, pkt->vel);
             else
-                RED4ext::ExecuteFunction("CarrySync", "OnEnd", nullptr, pkt);
+                RED4EXT_EXECUTE("CarrySync", "OnEnd", nullptr, pkt);
         }
         break;
     case EMsg::GrenadePrime:
@@ -1866,7 +1879,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 Net_BroadcastGrenadePrime(pkt->entityId, pkt->startTick);
             else
-                RED4ext::ExecuteFunction("GrenadeSync", "OnPrime", nullptr, pkt);
+                RED4EXT_EXECUTE("GrenadeSync", "OnPrime", nullptr, pkt);
         }
         break;
     case EMsg::GrenadeSnap:
@@ -1876,7 +1889,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 Net_BroadcastGrenadeSnap(pkt->entityId, pkt->pos, pkt->vel);
             else
-                RED4ext::ExecuteFunction("GrenadeSync", "OnSnap", nullptr, pkt);
+                RED4EXT_EXECUTE("GrenadeSync", "OnSnap", nullptr, pkt);
         }
         break;
     case EMsg::SmartCamStart:
@@ -1886,7 +1899,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 Net_BroadcastSmartCamStart(pkt->projId);
             else
-                RED4ext::ExecuteFunction("SmartCamSync", "OnStart", nullptr, &pkt->projId);
+                RED4EXT_EXECUTE("SmartCamSync", "OnStart", nullptr, &pkt->projId);
         }
         break;
     case EMsg::SmartCamEnd:
@@ -1896,7 +1909,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 Net_BroadcastSmartCamEnd(pkt->projId);
             else
-                RED4ext::ExecuteFunction("SmartCamSync", "OnEnd", nullptr, &pkt->projId);
+                RED4EXT_EXECUTE("SmartCamSync", "OnEnd", nullptr, &pkt->projId);
         }
         break;
     case EMsg::ArcadeStart:
@@ -1906,7 +1919,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
                 CoopNet::Arcade_Start(pkt->cabId, pkt->peerId, pkt->seed);
             else
-                RED4ext::ExecuteFunction("ArcadeSync", "OnStart", nullptr, pkt);
+                RED4EXT_EXECUTE("ArcadeSync", "OnStart", nullptr, pkt);
         }
         break;
     case EMsg::ArcadeInput:
@@ -1921,14 +1934,14 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(ArcadeScorePacket))
         {
             const ArcadeScorePacket* pkt = reinterpret_cast<const ArcadeScorePacket*>(payload);
-            RED4ext::ExecuteFunction("ArcadeSync", "OnScore", nullptr, pkt);
+            RED4EXT_EXECUTE("ArcadeSync", "OnScore", nullptr, pkt);
         }
         break;
     case EMsg::ArcadeHighScore:
         if (size >= sizeof(ArcadeHighScorePacket))
         {
             const ArcadeHighScorePacket* pkt = reinterpret_cast<const ArcadeHighScorePacket*>(payload);
-            RED4ext::ExecuteFunction("ArcadeSync", "OnHighScore", nullptr, pkt);
+            RED4EXT_EXECUTE("ArcadeSync", "OnHighScore", nullptr, pkt);
         }
         break;
 
@@ -1937,7 +1950,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(AirVehSpawnPacket))
         {
             const AirVehSpawnPacket* pkt = reinterpret_cast<const AirVehSpawnPacket*>(payload);
-            RED4ext::ExecuteFunction("AirVehicleProxy", "AirVehicleProxy_Spawn", nullptr, pkt->vehId, pkt->count,
+            RED4EXT_EXECUTE("AirVehicleProxy", "AirVehicleProxy_Spawn", nullptr, pkt->vehId, pkt->count,
                                      pkt->points);
         }
         break;
@@ -1945,7 +1958,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(AirVehUpdatePacket))
         {
             const AirVehUpdatePacket* pkt = reinterpret_cast<const AirVehUpdatePacket*>(payload);
-            RED4ext::ExecuteFunction("AirVehicleProxy", "AirVehicleProxy_Update", nullptr, pkt->vehId, &pkt->snap);
+            RED4EXT_EXECUTE("AirVehicleProxy", "AirVehicleProxy_Update", nullptr, pkt->vehId, &pkt->snap);
         }
         break;
     case EMsg::AssetBundle:
@@ -1965,7 +1978,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
                 {
                     CoopNet::GetAssetStreamer().Submit({pkt->pluginId, std::move(b.data)});
                     pendingAssets += 1;
-                    RED4ext::ExecuteFunction("SyncProgress", "Show", nullptr);
+                    RED4EXT_EXECUTE("SyncProgress", "Show", nullptr);
                     g_bundle.erase(pkt->pluginId);
                 }
             }
@@ -2088,7 +2101,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(VehicleSnapshotPacket))
         {
             const VehicleSnapshotPacket* pkt = reinterpret_cast<const VehicleSnapshotPacket*>(payload);
-            RED4ext::ExecuteFunction("VehicleProxy", "VehicleProxy_UpdateSnap", nullptr, 1u, &pkt->snap);
+            RED4EXT_EXECUTE("VehicleProxy", "VehicleProxy_UpdateSnap", nullptr, 1u, &pkt->snap);
         }
         break;
     case EMsg::Version:
@@ -2118,7 +2131,7 @@ void Connection::Update(uint64_t nowMs)
     {
         voiceMuted = false;
         voiceMuteEndMs = 0;
-        RED4ext::ExecuteFunction("MicIcon", "SetMuted", nullptr, false);
+        RED4EXT_EXECUTE("MicIcon", "SetMuted", nullptr, false);
     }
     if (nowMs - lastPingSent >= 5000)
     {
@@ -2153,9 +2166,9 @@ void Connection::Update(uint64_t nowMs)
         uint8_t done = processedLarge + processedAssets;
         if (total > 0)
             pct = static_cast<int32_t>(done * 100 / total);
-        RED4ext::ExecuteFunction("SyncProgress", "Update", nullptr, pct);
+        RED4EXT_EXECUTE("SyncProgress", "Update", nullptr, pct);
         if (done >= total)
-            RED4ext::ExecuteFunction("SyncProgress", "Hide", nullptr);
+            RED4EXT_EXECUTE("SyncProgress", "Hide", nullptr);
     }
 
     CoopNet::AssetStreamer::Result ar;
@@ -2163,25 +2176,25 @@ void Connection::Update(uint64_t nowMs)
     {
         RED4ext::CString path((std::string("runtime_cache/plugins/") + std::to_string(ar.pluginId)).c_str());
         bool ro = true;
-        RED4ext::ExecuteFunction("ModSystem", "Mount", nullptr, &path, &ro);
-        RED4ext::ExecuteFunction("ModSystem", "ReloadScriptsFrom", nullptr, &path);
+        RED4EXT_EXECUTE("ModSystem", "Mount", nullptr, &path, &ro);
+        RED4EXT_EXECUTE("ModSystem", "ReloadScriptsFrom", nullptr, &path);
         processedAssets += 1;
         int32_t pct = 0;
         uint8_t total = pendingLarge + pendingAssets;
         uint8_t done = processedLarge + processedAssets;
         if (total > 0)
             pct = static_cast<int32_t>(done * 100 / total);
-        RED4ext::ExecuteFunction("SyncProgress", "Update", nullptr, pct);
+        RED4EXT_EXECUTE("SyncProgress", "Update", nullptr, pct);
         if (done >= total)
-            RED4ext::ExecuteFunction("SyncProgress", "Hide", nullptr);
+            RED4EXT_EXECUTE("SyncProgress", "Hide", nullptr);
     }
 
     if (!sectorReady)
     {
         float timeoutSec = 10.f;
-        RED4ext::ExecuteFunction("CoopSettings", "GetSectorTimeoutSec", &timeoutSec);
+        RED4EXT_EXECUTE("CoopSettings", "GetSectorTimeoutSec", &timeoutSec);
         float maxSize = 512.f;
-        RED4ext::ExecuteFunction("CoopSettings", "GetMapSize", &maxSize);
+        RED4EXT_EXECUTE("CoopSettings", "GetMapSize", &maxSize);
         size_t mapCount = CoopNet::g_interestGrid.GetSize();
         float factor = maxSize > 0.f ? static_cast<float>(mapCount) / maxSize : 1.f;
         float timeoutMs = timeoutSec * 1000.f * factor;
@@ -2281,13 +2294,14 @@ void Connection::RefreshNpcInterest()
 
 void Connection::Transition(ConnectionState next)
 {
+    std::lock_guard<std::mutex> lock(m_stateMutex);
     if (state != next)
     {
         state = next;
         std::cout << "Connection state -> " << static_cast<int>(state) << std::endl;
         if (state == ConnectionState::Disconnected)
         {
-            std::unique_lock lock(g_bundleMutex);
+            std::unique_lock bundleLock(g_bundleMutex);
             ClearBundleCache();
         }
     }

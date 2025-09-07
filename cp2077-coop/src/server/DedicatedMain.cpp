@@ -29,6 +29,8 @@
 #include "../plugin/PluginManager.hpp"
 #include "../core/TaskGraph.hpp"
 #include "../net/Snapshot.hpp"
+#include "../core/Red4extUtils.hpp"
+#include <RED4ext/RED4ext.hpp>
 
 namespace CoopNet
 {
@@ -170,7 +172,7 @@ int main(int argc, char** argv)
             CoopNet::PoliceDispatch_Tick(tickMs);
             CoopNet::StatusController_Tick(tickMs);
             CoopNet::TrafficController_Tick(tickMs);
-            RED4ext::ExecuteFunction("GameModeManager", "TickDM", nullptr, static_cast<uint32_t>(tickMs));
+            RED4EXT_EXECUTE("GameModeManager", "TickDM", nullptr, static_cast<uint32_t>(tickMs));
         }
         Net_Poll(static_cast<uint32_t>(tickMs));
         taskGraph.Submit([]

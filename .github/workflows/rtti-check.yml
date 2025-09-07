@@ -1,0 +1,13 @@
+name: rtti-check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run RTTI signature check
+        run: python scripts/verify_rtti.py --rtti scripts/rtti/2.0.json --version 2.0
