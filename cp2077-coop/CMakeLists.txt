@@ -9,14 +9,15 @@ find_package(AL REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(CURL REQUIRED)
 
-set(ZSTD_SOURCES third_party/zstd/zstd.c) # FIX: explicit source list avoids glob issues
-add_library(zstd STATIC ${ZSTD_SOURCES})
-target_include_directories(zstd PUBLIC third_party/zstd)
-target_compile_definitions(zstd PUBLIC ZSTD_MULTITHREAD=ON)
+find_library(ZSTD_LIBRARY NAMES zstd PATHS "${PROJECT_SOURCE_DIR}/third_party/zstd" REQUIRED)
+add_library(zstd STATIC IMPORTED)
+set_target_properties(zstd PROPERTIES IMPORTED_LOCATION "${ZSTD_LIBRARY}")
+target_include_directories(zstd INTERFACE third_party/zstd)
 
-set(SODIUM_SOURCES third_party/libsodium/sodium.c) # FIX: explicit source list
-add_library(libsodium STATIC ${SODIUM_SOURCES})
-target_include_directories(libsodium PUBLIC third_party/libsodium)
+find_library(LIBSODIUM_LIBRARY NAMES sodium libsodium PATHS "${PROJECT_SOURCE_DIR}/third_party/libsodium" REQUIRED)
+add_library(libsodium STATIC IMPORTED)
+set_target_properties(libsodium PROPERTIES IMPORTED_LOCATION "${LIBSODIUM_LIBRARY}")
+target_include_directories(libsodium INTERFACE third_party/libsodium)
 
 file(GLOB ENET_SOURCES third_party/enet/*.c)
 add_library(enet STATIC ${ENET_SOURCES})
