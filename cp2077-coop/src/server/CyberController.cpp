@@ -1,5 +1,6 @@
 #include "CyberController.hpp"
 #include "../net/Net.hpp"
+#include "../core/Red4extUtils.hpp"
 #include <RED4ext/RED4ext.hpp>
 #include <iostream>
 
@@ -9,11 +10,11 @@ namespace CoopNet
 static bool CheckPrereqs(uint8_t slotId)
 {
     uint32_t cred = 0;
-    RED4ext::ExecuteFunction("PlayerProgression", "GetStreetCredLevel", nullptr, &cred);
+    RED4EXT_EXECUTE("PlayerProgression", "GetStreetCredLevel", nullptr, &cred);
     if (cred < 10)
         return false;
     uint32_t capacity = 0;
-    RED4ext::ExecuteFunction("StatsSystem", "GetCyberCapacity", nullptr, &capacity);
+    RED4EXT_EXECUTE("StatsSystem", "GetCyberCapacity", nullptr, &capacity);
     if (capacity < slotId)
         return false;
     return true;
