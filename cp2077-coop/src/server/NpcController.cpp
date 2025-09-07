@@ -3,6 +3,7 @@
 #include "../net/InterestGrid.hpp"
 #include "../net/Net.hpp"
 #include "../net/Packets.hpp"
+#include "../core/Red4extUtils.hpp"
 #include <RED4ext/RED4ext.hpp>
 #include <cmath>
 #include <cstring>
@@ -131,17 +132,17 @@ void NpcController_ServerTick(float dt)
 
 void NpcController_ClientApplySnap(const NpcSnap& snap)
 {
-    RED4ext::ExecuteFunction("NpcController", "ClientApplySnap", nullptr, &snap);
+    RED4EXT_EXECUTE("NpcController", "ClientApplySnap", nullptr, &snap);
 }
 
 void NpcController_ApplyCrowdSeed(uint64_t hash, uint32_t seed)
 {
-    RED4ext::ExecuteFunction("NpcController", "ApplyCrowdSeed", nullptr, hash, seed);
+    RED4EXT_EXECUTE("NpcController", "ApplyCrowdSeed", nullptr, hash, seed);
 }
 
 void NpcController_Despawn(uint32_t id)
 {
-    RED4ext::ExecuteFunction("NpcController", "DespawnNpc", nullptr, id);
+    RED4EXT_EXECUTE("NpcController", "DespawnNpc", nullptr, id);
     g_interestGrid.Remove(id);
 }
 

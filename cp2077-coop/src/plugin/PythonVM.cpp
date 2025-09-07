@@ -13,6 +13,7 @@
 #include "../net/Packets.hpp"
 #include "../net/Snapshot.hpp"
 #include "../server/VehicleController.hpp"
+#include "../core/Red4extUtils.hpp"
 
 namespace CoopNet {
 static bool g_init = false;
@@ -155,7 +156,7 @@ static PyObject* Py_TeleportPeer(PyObject*, PyObject* args)
     CoopNet::Connection* c = Net_FindConnection(peer);
     if (c)
         c->avatarPos = p;
-    RED4ext::ExecuteFunction("AvatarProxy", "Teleport", nullptr, peer, &p, &q);
+    RED4EXT_EXECUTE("AvatarProxy", "Teleport", nullptr, peer, &p, &q);
     std::cout << "teleport_peer id=" << peer << " -> " << p.X << "," << p.Y << "," << p.Z << std::endl;
     Py_RETURN_NONE;
 }
@@ -178,7 +179,7 @@ static PyObject* Py_ShowPopup(PyObject*, PyObject* args)
     if (!PyArg_ParseTuple(args, "Isd", &peer, &text, &dur))
         return nullptr;
     RED4ext::CString msg(text);
-    RED4ext::ExecuteFunction("CoopNotice", "Show", nullptr, &msg);
+    RED4EXT_EXECUTE("CoopNotice", "Show", nullptr, &msg);
     std::cout << "show_popup peer=" << peer << " text=" << text << std::endl;
     Py_RETURN_NONE;
 }

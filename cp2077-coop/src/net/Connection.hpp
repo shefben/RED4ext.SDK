@@ -7,6 +7,7 @@
 #include <array>
 #include <cstdint>
 #include <deque>
+#include <mutex>
 #include <sodium.h>
 #include <unordered_set>
 #include <vector>
@@ -22,6 +23,10 @@ enum class ConnectionState
     InGame
 };
 
+// Threading:
+// - HandlePacket/EnqueuePacket are invoked from network threads.
+// - Update and other gameplay interactions run on the game thread.
+// - State transitions are guarded by m_stateMutex.
 class Connection
 {
 public:
@@ -46,6 +51,7 @@ public:
 
     ConnectionState GetState() const
     {
+        std::lock_guard<std::mutex> _(m_stateMutex);
         return state;
     }
 
@@ -55,6 +61,7 @@ private:
     void Transition(ConnectionState next);
 
     ConnectionState state;
+    mutable std::mutex m_stateMutex;
     ThreadSafeQueue<RawPacket> m_incoming; // avoids cross-thread deadlocks
     struct LargeBlob
     {

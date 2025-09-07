@@ -1,6 +1,8 @@
 #include "DoorBreachController.hpp"
 #include "../core/GameClock.hpp"
 #include "../net/Net.hpp"
+#include "../core/Red4extUtils.hpp"
+#include <RED4ext/RED4ext.hpp>
 #include <unordered_map>
 
 namespace CoopNet
@@ -21,11 +23,11 @@ void DoorBreachController_Start(uint32_t doorId, uint32_t phaseId)
     bool hasPerk = false;
     int perks = 0;
     RED4ext::CName p1 = "FastBreach1";
-    RED4ext::ExecuteFunction("PerkSystem", "HasPerk", nullptr, &p1, &hasPerk);
+    RED4EXT_EXECUTE("PerkSystem", "HasPerk", nullptr, &p1, &hasPerk);
     if (hasPerk)
         ++perks;
     RED4ext::CName p2 = "FastBreach2";
-    RED4ext::ExecuteFunction("PerkSystem", "HasPerk", nullptr, &p2, &hasPerk);
+    RED4EXT_EXECUTE("PerkSystem", "HasPerk", nullptr, &p2, &hasPerk);
     if (hasPerk)
         ++perks;
     float dur = 1000.f - 100.f * static_cast<float>(perks);
@@ -41,7 +43,7 @@ void DoorBreachController_Tick(float dt)
     for (auto it = g_map.begin(); it != g_map.end();)
     {
         bool combat = false;
-        RED4ext::ExecuteFunction("PlayerPuppet", "IsInCombat", nullptr, &combat);
+        RED4EXT_EXECUTE("PlayerPuppet", "IsInCombat", nullptr, &combat);
         if (combat)
         {
             DoorBreachAbortPacket ab{it->first};

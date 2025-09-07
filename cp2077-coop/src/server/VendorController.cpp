@@ -4,8 +4,10 @@
 #include "InventoryController.hpp"
 #include "Journal.hpp"
 #include "LedgerService.hpp"
+#include "../core/Red4extUtils.hpp"
 #include <algorithm>
 #include <cstring>
+#include <RED4ext/RED4ext.hpp>
 #include <unordered_map>
 #include <vector>
 
@@ -45,10 +47,10 @@ void VendorController_Tick(float dt, uint64_t worldClock)
 static uint32_t CalculatePrice(uint32_t basePrice, Connection* conn)
 {
     uint32_t cred = 0;
-    RED4ext::ExecuteFunction("PlayerProgression", "GetStreetCredLevel", nullptr, &cred);
+    RED4EXT_EXECUTE("PlayerProgression", "GetStreetCredLevel", nullptr, &cred);
     bool hasPerk = false;
     RED4ext::CName perk = "Wholesale";
-    RED4ext::ExecuteFunction("PerkSystem", "HasPerk", nullptr, &perk, &hasPerk);
+    RED4EXT_EXECUTE("PerkSystem", "HasPerk", nullptr, &perk, &hasPerk);
     int32_t price = static_cast<int32_t>(basePrice);
     if (cred > 0 && cred <= 50)
         price = (price * static_cast<int32_t>(100 - cred)) / 100;

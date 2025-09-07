@@ -7,6 +7,7 @@
 #include "../core/SessionState.hpp"
 #include "WebDash.hpp"
 #include "VehicleController.hpp"
+#include "../core/Red4extUtils.hpp"
 #include <RED4ext/RED4ext.hpp>
 #include <filesystem>
 #include <unistd.h>
@@ -44,12 +45,12 @@ static size_t GetProcessRSS()
 
 static void GameModeManager_SetMode(uint32_t mode)
 {
-    RED4ext::ExecuteFunction("GameModeManager", "SetMode", nullptr, mode);
+    RED4EXT_EXECUTE("GameModeManager", "SetMode", nullptr, mode);
 }
 
 static void QuestSync_SetFreeze(bool freeze)
 {
-    RED4ext::ExecuteFunction("QuestSync", "SetFreeze", nullptr, freeze);
+    RED4EXT_EXECUTE("QuestSync", "SetFreeze", nullptr, freeze);
 }
 
 static Connection* FindConn(uint32_t peerId)

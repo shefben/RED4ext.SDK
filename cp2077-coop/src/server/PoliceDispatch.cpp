@@ -2,6 +2,7 @@
 #include "../core/Hash.hpp"
 #include "../net/Net.hpp"
 #include "../net/Packets.hpp"
+#include "../core/Red4extUtils.hpp"
 #include <RED4ext/RED4ext.hpp>
 #include <cstring>
 
@@ -20,7 +21,7 @@ void PoliceDispatch_OnHeatChange(uint8_t level)
         g_waveIdx = 0;
     }
     g_heat = level;
-    RED4ext::ExecuteFunction("PoliceDispatch", "OnHeat", nullptr, level);
+    RED4EXT_EXECUTE("PoliceDispatch", "OnHeat", nullptr, level);
 }
 
 void PoliceDispatch_Tick(float dt)
