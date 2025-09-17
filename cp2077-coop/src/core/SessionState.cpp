@@ -22,7 +22,7 @@ struct PartyMember
 
 static std::vector<PartyMember> g_party;                            // PP-1: populated via lobby sync
 static std::vector<std::pair<std::string, uint32_t>> g_questStages; // questName -> stage
-static std::vector<ItemSnap> g_inventory;
+static std::vector<SessionItemSnap> g_inventory;
 static WorldStateSnap g_world{};
 static std::vector<EventState> g_events;
 static std::unordered_map<uint32_t, int16_t> g_reputation;
@@ -225,61 +225,123 @@ void SessionState_SetReputation(uint32_t npcId, int16_t value)
     g_reputation[npcId] = value;
 }
 
+static bool ParseNumber(const std::string& s, size_t& pos, uint64_t& out)
+{
+    size_t start = s.find_first_of("0123456789", pos);
+    if (start == std::string::npos)
+        return false;
+    size_t end = s.find_first_not_of("0123456789", start);
+    try
+    {
+        out = std::stoull(s.substr(start, end - start));
+        pos = end == std::string::npos ? s.size() : end;
+        return true;
+    }
+    catch (...)
+    {
+        return false;
+    }
+}
+
+static void ParseWeather(const std::string& json)
+{
+    size_t pos = json.find("\"weather\"");
+    if (pos == std::string::npos)
+        return;
+    uint64_t v = 0;
+    // sun
+    size_t p = json.find("\"sun\"", pos);
+    if (p != std::string::npos && ParseNumber(json, p, v))
+        g_world.sunDeg = static_cast<uint16_t>(std::min<uint64_t>(v, 360));
+    // id
+    p = json.find("\"id\"", pos);
+    if (p != std::string::npos && ParseNumber(json, p, v))
+        g_world.weatherId = static_cast<uint8_t>(std::min<uint64_t>(v, 255));
+    // seed
+    p = json.find("\"seed\"", pos);
+    if (p != std::string::npos && ParseNumber(json, p, v))
+        g_world.particleSeed = static_cast<uint16_t>(std::min<uint64_t>(v, 65535));
+}
+
+static void ParseEvents(const std::string& json)
+{
+    g_events.clear();
+    size_t pos = json.find("\"events\":[");
+    if (pos == std::string::npos)
+        return;
+    size_t p = pos + 10;
+    while (p < json.size() && json[p] != ']')
+    {
+        size_t objStart = json.find('{', p);
+        if (objStart == std::string::npos)
+            break;
+        size_t objEnd = json.find('}', objStart);
+        if (objEnd == std::string::npos)
+            break;
+        std::string obj = json.substr(objStart, objEnd - objStart + 1);
+        uint64_t id = 0, seed = 0, phase = 0, active = 0;
+        size_t tmp = 0;
+        if (ParseNumber(obj, tmp = obj.find("\"id\""), id) &&
+            ParseNumber(obj, tmp = obj.find("\"phase\""), phase) &&
+            ParseNumber(obj, tmp = obj.find("\"active\""), active) &&
+            ParseNumber(obj, tmp = obj.find("\"seed\""), seed))
+        {
+            g_events.push_back({static_cast<uint32_t>(id), static_cast<uint8_t>(phase), active != 0,
+                                static_cast<uint32_t>(seed)});
+        }
+        p = objEnd + 1;
+        if (p < json.size() && json[p] == ',')
+            ++p;
+    }
+}
+
+static void ParseReputation(const std::string& json)
+{
+    g_reputation.clear();
+    size_t pos = json.find("\"reputation\":{");
+    if (pos == std::string::npos)
+        return;
+    size_t p = pos + 14;
+    while (p < json.size() && json[p] != '}')
+    {
+        size_t keyStart = json.find('"', p);
+        if (keyStart == std::string::npos)
+            break;
+        size_t keyEnd = json.find('"', keyStart + 1);
+        if (keyEnd == std::string::npos)
+            break;
+        uint64_t npcId = 0, repVal = 0;
+        try
+        {
+            npcId = std::stoull(json.substr(keyStart + 1, keyEnd - keyStart - 1));
+        }
+        catch (...)
+        {
+            break;
+        }
+        size_t colon = json.find(':', keyEnd);
+        if (colon == std::string::npos)
+            break;
+        size_t tmp = colon + 1;
+        if (!ParseNumber(json, tmp, repVal))
+            break;
+        g_reputation[static_cast<uint32_t>(npcId)] = static_cast<int16_t>(std::min<uint64_t>(repVal, 32767));
+        p = json.find_first_of(",}", tmp);
+        if (p == std::string::npos)
+            break;
+        if (json[p] == ',')
+            ++p;
+    }
+}
+
 bool LoadSessionState(uint32_t sessionId)
 {
     std::string json;
     if (!LoadSession(sessionId, json))
         return false;
-    size_t pos = json.find("\"weather\"");
-    if (pos != std::string::npos)
-    {
-        std::sscanf(json.c_str() + pos,
-                    "\"weather\":{\"sun\":%hu,\"id\":%hhu,\"seed\":%hu",
-                    &g_world.sunDeg, &g_world.weatherId, &g_world.particleSeed);
-    }
-    g_events.clear();
-    pos = json.find("\"events\":[");
-    if (pos != std::string::npos)
-    {
-        const char* p = json.c_str() + pos + 10;
-        while (*p && *p != ']')
-        {
-            uint32_t id = 0, seed = 0;
-            int ph = 0, act = 0;
-            int consumed = 0;
-            if (std::sscanf(p, "{\"id\":%u,\"phase\":%d,\"active\":%d,\"seed\":%u}%n",
-                            &id, &ph, &act, &seed, &consumed) >= 4)
-            {
-                g_events.push_back({id, static_cast<uint8_t>(ph), act != 0, seed});
-                p += consumed;
-                if (*p == ',')
-                    ++p;
-            }
-            else
-                break;
-        }
-    }
-    g_reputation.clear();
-    pos = json.find("\"reputation\":{");
-    if (pos != std::string::npos)
-    {
-        const char* p = json.c_str() + pos + 14;
-        while (*p && *p != '}')
-        {
-            uint32_t npc = 0;
-            int rep = 0;
-            int consumed = 0;
-            if (std::sscanf(p, "\"%u\":%d%n", &npc, &rep, &consumed) >= 2)
-            {
-                g_reputation[npc] = static_cast<int16_t>(rep);
-                p += consumed;
-                if (*p == ',')
-                    ++p;
-            }
-            else
-                break;
-        }
-    }
+    ParseWeather(json);
+    ParseEvents(json);
+    ParseReputation(json);
     return true;
 }
 

@@ -5,16 +5,19 @@
 #include "../core/Red4extUtils.hpp"
 #include <RED4ext/RED4ext.hpp>
 #include <cstring>
+#include <mutex>
 
 namespace CoopNet
 {
-static uint32_t g_timer = 0;
+static uint64_t g_timer = 0;   // ms, widened to avoid overflow
 static uint8_t g_waveIdx = 0;
 static uint8_t g_heat = 0;
-static uint32_t g_maxtac = 0;
+static uint64_t g_maxtac = 0;  // ms, widened to avoid overflow
+static std::mutex g_pdMutex;
 
 void PoliceDispatch_OnHeatChange(uint8_t level)
 {
+    std::lock_guard lock(g_pdMutex);
     if (level > g_heat)
     {
         g_timer = 0;
@@ -26,10 +29,12 @@ void PoliceDispatch_OnHeatChange(uint8_t level)
 
 void PoliceDispatch_Tick(float dt)
 {
+    std::lock_guard lock(g_pdMutex);
     if (g_heat == 0)
         return;
-    g_timer += static_cast<uint32_t>(dt);
-    g_maxtac += static_cast<uint32_t>(dt);
+    uint32_t delta = static_cast<uint32_t>(dt > 100000.f ? 100000.f : (dt < 0.f ? 0.f : dt));
+    g_timer += delta;
+    g_maxtac += delta;
     uint32_t interval = (g_heat >= 3 ? 15000u : 30000u);
     if (g_timer >= interval)
     {

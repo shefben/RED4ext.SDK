@@ -45,7 +45,8 @@ public class ChatOverlay extends inkHUDLayer {
     public func OnUpdate(dt: Float) -> Void {
         // Toggle visibility when the player presses Enter.
         // Input listener would be cleaner but simple poll works
-        if GameInstance.GetInputSystem(GetGame()).IsJustPressed(EInputKey.IK_Enter) {
+        let input = GameInstance.GetInputSystem(GetGame());
+        if IsDefined(input) && input.IsActionJustPressed(n"chat_toggle") {
             Toggle();
         }
 
@@ -55,8 +56,8 @@ public class ChatOverlay extends inkHUDLayer {
             root.SetVisible(visible);
         }
 
-        let input = GameInstance.GetInputSystem(GetGame());
-        if input.IsPressed(CoopSettings.pushToTalk) {
+        // Check push-to-talk with proper input handling
+        if IsDefined(input) && input.IsActionPressed(n"voice_push_to_talk") {
             if !talking {
                 if CoopVoice.StartCapture("default", CoopSettings.voiceSampleRate, CoopSettings.voiceBitrate, CoopSettings.voiceUseOpus) {
                     talking = true;

@@ -1,5 +1,6 @@
 #include "NatClient.hpp"
 #include "NatTraversal.hpp"
+#include "Connection.hpp"
 #include <iostream>
 #include <chrono>
 #include <thread>
@@ -64,6 +65,8 @@ void Nat_PerformHandshake(Connection* conn)
         else
             std::cout << "NAT method=direct" << std::endl;
     }
+    // Scrub sensitive TURN credentials after handshake attempt
+    g_traversal.ClearTurnCreds();
 }
 
 void Nat_AddRemoteCandidate(const char* cand)

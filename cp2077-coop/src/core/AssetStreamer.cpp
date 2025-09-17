@@ -116,7 +116,20 @@ void AssetStreamer::Worker()
 
 bool AssetStreamer::Process(const Task& t)
 {
-    std::vector<uint8_t> raw(5u * 1024u * 1024u);
+    size_t expected = ZSTD_getFrameContentSize(t.data.data(), t.data.size());
+    if (expected == ZSTD_CONTENTSIZE_ERROR)
+    {
+        std::cerr << "Bundle decompress: invalid frame" << std::endl;
+        return false;
+    }
+    if (expected == ZSTD_CONTENTSIZE_UNKNOWN)
+        expected = 4u * 1024u * 1024u; // 4MB fallback
+    if (expected > (64u * 1024u * 1024u))
+    {
+        std::cerr << "Bundle too large (>64MB)" << std::endl;
+        return false;
+    }
+    std::vector<uint8_t> raw(expected);
     size_t size = ZSTD_decompress(raw.data(), raw.size(), t.data.data(), t.data.size());
     if (ZSTD_isError(size))
     {
@@ -158,6 +171,12 @@ bool AssetStreamer::Process(const Task& t)
         std::ofstream f(out, std::ios::binary);
         f.write(reinterpret_cast<const char*>(p), len);
         p += len;
+        // Soft memory guard for connection-managed caches
+        if (DirSize(base.parent_path()) > kBundleLimit)
+        {
+            std::cerr << "[AssetCache] over budget; enforcing purge" << std::endl;
+            EnforceBundleLimit();
+        }
     }
     fs::last_write_time(base, fs::file_time_type::clock::now());
     EnforceBundleLimit();
@@ -172,4 +191,3 @@ AssetStreamer& GetAssetStreamer()
 }
 
 } // namespace CoopNet
-

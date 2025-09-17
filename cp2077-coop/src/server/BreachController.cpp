@@ -3,6 +3,7 @@
 #include "../net/Packets.hpp"
 #include <cstdlib>
 #include <iostream>
+#include <mutex>
 
 namespace CoopNet {
 
@@ -12,9 +13,11 @@ static uint8_t g_w = 0;
 static uint8_t g_h = 0;
 static float g_timer = 0.f;
 static uint32_t g_peer = 0;
+static std::mutex g_breachMutex;
 
 void BreachController_Start(uint32_t peerId, uint8_t w, uint8_t h)
 {
+    std::lock_guard lock(g_breachMutex);
     g_active = true;
     g_seed = static_cast<uint32_t>(std::rand());
     g_w = w;
@@ -28,6 +31,7 @@ void BreachController_Start(uint32_t peerId, uint8_t w, uint8_t h)
 
 void BreachController_HandleInput(uint32_t peerId, uint8_t idx)
 {
+    std::lock_guard lock(g_breachMutex);
     if (!g_active)
         return;
     BreachInputPacket pkt{peerId, idx, {0,0,0}};
@@ -36,6 +40,7 @@ void BreachController_HandleInput(uint32_t peerId, uint8_t idx)
 
 void BreachController_ServerTick(float dt)
 {
+    std::lock_guard lock(g_breachMutex);
     if (!g_active)
         return;
     g_timer -= dt / 1000.f;

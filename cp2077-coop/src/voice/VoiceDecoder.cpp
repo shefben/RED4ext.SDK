@@ -8,6 +8,7 @@
 #include <cstring>
 #include <iostream>
 #include <vector>
+#include <opus.h>
 
 namespace CoopVoice
 {
@@ -192,14 +193,14 @@ void Reset()
     g_bufIndex = 0;
 }
 
-void SetVolume(float volume)
+void SetPlaybackVolume(float volume)
 {
     g_volume = std::clamp(volume, 0.0f, 2.0f);
     if (g_source)
         alSourcef(g_source, AL_GAIN, g_volume);
 }
 
-void SetCodec(Codec codec)
+void SetDecoderCodec(Codec codec)
 {
     g_codec = codec;
 }

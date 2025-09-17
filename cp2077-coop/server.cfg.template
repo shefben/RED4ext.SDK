@@ -1,0 +1,186 @@
+# Cyberpunk 2077 Coop Dedicated Server Configuration
+# Copy this file to server.cfg and modify settings as needed
+
+# =============================================
+# SERVER IDENTITY
+# =============================================
+
+# Name displayed in server browser
+server_name=Cyberpunk 2077 Coop Server
+
+# Server description shown in details
+server_description=A cooperative multiplayer server for exploring Night City together
+
+# Region for server browser filtering (Auto, US-East, US-West, EU, Asia, etc.)
+region=Auto
+
+# =============================================
+# NETWORK SETTINGS
+# =============================================
+
+# Port for server to listen on (default: 7777)
+# Make sure this port is open in your firewall and router
+port=7777
+
+# Maximum number of players (2-32)
+max_players=8
+
+# Server tick rate (Hz) - affects smoothness vs performance
+# Common values: 32, 64, 128
+tick_rate=64
+
+# Server password (leave empty for no password)
+# password=mypassword
+
+# Enable UPnP for automatic port forwarding (true/false)
+enable_upnp=true
+
+# =============================================
+# GAME SETTINGS
+# =============================================
+
+# Game mode (Cooperative, PvP, Roleplay, Custom)
+game_mode=Cooperative
+
+# Starting map/area (Night_City, Badlands, Custom)
+map_name=Night_City
+
+# Allow players to join mid-session (true/false)
+allow_join_in_progress=true
+
+# Save interval in minutes (0 to disable auto-save)
+auto_save_interval=5
+
+# =============================================
+# PLAYER MANAGEMENT
+# =============================================
+
+# Welcome message shown to new players
+welcome_message=Welcome to the server! Press F1 for help.
+
+# Message of the day (shown periodically)
+motd=Have fun exploring Night City together!
+
+# AFK timeout in minutes (0 to disable)
+afk_timeout=30
+
+# Enable friendly fire (true/false)
+friendly_fire=false
+
+# =============================================
+# FEATURES
+# =============================================
+
+# Enable anti-cheat system (highly recommended)
+enable_anti_cheat=true
+
+# Enable voice chat (requires additional setup)
+enable_voice_chat=true
+
+# Allow custom client mods (may affect stability)
+allow_client_mods=false
+
+# Enable server statistics and monitoring
+enable_stats=true
+
+# =============================================
+# CONTENT RESTRICTIONS
+# =============================================
+
+# Restrict adult content (true/false)
+family_friendly=false
+
+# Allow player vs player combat
+allow_pvp=false
+
+# Enable permadeath mode (characters die permanently)
+permadeath=false
+
+# =============================================
+# PERFORMANCE SETTINGS
+# =============================================
+
+# Maximum bandwidth per player (KB/s, 0 = unlimited)
+max_bandwidth_per_player=100
+
+# Enable compression for network traffic
+enable_compression=true
+
+# Garbage collection interval (seconds)
+gc_interval=300
+
+# Maximum memory usage (MB, 0 = unlimited)
+max_memory=4096
+
+# =============================================
+# LOGGING & DEBUGGING
+# =============================================
+
+# Log level (ERROR, WARNING, INFO, DEBUG)
+log_level=INFO
+
+# Enable detailed network logging
+enable_network_logging=false
+
+# Log file rotation size (MB)
+log_rotation_size=100
+
+# Keep log files for this many days
+log_retention_days=7
+
+# =============================================
+# ADVANCED SETTINGS
+# =============================================
+
+# Server browser visibility (true for public listing)
+public_server=true
+
+# Master server URL (leave default unless you know what you're doing)
+# master_server_url=https://coop-master.cyberpunk2077.com/api
+
+# Server tags for filtering (comma-separated)
+server_tags=coop,pve,roleplay
+
+# Custom game rules file (optional)
+# game_rules_file=custom_rules.json
+
+# Plugin directory for server-side mods
+# plugin_directory=plugins/
+
+# =============================================
+# BACKUP AND PERSISTENCE
+# =============================================
+
+# Enable automatic backups
+enable_backups=true
+
+# Backup interval in hours
+backup_interval=6
+
+# Number of backup files to keep
+backup_retention=7
+
+# Backup directory
+backup_directory=backups/
+
+# =============================================
+# NOTES
+# =============================================
+
+# Lines starting with # are comments and are ignored
+# Boolean values: true/false (case sensitive)
+# Numeric values: whole numbers only
+# String values: no quotes needed unless they contain special characters
+
+# For more advanced configuration options, see the documentation at:
+# https://github.com/cyberpunk2077-coop/dedicated-server/wiki
+
+# Server administration commands (console):
+# help          - Show available commands  
+# status        - Display server status
+# players       - List connected players
+# kick <player> - Kick a player
+# ban <player>  - Ban a player
+# save          - Save world state
+# reload        - Reload configuration
+# stop          - Shutdown server gracefully

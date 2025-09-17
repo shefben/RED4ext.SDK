@@ -10,6 +10,7 @@
 #include <RED4ext/RED4ext.hpp>
 #include <unordered_map>
 #include <vector>
+#include <mutex>
 
 namespace CoopNet
 {
@@ -23,8 +24,10 @@ struct VendorItem
 static std::unordered_map<uint32_t, std::unordered_map<uint32_t, std::unordered_map<uint32_t, VendorItem>>>
     g_stock; // PX-8
 static std::unordered_map<uint32_t, uint64_t> g_lastDay;
+static std::mutex g_vendorMutex;
 void VendorController_Tick(float dt, uint64_t worldClock)
 {
+    std::lock_guard lock(g_vendorMutex);
     uint64_t day = worldClock / 36000;
     uint32_t tod = static_cast<uint32_t>(worldClock % 36000);
     if (tod < 6000)
@@ -63,6 +66,9 @@ static uint32_t CalculatePrice(uint32_t basePrice, Connection* conn)
 
 void VendorController_HandlePurchase(Connection* conn, uint32_t vendorId, uint32_t itemId, uint64_t nonce)
 {
+    if (!conn)
+        return;
+    std::lock_guard lock(g_vendorMutex);
     uint32_t phaseId = conn ? conn->peerId : 0u;
     auto vit = g_stock.find(vendorId);
     if (vit == g_stock.end())

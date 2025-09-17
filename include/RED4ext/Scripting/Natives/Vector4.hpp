@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <algorithm>
 
 namespace RED4ext
 {

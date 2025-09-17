@@ -69,11 +69,19 @@ public static func CutsceneSync_DialogChoice(peerId: Uint32, idx: Uint8) -> Void
   CutsceneSync.OnDialogChoice(peerId, idx);
 }
 
-@hook(gamevision.StartCinematic)
-protected func gamevision_StartCinematic(original: func(ref<gamevision>, Uint32, Uint32), self: ref<gamevision>, sceneId: Uint32, startMs: Uint32) -> Void {
-  original(self, sceneId, startMs);
-  CutsceneSync.OnCineStart(sceneId, startMs);
-  if Net_IsAuthoritative() {
-    Net_BroadcastCineStart(sceneId, startMs, QuestSync.localPhase, false);
-  };
+// Hook disabled - gamevision class may not exist in current game version
+// TODO: Find correct cinematic system class to hook
+// @hook(gamevision.StartCinematic)
+// protected func gamevision_StartCinematic(original: func(ref<gamevision>, Uint32, Uint32), self: ref<gamevision>, sceneId: Uint32, startMs: Uint32) -> Void {
+//   original(self, sceneId, startMs);
+//   CutsceneSync.OnCineStart(sceneId, startMs);
+//   if Net_IsAuthoritative() {
+//     Net_BroadcastCineStart(sceneId, startMs, QuestSync.localPhase, false);
+//   };
+// }
+
+// Alternative approach - monitor cutscene events through other means
+public static func RegisterCutsceneCallbacks() -> Void {
+    LogChannel(n"DEBUG", "CutsceneSync: Registering cutscene monitoring (hooks disabled)");
+    // Implementation would use alternative event monitoring
 }

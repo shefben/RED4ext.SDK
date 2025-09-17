@@ -8,6 +8,7 @@
 #include <fstream>
 #include <unordered_map>
 #include <unordered_set>
+#include <mutex>
 
 namespace CoopNet
 {
@@ -31,9 +32,11 @@ static std::unordered_map<uint32_t, bool> g_voteCast;
 static bool g_endVoteActive = false; // EG-1
 static float g_endVoteTimer = 0.f;
 static std::unordered_map<uint32_t, bool> g_endVoteCast;
+static std::mutex g_qwMutex;
 
 void QuestWatchdog_Record(uint32_t phaseId, uint32_t questHash, uint16_t stage)
 {
+    std::lock_guard lock(g_qwMutex);
     auto& map = g_phaseStages[phaseId];
     if (map.empty())
     {
@@ -72,6 +75,7 @@ void QuestWatchdog_Record(uint32_t phaseId, uint32_t questHash, uint16_t stage)
 
 void QuestWatchdog_BuildFullSync(uint32_t phaseId, QuestFullSyncPacket& outPkt)
 {
+    std::lock_guard lock(g_qwMutex);
     outPkt.questCount = 0;
     outPkt.npcCount = 0;
     outPkt.eventCount = 0;
@@ -110,6 +114,7 @@ void QuestWatchdog_BuildFullSync(uint32_t phaseId, QuestFullSyncPacket& outPkt)
 
 uint16_t QuestWatchdog_GetStage(uint32_t phaseId, uint32_t questHash)
 {
+    std::lock_guard lock(g_qwMutex);
     auto it = g_phaseStages.find(phaseId);
     if (it == g_phaseStages.end())
         return 0u;
@@ -122,8 +127,11 @@ uint16_t QuestWatchdog_GetStage(uint32_t phaseId, uint32_t questHash)
 std::vector<uint32_t> QuestWatchdog_ListPhases()
 {
     std::vector<uint32_t> ids;
-    for (auto& kv : g_phaseStages)
-        ids.push_back(kv.first);
+    {
+        std::lock_guard lock(g_qwMutex);
+        for (auto& kv : g_phaseStages)
+            ids.push_back(kv.first);
+    }
     return ids;
 }
 
@@ -138,7 +146,10 @@ void QuestWatchdog_HandleEndingVote(uint32_t peerId, bool yes)
 {
     if (!g_endVoteActive)
         return;
-    g_endVoteCast[peerId] = yes;
+    {
+        std::lock_guard lock(g_qwMutex);
+        g_endVoteCast[peerId] = yes;
+    }
 }
 
 void QuestWatchdog_LoadCritical()
@@ -156,12 +167,14 @@ void QuestWatchdog_LoadCritical()
         pos = json.find(':', pos);
         size_t s = json.find_first_of("0123456789", pos);
         size_t e = json.find_first_not_of("0123456789", s);
-        uint32_t q = std::stoul(json.substr(s, e - s));
+        uint32_t q = 0;
+        try { q = std::stoul(json.substr(s, e - s)); } catch (...) { break; }
         pos = json.find("\"stage\"", pos);
         pos = json.find(':', pos);
         s = json.find_first_of("0123456789", pos);
         e = json.find_first_not_of("0123456789", s);
-        uint16_t st = static_cast<uint16_t>(std::stoi(json.substr(s, e - s)));
+        uint16_t st = 0; try { st = static_cast<uint16_t>(std::stoi(json.substr(s, e - s))); } catch (...) { break; }
+        std::lock_guard lock(g_qwMutex);
         g_critical[q] = st;
     }
 }
@@ -181,17 +194,18 @@ void QuestWatchdog_LoadRomance()
         pos = json.find(':', pos);
         size_t s = json.find_first_of("0123456789", pos);
         size_t e = json.find_first_not_of("0123456789", s);
-        uint32_t q = std::stoul(json.substr(s, e - s));
+        uint32_t q = 0; try { q = std::stoul(json.substr(s, e - s)); } catch (...) { break; }
         pos = json.find("\"stage\"", pos);
         pos = json.find(':', pos);
         s = json.find_first_of("0123456789", pos);
         e = json.find_first_not_of("0123456789", s);
-        uint16_t st = static_cast<uint16_t>(std::stoi(json.substr(s, e - s)));
+        uint16_t st = 0; try { st = static_cast<uint16_t>(std::stoi(json.substr(s, e - s))); } catch (...) { break; }
         pos = json.find("\"sceneId\"", pos);
         pos = json.find(':', pos);
         s = json.find_first_of("0123456789", pos);
         e = json.find_first_not_of("0123456789", s);
-        uint32_t sc = std::stoul(json.substr(s, e - s));
+        uint32_t sc = 0; try { sc = std::stoul(json.substr(s, e - s)); } catch (...) { break; }
+        std::lock_guard lock(g_qwMutex);
         g_romance[q][st] = sc;
     }
 }
@@ -211,7 +225,8 @@ void QuestWatchdog_LoadMain()
         pos = json.find(':', pos);
         size_t s = json.find_first_of("0123456789", pos);
         size_t e = json.find_first_not_of("0123456789", s);
-        uint32_t q = std::stoul(json.substr(s, e - s));
+        uint32_t q = 0; try { q = std::stoul(json.substr(s, e - s)); } catch (...) { break; }
+        std::lock_guard lock(g_qwMutex);
         g_mainQuests.insert(q);
     }
 }
@@ -231,7 +246,8 @@ void QuestWatchdog_LoadSide()
         pos = json.find(':', pos);
         size_t s = json.find_first_of("0123456789", pos);
         size_t e = json.find_first_not_of("0123456789", s);
-        uint32_t q = std::stoul(json.substr(s, e - s));
+        uint32_t q = 0; try { q = std::stoul(json.substr(s, e - s)); } catch (...) { break; }
+        std::lock_guard lock(g_qwMutex);
         g_sideQuests.insert(q);
     }
 }
@@ -243,28 +259,37 @@ void QuestWatchdog_Tick(float dt)
         g_voteTimer -= dt / 1000.f;
         size_t total = Net_GetConnections().size();
         size_t yes = 0;
-        for (auto& kv : g_voteCast)
-            if (kv.second)
-                ++yes;
+        {
+            std::lock_guard lock(g_qwMutex);
+            for (auto& kv : g_voteCast)
+                if (kv.second)
+                    ++yes;
+        }
         size_t uncast = total > g_voteCast.size() ? total - g_voteCast.size() : 0;
         bool majority = yes > total / 2 || (g_voteTimer <= 0.f && yes + uncast > total / 2);
         if (majority)
         {
-            uint16_t stage = g_branchVote ? g_voteStage : g_phaseStages[g_votePhase][g_voteQuest];
-            for (auto& peer : g_phaseStages)
+            uint16_t stage = 0;
+            uint32_t vPhase = 0;
             {
-                peer.second[g_voteQuest] = stage;
-                Connection* c = Net_FindConnection(peer.first);
-                if (c)
+                std::lock_guard lock(g_qwMutex);
+                stage = g_branchVote ? g_voteStage : g_phaseStages[g_votePhase][g_voteQuest];
+                vPhase = g_votePhase;
+                for (auto& peer : g_phaseStages)
                 {
-                    QuestStageP2PPacket pkt{peer.first, g_voteQuest, stage, 0};
-                    Net_Send(c, EMsg::QuestStageP2P, &pkt, sizeof(pkt));
+                    peer.second[g_voteQuest] = stage;
+                    Connection* c = Net_FindConnection(peer.first);
+                    if (c)
+                    {
+                        QuestStageP2PPacket pkt{peer.first, g_voteQuest, stage, 0};
+                        Net_Send(c, EMsg::QuestStageP2P, &pkt, sizeof(pkt));
+                    }
                 }
+                g_voteActive = false;
+                g_branchVote = false;
+                g_voteCast.clear();
             }
-            PhaseTrigger_Clear(g_votePhase);
-            g_voteActive = false;
-            g_branchVote = false;
-            g_voteCast.clear();
+            PhaseTrigger_Clear(vPhase);
         }
 
         if (g_endVoteActive)
@@ -272,26 +297,32 @@ void QuestWatchdog_Tick(float dt)
             g_endVoteTimer -= dt / 1000.f;
             size_t total = Net_GetConnections().size();
             size_t yes = 0;
-            for (auto& kv : g_endVoteCast)
-                if (kv.second)
-                    ++yes;
+            {
+                std::lock_guard lock(g_qwMutex);
+                for (auto& kv : g_endVoteCast)
+                    if (kv.second)
+                        ++yes;
+            }
             size_t uncast = total > g_endVoteCast.size() ? total - g_endVoteCast.size() : 0;
             bool majority = yes > total / 2 || (g_endVoteTimer <= 0.f && yes + uncast > total / 2);
             if (majority)
             {
                 Net_BroadcastCineStart(Fnv1a32("ending_roof"), 0u, 0u, false);
+                std::lock_guard lock(g_qwMutex);
                 g_phaseStages.clear();
                 g_endVoteActive = false;
                 g_endVoteCast.clear();
             }
             else if (g_endVoteTimer <= 0.f)
             {
+                std::lock_guard lock(g_qwMutex);
                 g_endVoteActive = false;
                 g_endVoteCast.clear();
             }
         }
         else if (g_voteTimer <= 0.f)
         {
+            std::lock_guard lock(g_qwMutex);
             g_voteActive = false;
             g_branchVote = false;
             g_voteCast.clear();
@@ -311,17 +342,20 @@ void QuestWatchdog_Tick(float dt)
 
     std::unordered_map<uint32_t, uint16_t> minStage;
     std::unordered_map<uint32_t, uint16_t> maxStage;
-    for (auto& peer : g_phaseStages)
     {
-        for (auto& q : peer.second)
+        std::lock_guard lock(g_qwMutex);
+        for (auto& peer : g_phaseStages)
         {
-            uint16_t st = q.second;
-            auto& mn = minStage[q.first];
-            if (mn == 0 || st < mn)
-                mn = st;
-            auto& mx = maxStage[q.first];
-            if (st > mx)
-                mx = st;
+            for (auto& q : peer.second)
+            {
+                uint16_t st = q.second;
+                auto& mn = minStage[q.first];
+                if (mn == 0 || st < mn)
+                    mn = st;
+                auto& mx = maxStage[q.first];
+                if (st > mx)
+                    mx = st;
+            }
         }
     }
 
@@ -332,32 +366,42 @@ void QuestWatchdog_Tick(float dt)
         uint16_t mn = minStage[hash];
         if (mx > mn + 1)
         {
-            g_diverge[hash] += 3.f;
+            {
+                std::lock_guard lock(g_qwMutex);
+                g_diverge[hash] += 3.f;
+            }
+            bool startVote = false;
+            uint16_t best = 0;
             if (g_diverge[hash] > 15.f && !g_voteActive)
             {
                 std::unordered_map<uint16_t, size_t> count;
-                for (auto& peer : g_phaseStages)
-                    ++count[peer.second[hash]];
-                uint16_t best = 0;
-                size_t bestN = 0;
-                for (auto& c : count)
-                    if (c.second > bestN)
-                    {
-                        bestN = c.second;
-                        best = c.first;
-                    }
-                g_voteActive = true;
-                g_branchVote = true;
-                g_voteQuest = hash;
-                g_voteStage = best;
-                g_voteTimer = 30.f;
-                g_voteCast.clear();
-                Net_BroadcastBranchVoteStart(hash, best);
-                g_diverge.erase(hash);
+                {
+                    std::lock_guard lock(g_qwMutex);
+                    for (auto& peer : g_phaseStages)
+                        ++count[peer.second[hash]];
+                    size_t bestN = 0;
+                    for (auto& c : count)
+                        if (c.second > bestN)
+                        {
+                            bestN = c.second;
+                            best = c.first;
+                        }
+                    g_voteActive = true;
+                    g_branchVote = true;
+                    g_voteQuest = hash;
+                    g_voteStage = best;
+                    g_voteTimer = 30.f;
+                    g_voteCast.clear();
+                    g_diverge.erase(hash);
+                    startVote = true;
+                }
+                if (startVote)
+                    Net_BroadcastBranchVoteStart(hash, best);
             }
         }
         else
         {
+            std::lock_guard lock(g_qwMutex);
             g_diverge.erase(hash);
         }
     }

@@ -4,10 +4,13 @@
 #include <filesystem>
 #include <fstream>
 #include <vector>
+#include <mutex>
 
 namespace CoopNet
 {
 static uint32_t g_index = 0;
+static std::mutex g_logMutex;
+static std::unique_ptr<std::ofstream> g_log;
 static const char* kDir = "logs/journal";
 static std::string GetLogPath()
 {
@@ -32,6 +35,7 @@ static void RotateIfNeeded()
         }
         in.close();
         std::filesystem::remove(path);
+        g_log.reset();
     }
 }
 
@@ -39,12 +43,17 @@ void Journal_Log(uint64_t tick, uint32_t peerId, const char* action, uint32_t en
 {
     try
     {
+        std::lock_guard lock(g_logMutex);
         RotateIfNeeded();
-        std::ofstream out(GetLogPath(), std::ios::app);
-        if (!out.is_open())
+        if (!g_log || !g_log->is_open())
+        {
+            g_log = std::make_unique<std::ofstream>(GetLogPath(), std::ios::app);
+        }
+        if (!g_log->is_open())
             return;
-        out << "{" << "\"tick\":" << tick << ",\"peerId\":" << peerId << ",\"action\":\"" << action
-            << "\",\"entityId\":" << entityId << ",\"delta\":" << delta << "}\n";
+        (*g_log) << "{" << "\"tick\":" << tick << ",\"peerId\":" << peerId << ",\"action\":\"" << action
+                 << "\",\"entityId\":" << entityId << ",\"delta\":" << delta << "}\n";
+        g_log->flush();
     }
     catch (...)
     {

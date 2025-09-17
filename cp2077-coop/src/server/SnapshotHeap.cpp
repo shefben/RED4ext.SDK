@@ -4,6 +4,11 @@
 #include <chrono>
 #include <iostream>
 #include <malloc.h>
+#ifdef _WIN32
+#include <windows.h>
+#include <psapi.h>
+#pragma comment(lib, "Psapi.lib")
+#endif
 #include <vector>
 
 namespace CoopNet
@@ -41,10 +46,15 @@ void SnapshotMemCheck()
 #ifdef __GLIBC__
     struct mallinfo mi = mallinfo();
     size_t used = static_cast<size_t>(mi.uordblks);
+#elif defined(_WIN32)
+    PROCESS_MEMORY_COUNTERS_EX pm{};
+    size_t used = 0;
+    if (GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pm), sizeof(pm)))
+        used = static_cast<size_t>(pm.WorkingSetSize);
 #else
     size_t used = 0;
 #endif
-    used = std::max(used, SnapshotStore_GetMemory());
+    used = (std::max)(used, SnapshotStore_GetMemory());
     if (used > (size_t(2) << 30))
     {
         SnapshotStore_PurgeOld(300.f);

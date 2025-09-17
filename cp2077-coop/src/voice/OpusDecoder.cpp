@@ -1,5 +1,5 @@
 #include "OpusDecoder.hpp"
-#include <opus/opus.h>
+#include <opus.h>
 
 namespace CoopVoice
 {

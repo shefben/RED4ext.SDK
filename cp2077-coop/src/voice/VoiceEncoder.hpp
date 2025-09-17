@@ -15,7 +15,8 @@ constexpr uint16_t kPCMFrameBytes = 2048;
 uint16_t GetFrameSamples();
 uint16_t GetFrameBytes();
 bool StartCapture(const char* deviceName, uint32_t sampleRate, uint32_t bitrate, Codec codec);
-int EncodeFrame(int16_t* pcm, uint8_t* outBuf);
+int EncodeFrame(int16_t* pcm, uint8_t* outBuf, size_t outBufSize);
 void StopCapture();
-void SetCodec(Codec codec);
+void SetEncoderCodec(Codec codec);
+void SetCaptureVolume(float volume);
 } // namespace CoopVoice

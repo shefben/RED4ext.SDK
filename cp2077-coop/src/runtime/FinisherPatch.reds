@@ -21,8 +21,8 @@ public final func StartFinisher(actor: wref<GameObject>, victim: wref<GameObject
                     ft = 0u;
             };
             if ft > 0u {
-                CoopNet.Net_BroadcastFinisherStart(EntityID.GetHash(actor.GetEntityID()), EntityID.GetHash(victim.GetEntityID()), ft);
-                CoopNet.Net_BroadcastSlowMoFinisher(Net_GetPeerId(), EntityID.GetHash(victim.GetEntityID()), 1500u);
+                Net_BroadcastFinisherStart(EntityID.GetHash(actor.GetEntityID()), EntityID.GetHash(victim.GetEntityID()), ft);
+                Net_BroadcastSlowMoFinisher(Net_GetPeerId(), EntityID.GetHash(victim.GetEntityID()), 1500u);
             };
         };
     };

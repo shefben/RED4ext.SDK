@@ -1,14 +1,18 @@
 #include "TrafficController.hpp"
 #include "../core/GameClock.hpp"
+#include "../net/Connection.hpp"
 #include "../net/Net.hpp"
 #include <unordered_map>
+#include <mutex>
 
 namespace CoopNet
 {
 static float g_seedTimer = 0.f;
+static std::mutex g_tcMutex;
 
 void TrafficController_Tick(float dtMs)
 {
+    std::lock_guard lock(g_tcMutex);
     g_seedTimer += dtMs;
     if (g_seedTimer >= 10000.f)
     {

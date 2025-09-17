@@ -1,6 +1,7 @@
 #include "BillboardController.hpp"
 #include "../net/Net.hpp"
 #include <unordered_map>
+#include <mutex>
 
 namespace CoopNet
 {
@@ -11,9 +12,11 @@ struct BillboardState
     float timer;
 };
 static std::unordered_map<uint64_t, BillboardState> g_map;
+static std::mutex g_bbMutex;
 
 void BillboardController_OnSectorLoad(uint32_t peerId, uint64_t hash)
 {
+    std::lock_guard lock(g_bbMutex);
     auto& st = g_map[hash];
     if (st.seed == 0)
         st.seed = hash ^ 0x5A5A5A5Au;
@@ -23,6 +26,7 @@ void BillboardController_OnSectorLoad(uint32_t peerId, uint64_t hash)
 
 void BillboardController_Tick(float dt)
 {
+    std::lock_guard lock(g_bbMutex);
     for (auto& kv : g_map)
     {
         kv.second.timer += dt / 1000.f;

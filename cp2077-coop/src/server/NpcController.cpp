@@ -1,14 +1,17 @@
 #include "NpcController.hpp"
 #include "../core/Hash.hpp"
+#include "../net/Connection.hpp"
 #include "../net/InterestGrid.hpp"
 #include "../net/Net.hpp"
 #include "../net/Packets.hpp"
 #include "../core/Red4extUtils.hpp"
 #include <RED4ext/RED4ext.hpp>
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <iostream>
 #include <unordered_map>
+#include <mutex>
 
 namespace CoopNet
 {
@@ -35,6 +38,7 @@ static float g_damageMult = 1.f;
 static float g_waveTimer = 0.f;
 static uint8_t g_waveCount = 0;
 static uint32_t g_nextId = 2u;
+static std::mutex g_npcMutex;
 
 static uint32_t GetSectorSeed(uint64_t hash)
 {
@@ -48,6 +52,7 @@ static uint32_t GetSectorSeed(uint64_t hash)
 
 void NpcController_OnPlayerEnterSector(uint32_t peerId, uint64_t hash)
 {
+    std::lock_guard lock(g_npcMutex);
     uint32_t seed = GetSectorSeed(hash);
     CrowdSeedPacket pkt{hash, seed};
     Net_Broadcast(EMsg::CrowdSeed, &pkt, sizeof(pkt));
@@ -62,32 +67,43 @@ void NpcController_ServerTick(float dt)
 {
     auto conns = Net_GetConnections();
     size_t playerCount = conns.size();
-    g_healthMult = std::min(2.0f, 1.0f + 0.25f * (static_cast<float>(playerCount) - 1.f));
-    g_damageMult = std::min(1.6f, 1.0f + 0.15f * (static_cast<float>(playerCount) - 1.f));
+    {
+        std::lock_guard lock(g_npcMutex);
+        g_healthMult = (std::min)(2.0f, 1.0f + 0.25f * (static_cast<float>(playerCount) - 1.f));
+        g_damageMult = (std::min)(1.6f, 1.0f + 0.15f * (static_cast<float>(playerCount) - 1.f));
+    }
 
     if (!g_gridInit)
     {
+        std::lock_guard lock(g_npcMutex);
         g_npc.sectorHash = Fnv1a64Pos(g_npc.pos.X, g_npc.pos.Y);
         g_interestGrid.Insert(g_npc.npcId, g_npc.pos);
         g_gridInit = true;
         g_npc.health = static_cast<uint16_t>(100u * g_healthMult);
     }
     // NR-2: deterministic AI walk routine
-    g_dirTimer += dt;
-    if (g_dirTimer >= 3.f)
     {
-        g_seed = g_seed * 1664525u + 1013904223u;
-        g_walkDir = static_cast<float>(g_seed & 0xFFFF) / 65535.f * 6.283185f;
-        g_dirTimer = 0.f;
+        std::lock_guard lock(g_npcMutex);
+        g_dirTimer += dt;
+        if (g_dirTimer >= 3.f)
+        {
+            g_seed = g_seed * 1664525u + 1013904223u;
+            g_walkDir = static_cast<float>(g_seed & 0xFFFF) / 65535.f * 6.283185f;
+            g_dirTimer = 0.f;
+        }
+        float speed = 0.5f; // m/s
+        g_npc.pos.X += std::cos(g_walkDir) * speed * dt;
+        g_npc.pos.Y += std::sin(g_walkDir) * speed * dt;
     }
-    float speed = 0.5f; // m/s
-    g_npc.pos.X += std::cos(g_walkDir) * speed * dt;
-    g_npc.pos.Y += std::sin(g_walkDir) * speed * dt;
     g_interestGrid.Move(g_npc.npcId, g_npc.pos);
 
     std::cout << "[NPC] tick seed=" << g_seed << " pos=" << g_npc.pos.X << std::endl;
 
-    bool changed = std::memcmp(&g_prevSnap, &g_npc, sizeof(NpcSnap)) != 0;
+    bool changed = false;
+    {
+        std::lock_guard lock(g_npcMutex);
+        changed = std::memcmp(&g_prevSnap, &g_npc, sizeof(NpcSnap)) != 0;
+    }
 
     for (auto* c : conns)
     {
@@ -103,7 +119,10 @@ void NpcController_ServerTick(float dt)
     }
 
     if (changed)
+    {
+        std::lock_guard lock(g_npcMutex);
         g_prevSnap = g_npc;
+    }
 
     if (playerCount > 2 && g_npc.state == NpcState::Combat)
     {
@@ -115,8 +134,11 @@ void NpcController_ServerTick(float dt)
             for (int i = 0; i < 2; ++i)
             {
                 NpcSnap s = g_npc;
-                s.npcId = g_nextId++;
-                s.health = static_cast<uint16_t>(100u * g_healthMult);
+                {
+                    std::lock_guard lock(g_npcMutex);
+                    s.npcId = g_nextId++;
+                    s.health = static_cast<uint16_t>(100u * g_healthMult);
+                }
                 NpcSpawnPacket pkt{s};
                 Net_Broadcast(EMsg::NpcSpawn, &pkt, sizeof(pkt));
                 g_interestGrid.Insert(s.npcId, s.pos);
@@ -148,7 +170,10 @@ void NpcController_Despawn(uint32_t id)
 
 const NpcSnap& NpcController_GetSnap()
 {
-    return g_npc;
+    static thread_local NpcSnap s_copy;
+    std::lock_guard lock(g_npcMutex);
+    s_copy = g_npc;
+    return s_copy;
 }
 
 } // namespace CoopNet

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "Snapshot.hpp"
-#include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
+#include <RED4ext/Scripting/Natives/Vector3.hpp>
 #include <cstdint>
 #include "../voice/VoiceEncoder.hpp"
 #include <sodium.h>
@@ -153,6 +153,8 @@ enum class EMsg : uint16_t
     AirVehSpawn,     // VT-3
     AirVehUpdate,
     VehiclePaintChange, // VT-4
+    VehicleCustomization, // VT-5
+    PassengerSync, // VT-6
     PanicEvent,         // AI-1
     AIHack,             // AI-2
     BossPhase,          // AI-3
@@ -195,7 +197,15 @@ enum class EMsg : uint16_t
     AssetBundle,
     VoiceCaps,
     NpcReputation,
-    DynamicEvent // DE-1
+    DynamicEvent, // DE-1
+    VendorPurchase,
+    PyVMCustom,
+    MarkerBlob,
+    ApartmentPurchase,
+    ApartmentEnter,
+    ApartmentPermChange,
+    ApartmentShareChange,
+    ApartmentCustomization
 };
 
 struct PacketHeader
@@ -366,6 +376,7 @@ struct ItemSnapPacket
 
 struct CraftRequestPacket
 {
+    uint32_t peerId;
     uint32_t recipeId;
 };
 
@@ -376,6 +387,7 @@ struct CraftResultPacket
 
 struct AttachModRequestPacket
 {
+    uint32_t peerId;
     uint64_t itemId;
     uint8_t slotIdx;
     uint8_t _pad[3];
@@ -557,11 +569,12 @@ struct HTableScrubPacket
 
 struct QuestGadgetFirePacket
 {
+    uint32_t peerId;
     uint32_t questId;
     uint8_t gadgetType;
     uint8_t charge;    // RailGun
     uint32_t targetId; // Nanowire
-    uint8_t _pad;
+    uint8_t _pad[3];
 };
 
 struct AdminCmdPacket
@@ -849,6 +862,7 @@ struct LootRollPacket
 
 struct DealerBuyPacket
 {
+    uint32_t peerId;
     uint32_t vehicleTpl;
     uint32_t price;
 };
@@ -922,6 +936,7 @@ struct BranchVoteCastPacket
 struct PhaseBundlePacket
 {
     uint32_t phaseId;
+    uint16_t size;
     uint16_t blobBytes;
     uint8_t zstdBlob[1];
 };
@@ -990,6 +1005,7 @@ struct VehicleTowAckPacket
 
 struct ReRollRequestPacket
 {
+    uint32_t peerId;
     uint64_t itemId;
     uint32_t seed;
 };
@@ -1022,9 +1038,12 @@ struct TileSelectPacket
 
 struct ShardProgressPacket
 {
+    uint32_t peerId;
     uint32_t phaseId;
+    uint8_t row;
+    uint8_t col;
     uint8_t percent;
-    uint8_t _pad[3];
+    uint8_t _pad[1];
 };
 
 struct TradeInitPacket
@@ -1362,6 +1381,7 @@ struct ArcadeStartPacket
 
 struct ArcadeInputPacket
 {
+    uint32_t peerId;
     uint32_t frame;
     uint8_t buttonMask;
     uint8_t _pad[3];
@@ -1396,4 +1416,87 @@ struct AssetBundlePacket
     uint16_t dataBytes;
     uint8_t data[1];
 };
+
+// Vehicle customization packet for appearance sync
+struct VehicleCustomizationPacket
+{
+    uint32_t vehicleId;
+    uint32_t colorId;
+    char plateText[16];
+    uint32_t modifications[8]; // Array of modification IDs
+    uint8_t _pad[4];
+};
+
+// Passenger synchronization packet for multi-passenger vehicles  
+struct PassengerSyncPacket
+{
+    uint32_t vehicleId;
+    uint32_t passengers[8]; // Array of passenger peer IDs
+    uint8_t seatMask; // Bitmask of occupied seats
+    uint8_t _pad[3];
+};
+
+// Missing packet types for compilation compatibility
+struct VendorPurchasePacket
+{
+    uint32_t peerId;
+    uint32_t vendorId;
+    uint32_t itemId;
+    uint32_t quantity;
+    uint32_t price;
+    uint32_t nonce;
+};
+
+struct PyVMCustomPacket
+{
+    uint32_t peerId;
+    uint32_t size;
+    uint8_t data[1024];
+};
+
+struct MarkerBlobPacket
+{
+    uint32_t size;
+    uint8_t data[1024];
+};
+
+struct ApartmentPurchasePacket
+{
+    uint32_t peerId;
+    uint32_t aptId;
+    uint32_t price;
+};
+
+struct ApartmentEnterPacket
+{
+    uint32_t peerId;
+    uint32_t aptId;
+    uint32_t ownerPhaseId;
+};
+
+struct ApartmentPermChangePacket
+{
+    uint32_t peerId;
+    uint32_t aptId;
+    uint32_t targetPeerId;
+    uint8_t allow;
+    uint8_t _pad[3];
+};
+
+struct ApartmentShareChangePacket
+{
+    uint32_t peerId;
+    uint32_t aptId;
+    uint32_t targetPeerId;
+    uint8_t allow;
+    uint8_t _pad[3];
+};
+
+struct ApartmentCustomizationPacket
+{
+    uint32_t peerId;
+    uint32_t phaseId;
+    char json[1024];
+};
+
 } // namespace CoopNet

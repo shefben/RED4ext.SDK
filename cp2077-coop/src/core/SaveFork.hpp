@@ -2,8 +2,8 @@
 
 // Utility functions that rewrite save file paths for co-op sessions.
 
-#include <RED4ext/Scripting/Natives/Generated/Quaternion.hpp>
-#include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
+#include <RED4ext/Scripting/Natives/Quaternion.hpp>
+#include <RED4ext/Scripting/Natives/Vector3.hpp>
 
 #include <cstdint>
 #include <string>

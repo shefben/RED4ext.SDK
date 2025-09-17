@@ -26,16 +26,28 @@ std::vector<uint8_t> BuildPhaseBundle(uint32_t phaseId)
 
 void ApplyPhaseBundle(uint32_t phaseId, const uint8_t* buf, size_t len)
 {
-    std::vector<uint8_t> raw(16384);
+    size_t expected = ZSTD_getFrameContentSize(buf, len);
+    if (expected == ZSTD_CONTENTSIZE_ERROR)
+        return;
+    if (expected == ZSTD_CONTENTSIZE_UNKNOWN)
+        expected = 1024 * 1024; // 1MB fallback
+    if (expected > 10 * 1024 * 1024)
+        return; // sanity cap 10MB
+    std::vector<uint8_t> raw(expected);
     size_t size = ZSTD_decompress(raw.data(), raw.size(), buf, len);
     if (ZSTD_isError(size) || size < sizeof(QuestFullSyncPacket))
         return;
     QuestFullSyncPacket pkt{};
     std::memcpy(&pkt, raw.data(), sizeof(QuestFullSyncPacket));
-    if (RED4ext::Function* fn = RED4ext::CRTTISystem::Get()->GetFunction("QuestSync", "ApplyFullSync"))
+    // TODO: Fix RED4ext API compatibility
+    // The Function type and GetFunction signature have changed in newer RED4ext versions
+    // This needs to be updated to use the correct CGlobalFunction* and CName-based API
+    /*
+    if (RED4ext::CGlobalFunction* fn = RED4ext::CRTTISystem::Get()->GetFunction(RED4ext::CName("ApplyFullSync")))
     {
         RED4EXT_EXECUTE("QuestSync", "ApplyFullSync", nullptr, &pkt);
     }
+    */
 }
 
 } // namespace CoopNet

@@ -4,17 +4,67 @@ public class HealthBar {
     private let armorBar: wref<inkRectangle>;
     private let curHpFrac: Float;
     private let targetHpFrac: Float;
+    private let isAttached: Bool = false;
 
     public func AttachTo(proxy: ref<AvatarProxy>) -> Void {
-        widget = GameInstance.GetUI(GetGame()).SpawnExternal(n"ui/healthbar.inkwidget") as inkWidget;
-        hpBar = widget.GetWidget(n"hp") as inkRectangle;
-        armorBar = widget.GetWidget(n"armor") as inkRectangle;
-        curHpFrac = 1.0;
-        targetHpFrac = 1.0;
-        Update( proxy.health, proxy.armor, 100u, 100u );
+        // Clean up any existing widget first
+        if isAttached {
+            Detach();
+        }
+        
+        // Create health bar widget manually since UI file may not exist
+        let hud = GameInstance.GetHUDManager(GetGame());
+        if IsDefined(hud) {
+            widget = new inkCanvas();
+            widget.SetName(n"coop_healthbar");
+            widget.SetSize(200.0, 40.0);
+            
+            hpBar = new inkRectangle();
+            hpBar.SetName(n"hp_bar");
+            hpBar.SetSize(180.0, 15.0);
+            hpBar.SetMargin(10.0, 5.0, 10.0, 5.0);
+            widget.AddChild(hpBar);
+            
+            armorBar = new inkRectangle();
+            armorBar.SetName(n"armor_bar");
+            armorBar.SetSize(180.0, 15.0);
+            armorBar.SetMargin(10.0, 20.0, 10.0, 5.0);
+            widget.AddChild(armorBar);
+            
+            curHpFrac = 1.0;
+            targetHpFrac = 1.0;
+            isAttached = true;
+            Update(proxy.health, proxy.armor, 100u, 100u);
+        }
+    }
+    
+    public func Detach() -> Void {
+        if isAttached && IsDefined(widget) {
+            widget.UnregisterFromCallback(n"OnDestroy", this, n"OnWidgetDestroyed");
+            // Remove widget from parent container
+            let parent = widget.GetParentWidget();
+            if IsDefined(parent) {
+                parent.RemoveChild(widget);
+            };
+            widget = null;
+            hpBar = null;
+            armorBar = null;
+            isAttached = false;
+        }
+    }
+    
+    private cb func OnWidgetDestroyed() -> Void {
+        isAttached = false;
+        widget = null;
+        hpBar = null;
+        armorBar = null;
     }
 
     public func Update(hp: Uint16, armor: Uint16, maxHp: Uint16, maxArmor: Uint16) -> Void {
+        if !isAttached || !IsDefined(hpBar) || !IsDefined(armorBar) {
+            return;
+        }
+        
         targetHpFrac = Cast<Float>(hp) / Cast<Float>(Max(1u, maxHp));
         curHpFrac = Lerp(curHpFrac, targetHpFrac, 0.3);
         hpBar.SetScale(new Vector2(curHpFrac, 1.0));

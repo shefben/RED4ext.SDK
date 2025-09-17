@@ -21,7 +21,7 @@ public class PoliceDispatch {
             let count: Uint32 = Cast<Uint32>(Net_GetPeerCount());
             var i: Int32 = 0;
             while i < 4 {
-                seeds[i] = CoopNet.Fnv1a32(IntToString(Cast<Int32>(count)) + IntToString(Cast<Int32>(nextWaveIdx)) + IntToString(i));
+                seeds[i] = Fnv1a32(IntToString(Cast<Int32>(count)) + IntToString(Cast<Int32>(nextWaveIdx)) + IntToString(i));
                 i += 1;
             };
             Net_BroadcastNpcSpawnCruiser(nextWaveIdx, seeds);

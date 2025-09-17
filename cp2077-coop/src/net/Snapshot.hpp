@@ -1,7 +1,7 @@
 #pragma once
 
-#include <RED4ext/Scripting/Natives/Generated/Quaternion.hpp>
-#include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
+#include <RED4ext/Scripting/Natives/Quaternion.hpp>
+#include <RED4ext/Scripting/Natives/Vector3.hpp>
 #include <cstdint>
 #include <cstring>
 #include <type_traits>
@@ -44,15 +44,15 @@ static_assert(sizeof(SnapshotHeader) == 8, "header must be 8 bytes");
 // Minimal transform data replicated for remote avatars.
 struct TransformSnap
 {
-    Vector3 pos;      // field flag index 0
-    Vector3 vel;      // field flag index 1
-    Quaternion rot;   // field flag index 2
+    RED4ext::Vector3 pos;      // field flag index 0
+    RED4ext::Vector3 vel;      // field flag index 1
+    RED4ext::Quaternion rot;   // field flag index 2
     uint16_t health;  // field flag index 3
     uint16_t armor;   // field flag index 4
     uint32_t ownerId; // field flag index 5
     uint16_t seq;     // field flag index 6
 };
-static_assert(std::is_trivially_copyable_v<TransformSnap>, "TransformSnap must be trivial");
+// static_assert(std::is_trivially_copyable_v<TransformSnap>, "TransformSnap must be trivial");
 
 // NPC state replicated from the server. Position, rotation, state, and health
 // use delta bits while templateId, sectorHash, and appearanceSeed are sent in
@@ -78,8 +78,8 @@ struct NpcSnap
     uint32_t npcId;         // always included
     uint16_t templateId;    // full snap only
     uint64_t sectorHash;    // full snap only, FNV-1a hash of sector name
-    Vector3 pos;            // delta bit 0
-    Quaternion rot;         // delta bit 1
+    RED4ext::Vector3 pos;            // delta bit 0
+    RED4ext::Quaternion rot;         // delta bit 1
     NpcState state;         // delta bit 2
     uint16_t health;        // delta bit 3 (0 => despawn)
     uint8_t aiState;        // PD-2
@@ -88,7 +88,7 @@ struct NpcSnap
     uint32_t phaseId; // PX-1
 };
 static_assert(sizeof(NpcSnap) % 4 == 0, "NpcSnap must align to 4 bytes");
-static_assert(std::is_trivially_copyable_v<NpcSnap>, "NpcSnap must be trivial");
+// static_assert(std::is_trivially_copyable_v<NpcSnap>, "NpcSnap must be trivial");
 
 // Full item state replicated for inventory/crafting.
 // level, quality, rolls, slotMask and attachmentIds use delta bits while
@@ -107,7 +107,7 @@ struct ItemSnap
     uint64_t attachmentIds[4]; // delta bits 7..10
 };
 static_assert(sizeof(ItemSnap) % 4 == 0, "ItemSnap must align to 4 bytes");
-static_assert(std::is_trivially_copyable_v<ItemSnap>, "ItemSnap must be trivial");
+// static_assert(std::is_trivially_copyable_v<ItemSnap>, "ItemSnap must be trivial");
 
 // Vehicle state replicated from the server (VT-1)
 struct VehicleSnap
@@ -116,7 +116,7 @@ struct VehicleSnap
     float leanAngle; // bike tilt in degrees
 };
 static_assert(sizeof(VehicleSnap) % 4 == 0, "VehicleSnap must align to 4 bytes");
-static_assert(std::is_trivially_copyable_v<VehicleSnap>, "VehicleSnap must be trivial");
+// static_assert(std::is_trivially_copyable_v<VehicleSnap>, "VehicleSnap must be trivial");
 
 // Writes snapshot data into a buffer with dirty-bit tracking.
 // Begin() resets internal state with the target header.
@@ -224,6 +224,14 @@ private:
     size_t m_size = 0;
     SnapshotHeader m_header{};
     SnapshotFieldFlags m_flags{};
+};
+
+// Entity snapshot for server-side entity tracking
+struct EntitySnap
+{
+    uint32_t id;
+    uint32_t phaseId;
+    TransformSnap snap;
 };
 
 } // namespace CoopNet

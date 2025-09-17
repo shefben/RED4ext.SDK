@@ -1,6 +1,7 @@
 #include "VoiceEncoder.hpp"
 #include "OpusEncoder.hpp"
 #include "../net/Net.hpp"
+#include <AL/al.h>
 #include <AL/alc.h>
 #include <cstring>
 #include <iostream>
@@ -59,9 +60,9 @@ bool StartCapture(const char* deviceName, uint32_t sampleRate, uint32_t bitrate,
     return true;
 }
 
-int EncodeFrame(int16_t* pcm, uint8_t* outBuf)
+int EncodeFrame(int16_t* pcm, uint8_t* outBuf, size_t outBufSize)
 {
-    if (!g_capturing || !g_capDev)
+    if (!g_capturing || !g_capDev || !outBuf || !pcm)
         return 0;
 
     ALCint avail = 0;
@@ -70,12 +71,27 @@ int EncodeFrame(int16_t* pcm, uint8_t* outBuf)
         return 0;
 
     alcCaptureSamples(g_capDev, pcm, g_frameSamples);
+    
     if (g_codec == Codec::Opus)
     {
+        if (outBufSize < kOpusFrameBytes) {
+            std::cerr << "[Voice] Output buffer too small for Opus: " << outBufSize 
+                      << " < " << kOpusFrameBytes << std::endl;
+            return -1;
+        }
         return Opus_EncodeFrame(pcm, g_frameSamples, outBuf, kOpusFrameBytes);
     }
-    std::memcpy(outBuf, pcm, g_frameSamples * sizeof(int16_t));
-    return g_frameSamples * sizeof(int16_t);
+    
+    // PCM encoding
+    size_t requiredSize = g_frameSamples * sizeof(int16_t);
+    if (outBufSize < requiredSize) {
+        std::cerr << "[Voice] Output buffer too small for PCM: " << outBufSize 
+                  << " < " << requiredSize << std::endl;
+        return -1;
+    }
+    
+    std::memcpy(outBuf, pcm, requiredSize);
+    return static_cast<int>(requiredSize);
 }
 
 uint16_t GetFrameSamples()
@@ -105,9 +121,16 @@ void StopCapture()
     g_capturing = false;
 }
 
-void SetCodec(Codec codec)
+void SetEncoderCodec(Codec codec)
 {
     g_codec = codec;
+}
+
+void SetCaptureVolume(float volume)
+{
+    // For now just log the volume change
+    // In a full implementation this would adjust capture volume
+    std::cout << "[Voice] SetCaptureVolume=" << volume << std::endl;
 }
 
 } // namespace CoopVoice

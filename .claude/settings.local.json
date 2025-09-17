@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(for i in {1..5})",
+      "Bash(do echo \"=== Phase $i ===\")",
+      "Bash(done)",
+      "Bash(for i in {15..22})",
+      "Bash(head:*)",
+      "Bash(powershell:*)",
+      "Bash(tools/fetch_deps.bat)",
+      "Bash(g++:*)",
+      "Bash(cl:*)",
+      "Bash(cmake:*)",
+      "Bash(python:*)",
+      "Bash(tools\\fetch_deps.bat)",
+      "Bash(sed:*)",
+      "Bash(del cp2077-coop.vcxproj.FileListAbsolute.txt:*)",
+      "Bash(timeout 120 cmake --build . --config Release --target cp2077-coop)",
+      "Bash(timeout 60 cmake --build . --config Release --target cp2077-coop)",
+      "Bash(timeout 240 cmake --build . --config Release --target cp2077-coop)",
+      "Bash(timeout 300 cmake --build . --config Release --target cp2077-coop)",
+      "Bash(tee:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

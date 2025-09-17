@@ -7,7 +7,7 @@
 namespace CoopNet
 {
 
-struct ItemSnap
+struct SessionItemSnap
 {
     uint32_t itemId;
     uint16_t quantity;

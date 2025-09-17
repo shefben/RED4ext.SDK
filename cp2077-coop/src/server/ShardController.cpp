@@ -2,6 +2,7 @@
 #include "../net/Net.hpp"
 #include "../net/Packets.hpp"
 #include <cstdlib>
+#include <mutex>
 
 namespace CoopNet
 {
@@ -10,9 +11,11 @@ static uint32_t g_phase = 0;
 static uint32_t g_seed = 0;
 static float g_progress = 0.f;
 static float g_send = 0.f;
+static std::mutex g_shardMutex;
 
 void ShardController_Start(uint32_t phaseId)
 {
+    std::lock_guard lock(g_shardMutex);
     g_active = true;
     g_phase = phaseId;
     g_seed = static_cast<uint32_t>(std::rand());
@@ -23,6 +26,7 @@ void ShardController_Start(uint32_t phaseId)
 
 void ShardController_HandleSelect(uint32_t peerId, uint8_t row, uint8_t col)
 {
+    std::lock_guard lock(g_shardMutex);
     if (!g_active)
         return;
     Net_BroadcastTileSelect(peerId, g_phase, row, col);
@@ -30,6 +34,7 @@ void ShardController_HandleSelect(uint32_t peerId, uint8_t row, uint8_t col)
 
 void ShardController_ServerTick(float dt)
 {
+    std::lock_guard lock(g_shardMutex);
     if (!g_active)
         return;
     g_progress += dt / 10000.f * 100.f; // 10s full

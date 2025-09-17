@@ -1,0 +1,441 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{2C572461-60B4-39EB-B65C-94287A9C7CF5}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>cp2077-coop</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\Debug\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">cp2077-coop.dir\Debug\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">cp2077-coop</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.dll</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\Release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">cp2077-coop.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">cp2077-coop</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.dll</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\MinSizeRel\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">cp2077-coop.dir\MinSizeRel\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">cp2077-coop</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">.dll</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\RelWithDebInfo\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">cp2077-coop.dir\RelWithDebInfo\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">cp2077-coop</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">.dll</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\generated;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\..\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\enet\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\opus\include;C:\Python313\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/zstd" /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/libsodium" /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/openssl/include" /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/openal/include/AL" /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/curl/include"</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <SuppressStartupBanner></SuppressStartupBanner>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;CMAKE_INTDIR="Debug";cp2077_coop_EXPORTS</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;CMAKE_INTDIR=\"Debug\";cp2077_coop_EXPORTS</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\generated;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\..\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\enet\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\opus\include;C:\Python313\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\zstd;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\libsodium;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openssl\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include\AL;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\curl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\generated;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\..\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\enet\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\opus\include;C:\Python313\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\zstd;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\libsodium;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openssl\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include\AL;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\curl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>Debug\enet.lib;third_party\zstd\static\libzstd_static.lib;third_party\libsodium\x64\Release\v143\static\libsodium.lib;third_party\juice\Debug\juice.lib;opus\Debug\opus.lib;third_party\openal\libs\Win64\OpenAL32.lib;third_party\openssl\lib\VC\x64\MD\libssl_static.lib;third_party\curl\lib\libcurl.a;Ws2_32.lib;Psapi.lib;winmm.lib;C:\Python313\libs\python313.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/Debug/cp2077-coop.lib</ImportLibrary>
+      <ProgramDataBaseFile>F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/Debug/cp2077-coop.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\generated;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\..\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\enet\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\opus\include;C:\Python313\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/zstd" /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/libsodium" /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/openssl/include" /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/openal/include/AL" /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/curl/include"</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <SuppressStartupBanner></SuppressStartupBanner>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR="Release";cp2077_coop_EXPORTS</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR=\"Release\";cp2077_coop_EXPORTS</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\generated;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\..\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\enet\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\opus\include;C:\Python313\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\zstd;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\libsodium;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openssl\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include\AL;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\curl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\generated;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\..\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\enet\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\opus\include;C:\Python313\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\zstd;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\libsodium;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openssl\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include\AL;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\curl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>Release\enet.lib;third_party\zstd\static\libzstd_static.lib;third_party\libsodium\x64\Release\v143\static\libsodium.lib;third_party\juice\Release\juice.lib;opus\Release\opus.lib;third_party\openal\libs\Win64\OpenAL32.lib;third_party\openssl\lib\VC\x64\MD\libssl_static.lib;third_party\curl\lib\libcurl.a;Ws2_32.lib;Psapi.lib;winmm.lib;C:\Python313\libs\python313.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/Release/cp2077-coop.lib</ImportLibrary>
+      <ProgramDataBaseFile>F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/Release/cp2077-coop.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\generated;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\..\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\enet\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\opus\include;C:\Python313\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/zstd" /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/libsodium" /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/openssl/include" /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/openal/include/AL" /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/curl/include"</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MinSpace</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <SuppressStartupBanner></SuppressStartupBanner>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR="MinSizeRel";cp2077_coop_EXPORTS</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR=\"MinSizeRel\";cp2077_coop_EXPORTS</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\generated;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\..\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\enet\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\opus\include;C:\Python313\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\zstd;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\libsodium;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openssl\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include\AL;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\curl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\generated;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\..\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\enet\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\opus\include;C:\Python313\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\zstd;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\libsodium;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openssl\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include\AL;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\curl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>MinSizeRel\enet.lib;third_party\zstd\static\libzstd_static.lib;third_party\libsodium\x64\Release\v143\static\libsodium.lib;third_party\juice\MinSizeRel\juice.lib;opus\MinSizeRel\opus.lib;third_party\openal\libs\Win64\OpenAL32.lib;third_party\openssl\lib\VC\x64\MD\libssl_static.lib;third_party\curl\lib\libcurl.a;Ws2_32.lib;Psapi.lib;winmm.lib;C:\Python313\libs\python313.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/MinSizeRel/cp2077-coop.lib</ImportLibrary>
+      <ProgramDataBaseFile>F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/MinSizeRel/cp2077-coop.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\generated;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\..\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\enet\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\opus\include;C:\Python313\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/zstd" /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/libsodium" /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/openssl/include" /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/openal/include/AL" /external:I "F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/curl/include"</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <SuppressStartupBanner></SuppressStartupBanner>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR="RelWithDebInfo";cp2077_coop_EXPORTS</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR=\"RelWithDebInfo\";cp2077_coop_EXPORTS</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\generated;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\..\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\enet\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\opus\include;C:\Python313\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\zstd;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\libsodium;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openssl\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include\AL;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\curl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\generated;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\..\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\enet\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\opus\include;C:\Python313\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\zstd;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\libsodium;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openssl\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\openal\include\AL;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\curl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>RelWithDebInfo\enet.lib;third_party\zstd\static\libzstd_static.lib;third_party\libsodium\x64\Release\v143\static\libsodium.lib;third_party\juice\RelWithDebInfo\juice.lib;opus\RelWithDebInfo\opus.lib;third_party\openal\libs\Win64\OpenAL32.lib;third_party\openssl\lib\VC\x64\MD\libssl_static.lib;third_party\curl\lib\libcurl.a;Ws2_32.lib;Psapi.lib;winmm.lib;C:\Python313\libs\python313.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/RelWithDebInfo/cp2077-coop.lib</ImportLibrary>
+      <ProgramDataBaseFile>F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/RelWithDebInfo/cp2077-coop.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeLists.txt">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+C:\Python39\Lib\site-packages\cmake\data\bin\cmake.exe -SF:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop -BF:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop --check-stamp-file F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeCInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeCXXInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeCommonLanguageInclude.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeGenericSystem.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeInitializeConfigs.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeLanguageInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeRCInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeSystemSpecificInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeSystemSpecificInitialize.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Compiler\MSVC-C.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Compiler\MSVC-CXX.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Compiler\MSVC.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindGit.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPackageHandleStandardArgs.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPackageMessage.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPython\Support.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPython3.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Linker\MSVC-C.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Linker\MSVC-CXX.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Linker\MSVC.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows-Initialize.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows-MSVC-C.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows-MSVC.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\WindowsPaths.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\4.0.2\CMakeCCompiler.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\4.0.2\CMakeCXXCompiler.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\4.0.2\CMakeRCCompiler.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\4.0.2\CMakeSystem.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\FindAL.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\FindCURL.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\FindOpenSSL.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\FindOpus.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\GenerateVersion.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+C:\Python39\Lib\site-packages\cmake\data\bin\cmake.exe -SF:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop -BF:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop --check-stamp-file F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeCInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeCXXInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeCommonLanguageInclude.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeGenericSystem.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeInitializeConfigs.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeLanguageInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeRCInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeSystemSpecificInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeSystemSpecificInitialize.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Compiler\MSVC-C.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Compiler\MSVC-CXX.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Compiler\MSVC.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindGit.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPackageHandleStandardArgs.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPackageMessage.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPython\Support.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPython3.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Linker\MSVC-C.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Linker\MSVC-CXX.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Linker\MSVC.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows-Initialize.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows-MSVC-C.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows-MSVC.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\WindowsPaths.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\4.0.2\CMakeCCompiler.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\4.0.2\CMakeCXXCompiler.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\4.0.2\CMakeRCCompiler.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\4.0.2\CMakeSystem.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\FindAL.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\FindCURL.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\FindOpenSSL.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\FindOpus.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\GenerateVersion.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+C:\Python39\Lib\site-packages\cmake\data\bin\cmake.exe -SF:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop -BF:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop --check-stamp-file F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeCInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeCXXInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeCommonLanguageInclude.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeGenericSystem.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeInitializeConfigs.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeLanguageInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeRCInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeSystemSpecificInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeSystemSpecificInitialize.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Compiler\MSVC-C.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Compiler\MSVC-CXX.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Compiler\MSVC.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindGit.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPackageHandleStandardArgs.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPackageMessage.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPython\Support.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPython3.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Linker\MSVC-C.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Linker\MSVC-CXX.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Linker\MSVC.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows-Initialize.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows-MSVC-C.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows-MSVC.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\WindowsPaths.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\4.0.2\CMakeCCompiler.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\4.0.2\CMakeCXXCompiler.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\4.0.2\CMakeRCCompiler.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\4.0.2\CMakeSystem.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\FindAL.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\FindCURL.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\FindOpenSSL.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\FindOpus.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\GenerateVersion.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+C:\Python39\Lib\site-packages\cmake\data\bin\cmake.exe -SF:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop -BF:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop --check-stamp-file F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeCInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeCXXInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeCommonLanguageInclude.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeGenericSystem.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeInitializeConfigs.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeLanguageInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeRCInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeSystemSpecificInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakeSystemSpecificInitialize.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Compiler\MSVC-C.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Compiler\MSVC-CXX.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Compiler\MSVC.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindGit.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPackageHandleStandardArgs.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPackageMessage.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPython\Support.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPython3.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Linker\MSVC-C.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Linker\MSVC-CXX.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Linker\MSVC.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows-Initialize.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows-MSVC-C.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows-MSVC.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\Windows.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Platform\WindowsPaths.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\4.0.2\CMakeCCompiler.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\4.0.2\CMakeCXXCompiler.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\4.0.2\CMakeRCCompiler.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\4.0.2\CMakeSystem.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\FindAL.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\FindCURL.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\FindOpenSSL.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\FindOpus.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\cmake\GenerateVersion.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\core\AssetStreamer.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\core\CoopExports.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\core\CrashHandler.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\core\GameClock.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\core\GameProcess.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\core\HttpClient.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\core\Logger.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\core\SaveFork.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\core\SaveMigration.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\core\SessionState.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\core\Settings.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\core\SpatialGrid.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\core\TaskGraph.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\core\Version.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\net\Connection.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\net\InterestGrid.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\net\NatClient.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\net\NatTraversal.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\net\Net.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\net\PhaseBundle.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\net\SnapshotWriter.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\net\StatBatch.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\net\WorldMarkers.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\physics\CarPhysics.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\physics\LagComp.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\physics\VehiclePhysics.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\AdminCommandHandler.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\AdminController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\ApartmentController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\ArcadeController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\BillboardController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\BreachController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\CameraController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\CarryController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\ChatFilter.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\CyberController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\DamageValidator.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\DealerController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\DedicatedMain.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\DedicatedServer.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\DoorBreachController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\ElevatorController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\GlobalEventController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\GrenadeController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\Heartbeat.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\InfoServer.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\InventoryController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\Journal.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\LedgerService.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\NpcController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\PerkController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\PhaseGC.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\PhaseTriggerController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\PoliceDispatch.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\QuestGadgetController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\QuestWatchdog.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\RenderDevice.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\SectorLODController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\ServerConfig.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\ShardController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\SkillController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\SmartCamController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\SnapshotHeap.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\StatusController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\TextureGuard.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\TradeController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\TrafficController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\TransitController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\VehicleController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\VendorController.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\WebDash.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\server\WorldStateIO.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\voice\OpusDecoder.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\voice\OpusEncoder.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\voice\VoiceDecoder.cpp" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\src\voice\VoiceEncoder.cpp" />
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\ZERO_CHECK.vcxproj">
+      <Project>{1CA4606A-7443-3437-97FC-00CCEABED060}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+    <ProjectReference Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\enet.vcxproj">
+      <Project>{691C7CF7-FB3E-32AE-A12D-5C1A26DE0556}</Project>
+      <Name>enet</Name>
+    </ProjectReference>
+    <ProjectReference Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\juice.vcxproj">
+      <Project>{0543DB62-CB66-316D-B590-31F8CE66A27C}</Project>
+      <Name>juice</Name>
+    </ProjectReference>
+    <ProjectReference Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\opus\opus.vcxproj">
+      <Project>{FF9EEC00-429A-3F23-AAF2-C8144A3A7A12}</Project>
+      <Name>opus</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

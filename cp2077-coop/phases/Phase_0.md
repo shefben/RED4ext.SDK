@@ -1,19 +1,14 @@
 # Phase 0 - Initial Skeleton
 
 ```yaml
-ticket_id: "P0-1"
-summary: "Blank mod skeleton"
+ticket_id: ""
+summary: ""
 context_files: []
 spec: >
-  Create an initial RED4ext mod skeleton named **cp2077-coop**:
-    • Standard folder layout (`/src`, `/assets`, `/build`, `/agents`, `/phases`).
-    • A minimal `CMakeLists.txt` that builds an empty binary archive.
-    • `manifest.json` with mod name, version "0.0.1", author "CoopTeam".
-    • An empty Redscript entry file `src/Main.reds` that logs "cp2077-coop loaded".
-    • Placeholders for `/tests/static/` and `/assets/ui/` directories (leave empty).
+  :
+    • 
 hints:
-  - Follow typical RED4ext SDK directory conventions.
-  - Ensure no game-specific logic beyond the single log line.
+  - 
 ```
 ```yaml
 ticket_id: "P0-2"

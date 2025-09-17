@@ -2,6 +2,7 @@
 #include "RenderDevice.hpp"
 #include "../net/Net.hpp"
 #include <iostream>
+#include <mutex>
 
 namespace CoopNet
 {
@@ -10,10 +11,12 @@ static float g_checkTimer = 0.f;
 static float g_highTimer = 0.f;
 static float g_lowTimer = 0.f;
 static uint8_t g_bias = 0;
+static std::mutex g_texMutex;
 
 
 void TextureGuard_Tick(float dt)
 {
+    std::lock_guard lock(g_texMutex);
     g_checkTimer += dt;
     if (g_checkTimer < 30.f)
         return;

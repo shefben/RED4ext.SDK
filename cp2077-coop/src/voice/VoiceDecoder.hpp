@@ -9,6 +9,6 @@ int DecodeFrame(int16_t* pcmOut);
 void QueuePCM(const int16_t* pcm, int samples);
 uint16_t ConsumeDropPct();
 void Reset();
-void SetVolume(float volume);
-void SetCodec(Codec codec);
+void SetPlaybackVolume(float volume);
+void SetDecoderCodec(Codec codec);
 } // namespace CoopVoice

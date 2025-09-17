@@ -1,5 +1,5 @@
 #pragma once
-#include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
+#include <RED4ext/Scripting/Natives/Vector3.hpp>
 #include <cstdint>
 
 namespace CoopNet

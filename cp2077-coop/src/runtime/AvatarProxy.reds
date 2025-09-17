@@ -37,6 +37,13 @@ public class AvatarProxy extends gameObject {
 
     public func Despawn() -> Void {
         LogChannel(n"DEBUG", "Avatar despawned: " + IntToString(peerId));
+        
+        // Clean up health bar immediately
+        if IsDefined(bar) {
+            bar.Detach();
+            bar = null;
+        }
+        
         if HasMethod(this, n"SetRagdollMode") {
             SetRagdollMode(true);
         } else {
@@ -47,6 +54,15 @@ public class AvatarProxy extends gameObject {
 
     public func DestroySelf() -> Void {
         LogChannel(n"DEBUG", "Avatar removed: " + IntToString(peerId));
+        
+        // Ensure health bar is cleaned up (defensive programming)
+        if IsDefined(bar) {
+            bar.Detach();
+            bar = null;
+        }
+        
+        // Clear pending inputs to free memory
+        ArrayClear(pendingInputs);
     }
 
     public func ClearInvuln() -> Void {
@@ -96,6 +112,24 @@ public class AvatarProxy extends gameObject {
     }
 
     public func ApplyTransform(snap: ref<TransformSnap>) -> Void {
+        if !IsDefined(snap) {
+            LogChannel(n"ERROR", "ApplyTransform called with null snap for peer " + IntToString(peerId));
+            return;
+        }
+        
+        // Validate position is reasonable (prevent teleporting across world)
+        if Vector4.Length(snap.pos) > 10000.0 {
+            LogChannel(n"WARNING", "Suspicious position for peer " + IntToString(peerId) + ": " + ToString(snap.pos));
+            return;
+        }
+        
+        // Validate health/armor values
+        if snap.health > 1000u || snap.armor > 1000u {
+            LogChannel(n"WARNING", "Invalid health/armor values for peer " + IntToString(peerId) + 
+                      ": health=" + IntToString(snap.health) + " armor=" + IntToString(snap.armor));
+            return;
+        }
+        
         pos = snap.pos;
         vel = snap.vel;
         rot = snap.rot;
@@ -113,7 +147,18 @@ public class AvatarProxy extends gameObject {
 
     // Advance client-side estimate and queue the input for reconciliation.
     public func Predict(dt: Float) -> Void {
+        // Validate delta time is reasonable
+        if dt <= 0.0 || dt > 1.0 {
+            LogChannel(n"WARNING", "Invalid delta time in Predict: " + FloatToString(dt));
+            return;
+        }
+        
         let input = GameInstance.GetInputSystem(GetGame());
+        if !IsDefined(input) {
+            LogChannel(n"ERROR", "Input system not available for prediction");
+            return;
+        }
+        
         if invulEndTick > CoopNet.GameClock.GetCurrentTick() &&
            input.IsActionJustPressed(EInputKey.IK_LeftMouse) {
             ClearInvuln();
@@ -148,9 +193,29 @@ public class AvatarProxy extends gameObject {
 
     // Rewind to server state then reapply unconfirmed inputs.
     public func Reconcile(authoritativeSnap: ref<TransformSnap>) -> Void {
+        if !IsDefined(authoritativeSnap) {
+            LogChannel(n"ERROR", "Reconcile called with null authoritative snap for peer " + IntToString(peerId));
+            return;
+        }
+        
+        // Validate server state is reasonable
+        if Vector4.Length(authoritativeSnap.pos) > 10000.0 {
+            LogChannel(n"WARNING", "Server sent suspicious position for peer " + IntToString(peerId) + ": " + ToString(authoritativeSnap.pos));
+            return;
+        }
+        
         var idx: Int32 = 0;
-        while idx < pendingInputs.Size() && pendingInputs[idx].seq <= authoritativeSnap.seq {
+        let maxIterations = 100; // Prevent infinite loops
+        var iterations = 0;
+        while idx < pendingInputs.Size() && pendingInputs[idx].seq <= authoritativeSnap.seq && iterations < maxIterations {
             idx += 1;
+            iterations += 1;
+        }
+        
+        if iterations >= maxIterations {
+            LogChannel(n"ERROR", "Reconcile loop exceeded max iterations for peer " + IntToString(peerId));
+            ArrayClear(pendingInputs); // Clear to prevent further issues
+            return;
         }
         if idx > 0 {
             pendingInputs.Erase(0, idx);

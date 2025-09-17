@@ -1,13 +1,16 @@
 #include "../core/GameClock.hpp"
+#include "../core/Hash.hpp"
 #include "../core/SaveFork.hpp"
 #include "../core/SaveMigration.hpp"
 #include "../core/SessionState.hpp"
 #include "../net/Net.hpp"
 #include "AdminController.hpp"
 #include "ApartmentController.hpp"
+#include "BillboardController.hpp"
 #include "BreachController.hpp"
 #include "CameraController.hpp"
 #include "CarryController.hpp"
+#include "DoorBreachController.hpp"
 #include "ElevatorController.hpp"
 #include "GlobalEventController.hpp"
 #include "GrenadeController.hpp"
@@ -16,7 +19,9 @@
 #include "NpcController.hpp"
 #include "PhaseGC.hpp"
 #include "PoliceDispatch.hpp"
+#include "QuestWatchdog.hpp"
 #include "SectorLODController.hpp"
+#include "ShardController.hpp"
 #include "ServerConfig.hpp"
 #include "SmartCamController.hpp"
 #include "SnapshotHeap.hpp"
@@ -25,6 +30,7 @@
 #include "TextureGuard.hpp"
 #include "TrafficController.hpp"
 #include "VehicleController.hpp"
+#include "VendorController.hpp"
 #include "WebDash.hpp"
 #include "../plugin/PluginManager.hpp"
 #include "../core/TaskGraph.hpp"
@@ -34,7 +40,6 @@
 
 namespace CoopNet
 {
-struct EntitySnap;
 void BuildSnapshot(std::vector<EntitySnap>& out);
 }
 #include <cmath>
@@ -61,7 +66,10 @@ int main(int argc, char** argv)
     Net_Init();
     CoopNet::MigrateSinglePlayerSave();
     CoopNet::CarParking park{};
-    CoopNet::TransformSnap vs{{0.f, 0.f, 0.f}, {0.f, 0.f, 0.f, 1.f}, {0.f, 0.f, 0.f}};
+    CoopNet::TransformSnap vs{};
+    vs.pos = {0.f, 0.f, 0.f};
+    vs.vel = {0.f, 0.f, 0.f};
+    vs.rot = {0.f, 0.f, 0.f, 1.f};
     if (CoopNet::LoadCarParking(CoopNet::SessionState_GetId(), 1u, park) && park.health > 0)
     {
         vs.pos = park.pos;
@@ -77,6 +85,16 @@ int main(int argc, char** argv)
     CoopNet::AdminController_Start();
     CoopNet::InfoServer_Start();
     CoopNet::PluginManager_Init();
+    // Declare time/weather/session vars before first use
+    uint32_t sessionId = 0;
+    uint64_t worldClock = 0;
+    uint32_t sunAngle = 0;
+    uint16_t particleSeed = 1u;
+    uint8_t weatherId = 0u;
+    uint8_t bdPhase = 0u;
+    float worldTimer = 0.f;
+    uint16_t lastSunDeg = 0u;
+    uint8_t lastWeather = weatherId;
     CoopNet::WorldStatePacket saved{};
     if (CoopNet::LoadWorldState(saved))
     {
@@ -91,15 +109,6 @@ int main(int argc, char** argv)
     CoopNet::TaskGraph taskGraph;
     size_t maxWorkers = std::max<size_t>(1, std::thread::hardware_concurrency() - 1);
     taskGraph.Start(maxWorkers);
-    uint32_t sessionId = 0;
-    uint64_t worldClock = 0;
-    uint32_t sunAngle = 0;
-    uint16_t particleSeed = 1u;
-    uint8_t weatherId = 0u;
-    uint8_t bdPhase = 0u;
-    float worldTimer = 0.f;
-    uint16_t lastSunDeg = 0u;
-    uint8_t lastWeather = weatherId;
 
     // Main server loop
     bool running = true;

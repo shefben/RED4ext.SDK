@@ -6,7 +6,7 @@ protected func StartBreach() -> Void {
     };
     let doorId: Uint32 = Owner.GetEntityID();
     if Net_IsAuthoritative() {
-        CoopNet.DoorBreachController_Start(doorId, QuestSync.localPhase);
+        Net_DoorBreachController_Start(doorId, QuestSync.localPhase);
     };
     DoorBreachSync.OnStart(doorId, QuestSync.localPhase, 0u);
     wrappedMethod();

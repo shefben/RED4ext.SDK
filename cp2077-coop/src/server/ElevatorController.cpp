@@ -3,6 +3,7 @@
 #include "../net/Packets.hpp"
 #include <unordered_set>
 #include <iostream>
+#include <mutex>
 
 namespace CoopNet {
 
@@ -15,6 +16,7 @@ struct ArrivalState {
 };
 
 static ArrivalState g_arrive;
+static std::mutex g_elevMutex;
 
 void ElevatorController_OnCall(uint32_t peerId, uint32_t elevatorId, uint8_t floor)
 {
@@ -24,6 +26,7 @@ void ElevatorController_OnCall(uint32_t peerId, uint32_t elevatorId, uint8_t flo
 
 void ElevatorController_OnArrive(uint32_t elevatorId, uint64_t sectorHash, const RED4ext::Vector3& pos)
 {
+    std::lock_guard lock(g_elevMutex);
     g_arrive.active = true;
     g_arrive.pkt.elevatorId = elevatorId;
     g_arrive.pkt.sectorHash = sectorHash;
@@ -36,18 +39,24 @@ void ElevatorController_OnArrive(uint32_t elevatorId, uint64_t sectorHash, const
 
 void ElevatorController_OnAck(Connection* conn, uint32_t elevatorId)
 {
+    std::lock_guard lock(g_elevMutex);
     if (g_arrive.active && g_arrive.pkt.elevatorId == elevatorId)
         g_arrive.acks.insert(conn);
 }
 
 bool ElevatorController_IsPaused()
 {
+    std::lock_guard lock(g_elevMutex);
+    const auto& conns = Net_GetConnections();
+    if (conns.empty())
+        return false;
     return g_arrive.active && g_arrive.retries > 0 &&
-           g_arrive.acks.size() < Net_GetConnections().size();
+           g_arrive.acks.size() < conns.size();
 }
 
 void ElevatorController_ServerTick(float dt)
 {
+    std::lock_guard lock(g_elevMutex);
     if (!g_arrive.active)
         return;
     if (g_arrive.acks.size() == Net_GetConnections().size())

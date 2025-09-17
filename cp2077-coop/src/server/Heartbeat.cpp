@@ -10,7 +10,46 @@
 #include <sstream>
 
 namespace CoopNet {
+extern std::string g_cfgMasterHost;
+extern int g_cfgMasterPort;
 static int g_backoff = 1;
+
+static bool JsonGetString(const std::string& json, const char* key, std::string& out)
+{
+    std::string k = std::string("\"") + key + "\"";
+    size_t p = json.find(k);
+    if (p == std::string::npos)
+        return false;
+    p = json.find(':', p);
+    if (p == std::string::npos)
+        return false;
+    while (p + 1 < json.size() && (json[p + 1] == ' ' || json[p + 1] == '\t'))
+        ++p;
+    if (p + 1 >= json.size() || json[p + 1] != '"')
+        return false;
+    size_t start = p + 2;
+    size_t end = json.find('"', start);
+    if (end == std::string::npos)
+        return false;
+    out.assign(json.data() + start, end - start);
+    return true;
+}
+
+static bool JsonGetBool(const std::string& json, const char* key, bool& out)
+{
+    std::string k = std::string("\"") + key + "\"";
+    size_t p = json.find(k);
+    if (p == std::string::npos)
+        return false;
+    p = json.find(':', p);
+    if (p == std::string::npos)
+        return false;
+    size_t s = p + 1;
+    while (s < json.size() && (json[s] == ' ' || json[s] == '\t')) ++s;
+    if (json.compare(s, 4, "true") == 0) { out = true; return true; }
+    if (json.compare(s, 5, "false") == 0) { out = false; return true; }
+    return false;
+}
 
 static std::string GetSecret()
 {
@@ -20,20 +59,16 @@ static std::string GetSecret()
 
 static std::string FetchNonce()
 {
-    httplib::SSLClient cli("coop-master", 443);
+    httplib::SSLClient cli(g_cfgMasterHost.c_str(), g_cfgMasterPort > 0 ? g_cfgMasterPort : 443);
     auto res = cli.Get("/api/challenge");
     // FIX: `Result` is a struct, not a pointer
     if (res.status != 200)
         return {};
     const std::string& body = res.body;
-    size_t p = body.find("\"nonce\":\"");
-    if (p == std::string::npos)
+    std::string nonce;
+    if (!JsonGetString(body, "nonce", nonce))
         return {};
-    p += 9;
-    size_t e = body.find('"', p);
-    if (e == std::string::npos)
-        return {};
-    return body.substr(p, e - p);
+    return nonce;
 }
 
 static std::string Sign(const std::string& nonce)
@@ -59,7 +94,7 @@ void Heartbeat_Send(const std::string& sessionJson)
         payload.pop_back();
     payload += ",\"cand\":\"" + cand + "\",\"nonce\":\"" + nonce + "\",\"auth\":\"" + auth + "\"}";
 
-    httplib::SSLClient cli("coop-master", 443);
+    httplib::SSLClient cli(g_cfgMasterHost.c_str(), g_cfgMasterPort > 0 ? g_cfgMasterPort : 443);
     auto res = cli.Post("/api/heartbeat", payload, "application/json");
     // FIX: check struct return, not pointer
     if (res.status != 200)
@@ -72,38 +107,38 @@ void Heartbeat_Send(const std::string& sessionJson)
     }
     g_backoff = 1;
     const std::string& body = res.body;
-    if (body.find("\"ok\":true") != std::string::npos)
+    bool ok = false;
+    if (!JsonGetBool(body, "ok", ok) || !ok)
+        return;
+    std::string url;
+    if (JsonGetString(body, "url", url))
     {
-        size_t u = body.find("\"url\":\"");
-        if (u != std::string::npos)
+        std::string host; int port = 443;
+        size_t scheme = url.find("//");
+        size_t hp = (scheme == std::string::npos) ? 0 : scheme + 2;
+        size_t slash = url.find('/', hp);
+        std::string hostport = url.substr(hp, (slash == std::string::npos) ? std::string::npos : slash - hp);
+        size_t colon = hostport.rfind(':');
+        if (colon != std::string::npos)
         {
-            size_t start = u + 7;
-            size_t end = body.find('"', start);
-            std::string url = body.substr(start, end - start);
-            size_t hostPos = url.find(':', 5);
-            std::string host = url.substr(5, hostPos - 5);
-            int port = std::stoi(url.substr(hostPos + 1));
-            size_t uu = body.find("\"u\":\"", end);
-            size_t uend = body.find('"', uu + 5);
-            std::string user = body.substr(uu + 5, uend - (uu + 5));
-            size_t pp = body.find("\"p\":\"", uend);
-            size_t pend = body.find('"', pp + 5);
-            std::string pass = body.substr(pp + 5, pend - (pp + 5));
-            Nat_SetTurnCreds(host, port, user, pass);
-            size_t cc = body.find("\"cand\":\"", pend);
-            if (cc != std::string::npos)
-            {
-                size_t cend = body.find('"', cc + 8);
-                std::string rcand = body.substr(cc + 8, cend - (cc + 8));
-                Nat_AddRemoteCandidate(rcand.c_str());
-            }
+            host = hostport.substr(0, colon);
+            try { port = std::stoi(hostport.substr(colon + 1)); } catch (...) { port = 443; }
         }
+        else host = hostport;
+        std::string user, pass;
+        JsonGetString(body, "u", user);
+        JsonGetString(body, "p", pass);
+        if (!host.empty())
+            Nat_SetTurnCreds(host, port, user, pass);
+        std::string rcand;
+        if (JsonGetString(body, "cand", rcand) && !rcand.empty())
+            Nat_AddRemoteCandidate(rcand.c_str());
     }
 }
 
 void Heartbeat_Announce(const std::string& json)
 {
-    httplib::SSLClient cli("coop-master", 443);
+    httplib::SSLClient cli(g_cfgMasterHost.c_str(), g_cfgMasterPort > 0 ? g_cfgMasterPort : 443);
     auto res = cli.Post("/announce", json, "application/json");
     // FIX: validate struct result instead of pointer check
     if (res.status != 200)

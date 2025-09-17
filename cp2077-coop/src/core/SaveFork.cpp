@@ -42,7 +42,14 @@ bool LoadSession(uint32_t sessionId, std::string& outJson)
         if (!in.is_open())
             return false;
         std::string zdata((std::istreambuf_iterator<char>(in)), {});
-        std::vector<char> raw(65536);
+        size_t expected = ZSTD_getFrameContentSize(zdata.data(), zdata.size());
+        if (expected == ZSTD_CONTENTSIZE_ERROR)
+            return false;
+        if (expected == ZSTD_CONTENTSIZE_UNKNOWN)
+            expected = 1024 * 1024; // 1MB fallback
+        if (expected > 10 * 1024 * 1024)
+            return false; // sanity cap
+        std::vector<char> raw(expected);
         size_t size = ZSTD_decompress(raw.data(), raw.size(), zdata.data(), zdata.size());
         if (ZSTD_isError(size))
             return false;
@@ -65,7 +72,14 @@ bool LoadCarParking(uint32_t sessionId, uint32_t peerId, CarParking& out)
     if (!in.is_open())
         return false;
     std::string zdata((std::istreambuf_iterator<char>(in)), {});
-    std::vector<char> raw(2048);
+    size_t expected = ZSTD_getFrameContentSize(zdata.data(), zdata.size());
+    if (expected == ZSTD_CONTENTSIZE_ERROR)
+        return false;
+    if (expected == ZSTD_CONTENTSIZE_UNKNOWN)
+        expected = 32 * 1024; // fallback 32KB
+    if (expected > 512 * 1024)
+        return false;
+    std::vector<char> raw(expected);
     size_t size = ZSTD_decompress(raw.data(), raw.size(), zdata.data(), zdata.size());
     if (ZSTD_isError(size))
         return false;
@@ -74,7 +88,7 @@ bool LoadCarParking(uint32_t sessionId, uint32_t peerId, CarParking& out)
         return false;
     int parsed = std::sscanf(
         json.c_str(), "{\"CarParking\":{\"vehTpl\":%u,\"pos\":[%f,%f,%f],\"rot\":[%f,%f,%f,%f],\"health\":%hu",
-        &out.vehTpl, &out.pos.X, &out.pos.Y, &out.pos.Z, &out.rot.X, &out.rot.Y, &out.rot.Z, &out.rot.W, &out.health);
+        &out.vehTpl, &out.pos.X, &out.pos.Y, &out.pos.Z, &out.rot.i, &out.rot.j, &out.rot.k, &out.rot.r, &out.health);
     return parsed >= 9;
 }
 
@@ -82,7 +96,7 @@ void SaveCarParking(uint32_t sessionId, uint32_t peerId, const CarParking& cp)
 {
     std::stringstream ss;
     ss << "{\"CarParking\":{\"vehTpl\":" << cp.vehTpl << ",\"pos\":[" << cp.pos.X << ',' << cp.pos.Y << ',' << cp.pos.Z
-       << "],\"rot\":[" << cp.rot.X << ',' << cp.rot.Y << ',' << cp.rot.Z << ',' << cp.rot.W
+       << "],\"rot\":[" << cp.rot.i << ',' << cp.rot.j << ',' << cp.rot.k << ',' << cp.rot.r
        << "],\"health\":" << cp.health << "}}";
     SavePhase(sessionId, peerId, ss.str());
 }

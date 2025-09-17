@@ -1,0 +1,178 @@
+Microsoft (R) C/C++ Optimizing Compiler Version 19.29.30154 for x64
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+cl : Command line warning D9024 : unrecognized source file type 'C:/Program Files/Git/EP', object file assumed
+cl : Command line warning D9024 : unrecognized source file type 'C:/Program Files/Git/include', object file assumed
+cl : Command line warning D9024 : unrecognized source file type 'C:/Program Files/Git/third_party/libsodium', object file assumed
+cl : Command line warning D9024 : unrecognized source file type 'C:/Program Files/Git/third_party/rapidjson/include', object file assumed
+PythonVM.cpp
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\stdio.h(70): error C2371: 'size_t': redefinition; different basic types
+PythonVM.cpp: note: see declaration of 'size_t'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(81): warning C4346: 'iterator_category': dependent name is not a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(81): note: prefix with 'typename' to indicate a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(84): note: see reference to class template instantiation 'std::iterator_traits<_It>' being compiled
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(81): error C2061: syntax error: identifier 'iterator_category'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(81): error C2238: unexpected token(s) preceding ';'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(82): warning C4346: 'value_type': dependent name is not a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(82): note: prefix with 'typename' to indicate a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(82): error C2061: syntax error: identifier 'value_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(82): error C2238: unexpected token(s) preceding ';'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(83): warning C4346: 'distance_type': dependent name is not a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(83): note: prefix with 'typename' to indicate a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(83): error C2061: syntax error: identifier 'distance_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(83): error C2238: unexpected token(s) preceding ';'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(224): warning C4348: 'std::istreambuf_iterator': redefinition of default parameter: parameter 2
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(226): note: see declaration of 'std::istreambuf_iterator'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(226): warning C4346: '_Tr::off_type': dependent name is not a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(226): note: prefix with 'typename' to indicate a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(279): note: see reference to class template instantiation 'std::istreambuf_iterator<_E,_Tr>' being compiled
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(226): error C2923: 'std::iterator': '_Tr::off_type' is not a valid template type argument for parameter '_D'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(226): note: see declaration of '_Tr::off_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(226): error C2955: 'std::iterator': use of class template requires template argument list
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(67): note: see declaration of 'std::iterator'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(231): warning C4346: 'int_type': dependent name is not a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(231): note: prefix with 'typename' to indicate a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(231): error C2061: syntax error: identifier 'int_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(231): error C2238: unexpected token(s) preceding ';'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(289): warning C4348: 'std::ostreambuf_iterator': redefinition of default parameter: parameter 2
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\utility(291): note: see declaration of 'std::ostreambuf_iterator'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xmemory(75): error C2906: 'std::allocator<void>': explicit specialization requires 'template <>'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(40): warning C4346: 'size_type': dependent name is not a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(40): note: prefix with 'typename' to indicate a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(611): note: see reference to class template instantiation 'std::basic_string<_E,_Tr,_A>' being compiled
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(40): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(40): error C2238: unexpected token(s) preceding ';'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(41): warning C4346: 'difference_type': dependent name is not a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(41): note: prefix with 'typename' to indicate a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(41): error C2061: syntax error: identifier 'difference_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(41): error C2238: unexpected token(s) preceding ';'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(42): warning C4346: 'pointer': dependent name is not a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(42): note: prefix with 'typename' to indicate a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(42): error C2061: syntax error: identifier 'pointer'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(42): error C2238: unexpected token(s) preceding ';'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(43): warning C4346: 'const_pointer': dependent name is not a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(43): note: prefix with 'typename' to indicate a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(43): error C2061: syntax error: identifier 'const_pointer'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(43): error C2238: unexpected token(s) preceding ';'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(44): warning C4346: 'reference': dependent name is not a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(44): note: prefix with 'typename' to indicate a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(44): error C2061: syntax error: identifier 'reference'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(44): error C2238: unexpected token(s) preceding ';'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(45): warning C4346: 'const_reference': dependent name is not a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(45): note: prefix with 'typename' to indicate a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(45): error C2061: syntax error: identifier 'const_reference'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(45): error C2238: unexpected token(s) preceding ';'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(46): warning C4346: 'value_type': dependent name is not a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(46): note: prefix with 'typename' to indicate a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(46): error C2061: syntax error: identifier 'value_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(46): error C2238: unexpected token(s) preceding ';'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(47): warning C4346: 'pointer': dependent name is not a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(47): note: prefix with 'typename' to indicate a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(47): error C2061: syntax error: identifier 'pointer'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(47): error C2238: unexpected token(s) preceding ';'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(48): warning C4346: 'const_pointer': dependent name is not a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(48): note: prefix with 'typename' to indicate a type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(48): error C2061: syntax error: identifier 'const_pointer'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(48): error C2238: unexpected token(s) preceding ';'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(49): error C2065: 'const_iterator': undeclared identifier
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(49): error C2065: 'value_type': undeclared identifier
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(50): error C2065: 'const_reference': undeclared identifier
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(50): error C2065: 'const_pointer': undeclared identifier
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(50): error C2065: 'difference_type': undeclared identifier
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(49): error C2923: 'std::reverse_iterator': 'const_iterator' is not a valid template type argument for parameter '_RI'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(49): note: see declaration of 'const_iterator'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(49): error C2923: 'std::reverse_iterator': 'value_type' is not a valid template type argument for parameter '_Ty'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(49): note: see declaration of 'value_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(49): error C2923: 'std::reverse_iterator': 'const_reference' is not a valid template type argument for parameter '_Rt'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(50): note: see declaration of 'const_reference'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(49): error C2923: 'std::reverse_iterator': 'const_pointer' is not a valid template type argument for parameter '_Pt'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(50): note: see declaration of 'const_pointer'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(49): error C2923: 'std::reverse_iterator': 'difference_type' is not a valid template type argument for parameter '_D'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(50): note: see declaration of 'difference_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(52): error C2065: 'value_type': undeclared identifier
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(53): error C2065: 'reference': undeclared identifier
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(53): error C2065: 'pointer': undeclared identifier
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(53): error C2065: 'difference_type': undeclared identifier
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(52): error C3203: 'iterator': unspecialized class template can't be used as a template argument for template parameter '_RI', expected a real type
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(52): error C2923: 'std::reverse_iterator': 'value_type' is not a valid template type argument for parameter '_Ty'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(52): note: see declaration of 'value_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(52): error C2923: 'std::reverse_iterator': 'reference' is not a valid template type argument for parameter '_Rt'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(53): note: see declaration of 'reference'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(52): error C2923: 'std::reverse_iterator': 'pointer' is not a valid template type argument for parameter '_Pt'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(53): note: see declaration of 'pointer'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(52): error C2923: 'std::reverse_iterator': 'difference_type' is not a valid template type argument for parameter '_D'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(53): note: see declaration of 'difference_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(60): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(60): error C2535: 'std::basic_string<_E,_Tr,_A>::basic_string(const std::basic_string<_E,_Tr,_A> &)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(57): note: see declaration of 'std::basic_string<_E,_Tr,_A>::basic_string'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(63): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(68): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(70): error C3646: '_It': unknown override specifier
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(70): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(71): error C2061: syntax error: identifier '_It'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(71): error C2535: 'std::basic_string<_E,_Tr,_A>::basic_string(void)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(68): note: see declaration of 'std::basic_string<_E,_Tr,_A>::basic_string'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(78): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(78): error C3646: 'npos': unknown override specifier
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(93): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(93): error C2535: 'std::basic_string<_E,_Tr,_A> &std::basic_string<_E,_Tr,_A>::append(const std::basic_string<_E,_Tr,_A> &)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(91): note: see declaration of 'std::basic_string<_E,_Tr,_A>::append'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(105): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(113): error C2535: 'std::basic_string<_E,_Tr,_A> &std::basic_string<_E,_Tr,_A>::append(const _E *)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(105): note: see declaration of 'std::basic_string<_E,_Tr,_A>::append'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(115): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(123): error C2061: syntax error: identifier '_It'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(123): error C2535: 'std::basic_string<_E,_Tr,_A> &std::basic_string<_E,_Tr,_A>::append(void)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(115): note: see declaration of 'std::basic_string<_E,_Tr,_A>::append'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(127): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(127): error C2535: 'std::basic_string<_E,_Tr,_A> &std::basic_string<_E,_Tr,_A>::assign(const std::basic_string<_E,_Tr,_A> &)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(125): note: see declaration of 'std::basic_string<_E,_Tr,_A>::assign'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(147): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(152): error C2535: 'std::basic_string<_E,_Tr,_A> &std::basic_string<_E,_Tr,_A>::assign(const _E *)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(147): note: see declaration of 'std::basic_string<_E,_Tr,_A>::assign'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(154): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(161): error C2061: syntax error: identifier '_It'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(161): error C2535: 'std::basic_string<_E,_Tr,_A> &std::basic_string<_E,_Tr,_A>::assign(void)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(154): note: see declaration of 'std::basic_string<_E,_Tr,_A>::assign'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(163): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(165): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(165): error C2535: 'std::basic_string<_E,_Tr,_A> &std::basic_string<_E,_Tr,_A>::insert(void)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(163): note: see declaration of 'std::basic_string<_E,_Tr,_A>::insert'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(179): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(179): error C2535: 'std::basic_string<_E,_Tr,_A> &std::basic_string<_E,_Tr,_A>::insert(void)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(163): note: see declaration of 'std::basic_string<_E,_Tr,_A>::insert'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(190): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(190): error C2535: 'std::basic_string<_E,_Tr,_A> &std::basic_string<_E,_Tr,_A>::insert(void)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(163): note: see declaration of 'std::basic_string<_E,_Tr,_A>::insert'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(192): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(192): error C2535: 'std::basic_string<_E,_Tr,_A> &std::basic_string<_E,_Tr,_A>::insert(void)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(163): note: see declaration of 'std::basic_string<_E,_Tr,_A>::insert'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(207): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(210): error C2061: syntax error: identifier '_It'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(210): error C2535: 'void std::basic_string<_E,_Tr,_A>::insert(std::iterator)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(207): note: see declaration of 'std::basic_string<_E,_Tr,_A>::insert'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(212): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(233): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(235): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(235): error C2535: 'std::basic_string<_E,_Tr,_A> &std::basic_string<_E,_Tr,_A>::replace(void)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(233): note: see declaration of 'std::basic_string<_E,_Tr,_A>::replace'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(256): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(256): error C2535: 'std::basic_string<_E,_Tr,_A> &std::basic_string<_E,_Tr,_A>::replace(void)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(233): note: see declaration of 'std::basic_string<_E,_Tr,_A>::replace'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(275): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(275): error C2535: 'std::basic_string<_E,_Tr,_A> &std::basic_string<_E,_Tr,_A>::replace(void)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(233): note: see declaration of 'std::basic_string<_E,_Tr,_A>::replace'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(277): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(277): error C2535: 'std::basic_string<_E,_Tr,_A> &std::basic_string<_E,_Tr,_A>::replace(void)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(233): note: see declaration of 'std::basic_string<_E,_Tr,_A>::replace'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(301): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(304): error C2535: 'std::basic_string<_E,_Tr,_A> &std::basic_string<_E,_Tr,_A>::replace(std::iterator,std::iterator,const _E *)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(300): note: see declaration of 'std::basic_string<_E,_Tr,_A>::replace'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(307): error C2061: syntax error: identifier 'size_type'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(311): error C2061: syntax error: identifier '_It'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(310): error C2535: 'std::basic_string<_E,_Tr,_A> &std::basic_string<_E,_Tr,_A>::replace(std::iterator,std::iterator)': member function already defined or declared
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(307): note: see declaration of 'std::basic_string<_E,_Tr,_A>::replace'
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(337): error C3646: 'at': unknown override specifier
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(337): error C2059: syntax error: '('
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(338): error C2334: unexpected token(s) preceding '{'; skipping apparent function body
+C:\Program Files (x86)\Microsoft Visual Studio\VC98\include\xstring(338): fatal error C1003: error count exceeds 100; stopping compilation

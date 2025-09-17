@@ -10,6 +10,7 @@
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
+#include <mutex>
 
 namespace CoopNet
 {
@@ -33,9 +34,11 @@ struct PermInfo
 };
 static std::unordered_map<uint32_t, PermInfo> g_perms;
 static std::unordered_map<uint32_t, std::string> g_customization;
+static std::mutex g_aptMutex;
 
 void ApartmentController_Load()
 {
+    std::lock_guard lock(g_aptMutex);
     std::ifstream in("Apartments.csv");
     if (!in.is_open())
         return;
@@ -52,37 +55,39 @@ void ApartmentController_Load()
             switch (i)
             {
             case 0:
-                id = static_cast<uint32_t>(std::stoul(tok));
+                try { id = static_cast<uint32_t>(std::stoul(tok)); } catch (...) { id = 0; }
                 break;
             case 1:
-                info.x = std::stof(tok);
+                try { info.x = std::stof(tok); } catch (...) { info.x = 0.f; }
                 break;
             case 2:
-                info.y = std::stof(tok);
+                try { info.y = std::stof(tok); } catch (...) { info.y = 0.f; }
                 break;
             case 3:
-                info.z = std::stof(tok);
+                try { info.z = std::stof(tok); } catch (...) { info.z = 0.f; }
                 break;
             case 4:
-                info.price = static_cast<uint32_t>(std::stoul(tok));
+                try { info.price = static_cast<uint32_t>(std::stoul(tok)); } catch (...) { info.price = 0; }
                 break;
             case 5:
                 info.interiorScene = tok;
                 break;
             case 6:
-                info.extDoorId = static_cast<uint32_t>(std::stoul(tok));
+                try { info.extDoorId = static_cast<uint32_t>(std::stoul(tok)); } catch (...) { info.extDoorId = 0; }
                 break;
             default:
                 break;
             }
         }
-        g_info[id] = info;
+        if (id != 0)
+            g_info[id] = info;
     }
     std::cout << "[Apt] loaded " << g_info.size() << " entries" << std::endl;
 }
 
 void ApartmentController_HandlePurchase(Connection* conn, uint32_t aptId)
 {
+    std::lock_guard lock(g_aptMutex);
     auto it = g_info.find(aptId);
     if (it == g_info.end() || !conn)
         return;
@@ -112,6 +117,7 @@ void ApartmentController_HandlePurchase(Connection* conn, uint32_t aptId)
 
 const AptInfo* ApartmentController_GetInfo(uint32_t aptId)
 {
+    std::lock_guard lock(g_aptMutex);
     auto it = g_info.find(aptId);
     if (it == g_info.end())
         return nullptr;

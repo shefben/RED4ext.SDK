@@ -16,9 +16,15 @@ namespace CoopNet {
 bool GameProcess_Launch(const std::string& exe, const std::string& args)
 {
 #ifdef _WIN32
-    std::string cmd = exe + " " + args;
+    // Sanitize args to avoid control characters
+    for (char ch : args) {
+        if (static_cast<unsigned char>(ch) < 32 && ch != '\t' && ch != '\n')
+            return false;
+    }
     STARTUPINFOA si{}; PROCESS_INFORMATION pi{};
-    if (!CreateProcessA(nullptr, cmd.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi))
+    std::string cmdLine = args; // mutable buffer required by CreateProcessA
+    // Pass application name explicitly to avoid shell interpretation
+    if (!CreateProcessA(exe.c_str(), cmdLine.empty() ? nullptr : cmdLine.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi))
         return false;
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);

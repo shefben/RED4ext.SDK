@@ -1,12 +1,14 @@
 #include "SkillController.hpp"
 #include "../net/Net.hpp"
-#include "Connection.hpp"
+#include "../net/Connection.hpp"
 #include <iostream>
 #include <unordered_map>
+#include <mutex>
 
 namespace CoopNet
 {
 static std::unordered_map<uint32_t, std::unordered_map<uint16_t, int32_t>> g_skillTable;
+static std::mutex g_skillMutex;
 
 void SkillController_HandleXP(Connection* conn, uint16_t skillId, int16_t delta)
 {
@@ -16,6 +18,7 @@ void SkillController_HandleXP(Connection* conn, uint16_t skillId, int16_t delta)
         delta = 500;
     else if (delta < -500)
         delta = -500;
+    std::lock_guard lock(g_skillMutex);
     int32_t& xp = g_skillTable[conn->peerId][skillId];
     xp += delta;
     Net_BroadcastSkillXP(conn->peerId, skillId, delta);
@@ -24,6 +27,7 @@ void SkillController_HandleXP(Connection* conn, uint16_t skillId, int16_t delta)
 
 int32_t SkillController_GetXP(uint32_t peerId, uint16_t skillId)
 {
+    std::lock_guard lock(g_skillMutex);
     auto pit = g_skillTable.find(peerId);
     if (pit != g_skillTable.end())
     {

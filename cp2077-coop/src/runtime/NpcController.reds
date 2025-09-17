@@ -13,7 +13,7 @@ public class NpcController {
     private static let desired: Uint32 = 6u;
 
     public static func ServerTick(dt: Float) -> Void {
-        CoopNet.NpcController_ServerTick(dt);
+        Net_NpcController_ServerTick(dt);
         if Net_IsAuthoritative() {
             ReinforcementTick(dt);
         };
@@ -61,8 +61,11 @@ public class NpcController {
     }
 
     public static func GetCrowdSeed(hash: Uint64) -> Uint32 {
-        let val = crowdSeeds.Get(hash) as Uint32;
-        return val;
+        let val = crowdSeeds.Get(hash);
+        if IsDefined(val) {
+            return val as Uint32;
+        };
+        return 0u;
     }
 
     private static func ReinforcementTick(dt: Float) -> Void {
@@ -74,7 +77,7 @@ public class NpcController {
                 let need: Uint32 = desired - Cast<Uint32>(proxies.Size());
                 var i: Uint32 = 0u;
                 while i < need {
-                    CoopNet.SpawnPhaseNpc();
+                    Net_SpawnPhaseNpc();
                     i += 1u;
                 };
                 waveCount += 1u;

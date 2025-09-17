@@ -1,0 +1,316 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{DD301D3C-68C4-3A86-BA92-600D90E9C707}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>juice-static</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\juice\Debug\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">juice-static.dir\Debug\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">juice-static</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\juice\Release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">juice-static.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">juice-static</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\juice\MinSizeRel\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">juice-static.dir\MinSizeRel\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">juice-static</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\juice\RelWithDebInfo\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">juice-static.dir\RelWithDebInfo\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">juice-static</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">.lib</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include\juice;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;USE_NETTLE=0;JUICE_EXPORTS;JUICE_STATIC;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;CMAKE_INTDIR="Debug"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;USE_NETTLE=0;JUICE_EXPORTS;JUICE_STATIC;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include\juice;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include\juice;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include\juice;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;RELEASE=1;USE_NETTLE=0;JUICE_EXPORTS;JUICE_STATIC;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;CMAKE_INTDIR="Release"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;RELEASE=1;USE_NETTLE=0;JUICE_EXPORTS;JUICE_STATIC;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include\juice;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include\juice;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include\juice;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MinSpace</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;USE_NETTLE=0;JUICE_EXPORTS;JUICE_STATIC;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;CMAKE_INTDIR="MinSizeRel"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;USE_NETTLE=0;JUICE_EXPORTS;JUICE_STATIC;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;CMAKE_INTDIR=\"MinSizeRel\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include\juice;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include\juice;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include\juice;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;USE_NETTLE=0;JUICE_EXPORTS;JUICE_STATIC;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;CMAKE_INTDIR="RelWithDebInfo"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;USE_NETTLE=0;JUICE_EXPORTS;JUICE_STATIC;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;CMAKE_INTDIR=\"RelWithDebInfo\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include\juice;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\include\juice;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\CMakeLists.txt">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/juice/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+C:\Python39\Lib\site-packages\cmake\data\bin\cmake.exe -SF:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop -BF:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop --check-stamp-file F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/juice/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakePackageConfigHelpers.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CheckCSourceCompiles.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CheckIncludeFile.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CheckLibraryExists.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPackageHandleStandardArgs.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPackageMessage.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindThreads.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\GNUInstallDirs.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Internal\CheckSourceCompiles.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\WriteBasicConfigVersionFile.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\cmake\LibJuiceConfig.cmake.in;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\juice\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/juice/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+C:\Python39\Lib\site-packages\cmake\data\bin\cmake.exe -SF:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop -BF:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop --check-stamp-file F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/juice/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakePackageConfigHelpers.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CheckCSourceCompiles.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CheckIncludeFile.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CheckLibraryExists.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPackageHandleStandardArgs.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPackageMessage.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindThreads.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\GNUInstallDirs.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Internal\CheckSourceCompiles.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\WriteBasicConfigVersionFile.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\cmake\LibJuiceConfig.cmake.in;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\juice\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/juice/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+C:\Python39\Lib\site-packages\cmake\data\bin\cmake.exe -SF:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop -BF:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop --check-stamp-file F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/juice/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakePackageConfigHelpers.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CheckCSourceCompiles.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CheckIncludeFile.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CheckLibraryExists.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPackageHandleStandardArgs.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPackageMessage.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindThreads.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\GNUInstallDirs.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Internal\CheckSourceCompiles.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\WriteBasicConfigVersionFile.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\cmake\LibJuiceConfig.cmake.in;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\juice\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/third_party/juice/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+C:\Python39\Lib\site-packages\cmake\data\bin\cmake.exe -SF:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop -BF:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop --check-stamp-file F:/development/steam/emulator_bot/RED4ext.SDK.codex/cp2077-coop/juice/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CMakePackageConfigHelpers.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CheckCSourceCompiles.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CheckIncludeFile.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\CheckLibraryExists.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPackageHandleStandardArgs.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindPackageMessage.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\FindThreads.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\GNUInstallDirs.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\Internal\CheckSourceCompiles.cmake;C:\Python39\Lib\site-packages\cmake\data\share\cmake-4.0\Modules\WriteBasicConfigVersionFile.cmake;F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\cmake\LibJuiceConfig.cmake.in;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\juice\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\addr.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\agent.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\crc32.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\const_time.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\conn.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\conn_poll.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\conn_thread.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\conn_mux.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\base64.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\hash.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\hmac.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\ice.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\juice.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\log.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\random.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\server.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\stun.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\timestamp.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\turn.c" />
+    <ClCompile Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\third_party\juice\src\udp.c" />
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="F:\development\steam\emulator_bot\RED4ext.SDK.codex\cp2077-coop\ZERO_CHECK.vcxproj">
+      <Project>{1CA4606A-7443-3437-97FC-00CCEABED060}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

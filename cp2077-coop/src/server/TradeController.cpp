@@ -41,8 +41,7 @@ static bool ValidateItems(uint32_t peerId, const TradeOfferPacket& pkt)
 {
     for (uint8_t i = 0; i < pkt.count && i < 8; ++i)
     {
-        auto it = g_items.find(pkt.items[i].itemId);
-        if (it == g_items.end() || it->second.ownerId != peerId)
+        if (!Inventory_OwnerIs(pkt.items[i].itemId, peerId))
             return false;
     }
     return true;
@@ -52,14 +51,12 @@ static bool ValidateStored()
 {
     for (auto& item : g_trade.offerA)
     {
-        auto it = g_items.find(item.itemId);
-        if (it == g_items.end() || it->second.ownerId != g_trade.a)
+        if (!Inventory_OwnerIs(item.itemId, g_trade.a))
             return false;
     }
     for (auto& item : g_trade.offerB)
     {
-        auto it = g_items.find(item.itemId);
-        if (it == g_items.end() || it->second.ownerId != g_trade.b)
+        if (!Inventory_OwnerIs(item.itemId, g_trade.b))
             return false;
     }
     return true;
@@ -109,15 +106,17 @@ static void Finalize()
     }
     for (auto& item : g_trade.offerA)
     {
-        ItemSnap& snap = g_items[item.itemId];
-        snap.ownerId = g_trade.b;
+        ItemSnap snap{};
+        if (!Inventory_SetOwner(item.itemId, g_trade.b, snap))
+            continue;
         ItemSnapPacket pkt{snap};
         Net_Broadcast(EMsg::ItemSnap, &pkt, sizeof(pkt));
     }
     for (auto& item : g_trade.offerB)
     {
-        ItemSnap& snap = g_items[item.itemId];
-        snap.ownerId = g_trade.a;
+        ItemSnap snap{};
+        if (!Inventory_SetOwner(item.itemId, g_trade.a, snap))
+            continue;
         ItemSnapPacket pkt{snap};
         Net_Broadcast(EMsg::ItemSnap, &pkt, sizeof(pkt));
     }

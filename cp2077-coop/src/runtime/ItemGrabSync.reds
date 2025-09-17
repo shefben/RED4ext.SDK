@@ -2,7 +2,8 @@ public class ItemGrabSync {
     public static func OnGrab(pkt: ref<ItemGrabPacket>) -> Void {
         LogChannel(n"itemgrab", "grab=" + IntToString(Cast<Int32>(pkt.itemId)));
         if pkt.itemId == 0xBBCHIPu {
-            RED4ext.ExecuteFunction("HUDNotifications", "ShowEvent", null, 0xBBCHIPu);
+            // TODO: Implement proper REDscript HUD notification system
+            LogChannel(n"itemgrab", "Special item grabbed: BBC Chip");
         };
     }
     public static func OnDrop(pkt: ref<ItemDropPacket>) -> Void {

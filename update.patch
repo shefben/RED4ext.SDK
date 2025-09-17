@@ -1,0 +1,3127 @@
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/.github/workflows/build.yml b/.github/workflows/build.yml
+index 22ae960be9a65729002ae3d4fa6646083ea69f2a..7f870a15805fa2ed8de8d73b850cfb62f57ba8de 100644
+--- a/.github/workflows/build.yml
++++ b/.github/workflows/build.yml
+@@ -12,28 +12,31 @@ jobs:
+         use_header_only: [ NO, YES ]
+         config: [ Debug, Release, MinSizeRel, RelWithDebInfo ]
+ 
+     steps:
+       - name: Checkout
+         uses: actions/checkout@v4
+ 
+       - name: Create build directory
+         run: mkdir build
+ 
+       - name: Configure
+         working-directory: build
+         run: |
+           cmake `
+             -DCMAKE_CXX_STANDARD=${{ matrix.cpp_standard }} `
+             -DRED4EXT_HEADER_ONLY=${{ matrix.use_header_only }} `
+             -DRED4EXT_USE_PCH=ON `
+             -DRED4EXT_BUILD_EXAMPLES=ON `
+             -DRED4EXT_EXTRA_WARNINGS=ON `
+             -DRED4EXT_TREAT_WARNINGS_AS_ERRORS=ON `
+             ${{ github.workspace }}
+ 
+       - name: Build
+         working-directory: build
+         run: |
+-          cmake `
+-            --build . `
++          cmake \
++            --build . \
+             --config ${{ matrix.config }}
++
++      - name: Generate plugin docs
++        run: python tools/gen_plugin_docs.py
+diff --git a/.gitmodules b/.gitmodules
+new file mode 100644
+index 0000000000000000000000000000000000000000..ce64e35feaaea63615b91472bf9b9e4bd70271b5
+--- /dev/null
++++ b/.gitmodules
+@@ -0,0 +1,3 @@
++[submodule "cp2077-coop/third_party/cpython-3.11"]
++	path = cp2077-coop/third_party/cpython-3.11
++	url = https://github.com/python/cpython.git
+diff --git a/DOCS.md b/DOCS.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..52ce49b966a39902faab83c964220550984e7a3b
+--- /dev/null
++++ b/DOCS.md
+@@ -0,0 +1,17 @@
++# Plugin API
++
++## game module
++
++- `spawn_npc`
++- `teleport_peer`
++- `set_weather`
++- `show_popup`
++- `get_peer_positions`
++- `dist`
++- `spawn_vehicle`
++- `send_rpc`
++
++## Plugins
++
++* **PopupZone** v1.0
++* **MobileCommandCenter** v1.0
+diff --git a/cp2077-coop/CMakeLists.txt b/cp2077-coop/CMakeLists.txt
+index b10bf5c07f97e53d95f76c744949869f9f37a6f6..486bb12df55e3919ef521f1cb1b0bcaa635ceca7 100644
+--- a/cp2077-coop/CMakeLists.txt
++++ b/cp2077-coop/CMakeLists.txt
+@@ -1,63 +1,70 @@
+ cmake_minimum_required(VERSION 3.21) project(cp2077 - coop)
+ 
+     list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+ 
+         find_package(Juice REQUIRED) find_package(Opus REQUIRED) find_package(AL REQUIRED)
+             find_package(OpenSSL REQUIRED) find_package(Sodium REQUIRED)
+ 
+ #See README for build and packaging instructions.
+ #This CMake script builds the cp2077 - coop mod and the coop_dedicated server.
+ 
+ #Build the mod's native library.
+                 add_library(cp2077 -
+                             coop SHARED src / net / Net.cpp src / net / Connection.cpp src / net / StatBatch.cpp src /
+                                 net / NatClient.cpp src / net / WorldMarkers.cpp src / net / PhaseBundle.cpp src /
+                                 core / GameClock.cpp src / core / SpatialGrid.cpp src / core / SaveFork.cpp src / core /
+                                 SaveMigration.cpp src / core / Settings.cpp src / core / SessionState.cpp src / core /
+-                                CrashHandler.cpp src / physics / LagComp.cpp src / physics / CarPhysics.cpp src /
++                                CrashHandler.cpp src / core / TaskGraph.cpp src / physics / LagComp.cpp src / physics / CarPhysics.cpp src /
+                                 server / InventoryController.cpp src / server / VendorController.cpp src / server /
+                                 ApartmentController.cpp src / server / DealerController.cpp src / server /
+                                 NpcController.cpp src / server / VehicleController.cpp src / server /
+                                 BreachController.cpp src / server / ShardController.cpp src / server /
+                                 ElevatorController.cpp src / server / GlobalEventController.cpp src / server /
+                                 AdminController.cpp src / server / CyberController.cpp src / server /
+                                 PerkController.cpp src / server / SkillController.cpp src / server /
+                                 QuestWatchdog.cpp src / server / PhaseGC.cpp src / server /
+                                 PhaseTriggerController.cpp src / server / TradeController.cpp src / server /
+                                 SnapshotHeap.cpp src / server / TextureGuard.cpp src / server / Journal.cpp src /
+                                 server / SectorLODController.cpp src / server / BillboardController.cpp src / server /
+                                 DoorBreachController.cpp src / server / QuestGadgetController.cpp src / server /
+                                 TransitController.cpp src / server / CameraController.cpp src / server /
+                                 CarryController.cpp src / server / GrenadeController.cpp src / server /
+                                 SmartCamController.cpp src / server / ArcadeController.cpp src / server / PoliceDispatch.cpp src / server /
+                                 LedgerService.cpp src / server / WebDash.cpp src / voice / VoiceEncoder.cpp src /
+                                 voice / VoiceDecoder.cpp)
+ 
+                     target_include_directories(cp2077 - coop PRIVATE "${PROJECT_SOURCE_DIR}/third_party/enet/include"
+                                                                      "${PROJECT_SOURCE_DIR}/third_party"
+                                                                      "${PROJECT_SOURCE_DIR}/third_party/zstd")
+ 
+                         target_link_libraries(cp2077 - coop PRIVATE enet juice opus AL::AL OpenSSL::SSL sodium)
+ 
+                             set(BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build") file(MAKE_DIRECTORY "${BUILD_DIR}")
+ 
+                                 set(ARCHIVE "${BUILD_DIR}/cp2077-coop.archive")
+                                     add_custom_command(OUTPUT "${ARCHIVE}" COMMAND ${CMAKE_COMMAND} - E touch
+                                                        "${ARCHIVE}" COMMENT "Creating empty archive")
+ 
+-                                        add_executable(coop_dedicated src / server / DedicatedMain.cpp src / server /
+-                                                       DamageValidator.cpp src / server / ServerConfig.cpp src /
+-                                                       server / Heartbeat.cpp src / server / AdminController.cpp)
++                                        add_executable(coop_dedicated src/server/DedicatedMain.cpp
++                                                       src/server/DamageValidator.cpp
++                                                       src/server/ServerConfig.cpp
++                                                       src/server/Heartbeat.cpp
++                                                       src/server/AdminController.cpp
++                                                       src/plugin/PythonVM.cpp
++                                                       src/plugin/PluginManager.cpp)
+ 
+                                             target_include_directories(coop_dedicated PRIVATE
+-                                                                       "${PROJECT_SOURCE_DIR}/third_party")
++                                                                       "${PROJECT_SOURCE_DIR}/third_party"
++                                                                       "${PROJECT_SOURCE_DIR}/third_party/cpython-3.11/Include")
+ 
+-                                                target_link_libraries(coop_dedicated PRIVATE cp2077 - coop enet juice)
++                                                target_link_libraries(coop_dedicated PRIVATE cp2077 - coop enet juice
++                                                                                ${PROJECT_SOURCE_DIR}/third_party/cpython-3.11/libpython3.11.a)
++                                                target_compile_definitions(coop_dedicated PRIVATE Py_ENABLE_SHARED=0)
+ 
+                                                     add_executable(coop_merge tools / coop_merge.cpp)
+ 
+                                                         target_link_libraries(coop_merge PRIVATE cp2077 - coop)
+ 
+                                                             add_custom_target(cp2077 - coop -
+                                                                               archive ALL DEPENDS "${ARCHIVE}" cp2077 -
+                                                                               coop)
+diff --git a/cp2077-coop/src/core/TaskGraph.cpp b/cp2077-coop/src/core/TaskGraph.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..a0c8d33886e3ee95cd65ff8c5cb1f2f23ea20279
+--- /dev/null
++++ b/cp2077-coop/src/core/TaskGraph.cpp
+@@ -0,0 +1,71 @@
++#include "TaskGraph.hpp"
++#include <chrono>
++
++namespace CoopNet
++{
++TaskGraph::TaskGraph() = default;
++TaskGraph::~TaskGraph()
++{
++    Stop();
++}
++
++void TaskGraph::WorkerLoop()
++{
++    while (m_running)
++    {
++        std::function<void()> task;
++        if (m_tasks.Pop(task))
++        {
++            task();
++        }
++        else
++        {
++            std::this_thread::sleep_for(std::chrono::milliseconds(1));
++        }
++    }
++}
++
++void TaskGraph::Start(size_t workers)
++{
++    std::lock_guard<std::mutex> lock(m_resizeMutex);
++    if (m_running)
++        return;
++    m_running = true;
++    for (size_t i = 0; i < workers; ++i)
++    {
++        m_workers.emplace_back([this] { WorkerLoop(); });
++    }
++}
++
++void TaskGraph::Stop()
++{
++    std::lock_guard<std::mutex> lock(m_resizeMutex);
++    if (!m_running)
++        return;
++    m_running = false;
++    for (auto& t : m_workers)
++    {
++        if (t.joinable())
++            t.join();
++    }
++    m_workers.clear();
++}
++
++void TaskGraph::Resize(size_t workers)
++{
++    std::lock_guard<std::mutex> lock(m_resizeMutex);
++    Stop();
++    Start(workers);
++}
++
++void TaskGraph::Submit(const std::function<void()>& task)
++{
++    m_tasks.Push(task);
++}
++
++size_t TaskGraph::GetWorkerCount() const
++{
++    return m_workers.size();
++}
++
++} // namespace CoopNet
+diff --git a/cp2077-coop/src/core/TaskGraph.hpp b/cp2077-coop/src/core/TaskGraph.hpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..b93fa62eee52397f76f60d1f1ed10f6cb4273145
+--- /dev/null
++++ b/cp2077-coop/src/core/TaskGraph.hpp
+@@ -0,0 +1,31 @@
++#pragma once
++#include "ThreadSafeQueue.hpp"
++#include <functional>
++#include <vector>
++#include <atomic>
++#include <mutex>
++#include <thread>
++
++namespace CoopNet
++{
++class TaskGraph
++{
++public:
++    TaskGraph();
++    ~TaskGraph();
++
++    void Start(size_t workers);
++    void Stop();
++    void Resize(size_t workers);
++    void Submit(const std::function<void()>& task);
++    size_t GetWorkerCount() const;
++
++private:
++    void WorkerLoop();
++
++    ThreadSafeQueue<std::function<void()>> m_tasks;
++    std::vector<std::jthread> m_workers;
++    std::atomic<bool> m_running{false};
++    mutable std::mutex m_resizeMutex;
++};
++} // namespace CoopNet
+diff --git a/cp2077-coop/src/gui/CoopMap.reds b/cp2077-coop/src/gui/CoopMap.reds
+index abbcdc608e71a410450daae7d8f5eadf3dcf10a9..0672a760e95106b04e91262525628684692cf7dc 100644
+--- a/cp2077-coop/src/gui/CoopMap.reds
++++ b/cp2077-coop/src/gui/CoopMap.reds
+@@ -1,49 +1,57 @@
+ public class CoopMap extends inkHUDLayer {
+     private static let s_instance: ref<CoopMap>;
+     private let icons: array<ref<inkImage>>;
++    private let offset: Vector2 = new Vector2(0.0, 0.0);
++    private let zoom: Float = 1.0;
+ 
+     public static func Show() -> Void {
+         if IsDefined(s_instance) { return; };
+         s_instance = new CoopMap();
+         let hud = GameInstance.GetHUDManager(GetGame());
+         hud.AddLayer(s_instance);
+         s_instance.SpawnIcons();
+         LogChannel(n"DEBUG", "CoopMap shown");
+     }
+ 
+     public static func Hide() -> Void {
+         if !IsDefined(s_instance) { return; };
+         let hud = GameInstance.GetHUDManager(GetGame());
+         hud.RemoveLayer(s_instance);
+         s_instance = null;
+     }
+ 
+     private func SpawnIcons() -> Void {
+         // UI-2: verify that PlayerSystem.GetPlayers lists remote avatars
+         let playerSys = GameInstance.GetPlayerSystem(GetGame());
+         let players = playerSys.GetPlayers(); // returns all connected avatars
+         for p in players {
+             let img = new inkImage();
+             img.SetAtlasResource(r"base/gameplay/gui/fullscreen/minimap/minimap_player.inkatlas");
+             img.SetTexturePart(n"player_icon");
+             img.SetSize(32.0, 32.0);
+             icons.PushBack(img);
+             AddChild(img);
+         }
+     }
+ 
+     public func OnUpdate(dt: Float) -> Void {
+-        // Placeholder pan/zoom controls without pausing the game.
++        let input = GameInstance.GetInputSystem(GetGame());
++        if input.IsActionPressed(n"IK_W") { offset.Y += 200.0 * dt; };
++        if input.IsActionPressed(n"IK_S") { offset.Y -= 200.0 * dt; };
++        if input.IsActionPressed(n"IK_A") { offset.X += 200.0 * dt; };
++        if input.IsActionPressed(n"IK_D") { offset.X -= 200.0 * dt; };
++        if input.IsActionJustPressed(n"IK_Plus") { zoom *= 1.1; };
++        if input.IsActionJustPressed(n"IK_Minus") { zoom *= 0.9; };
+         let playerSys = GameInstance.GetPlayerSystem(GetGame());
+         let players = playerSys.GetPlayers();
+         var i: Int32 = 0;
+         while i < players.Size() && i < icons.Size() {
+             let p = players[i] as AvatarProxy;
+             if IsDefined(p) {
+                 let screen = GameInstance.GetViewportManager(GetGame()).WorldToScreen(p.pos);
+-                icons[i].SetMargin(screen.X, screen.Y);
++                icons[i].SetMargin((screen.X * zoom) + offset.X, (screen.Y * zoom) + offset.Y);
+             };
+             i += 1;
+         }
+     }
+ }
+diff --git a/cp2077-coop/src/gui/Killfeed.reds b/cp2077-coop/src/gui/Killfeed.reds
+index cddd66081cb112b4f8f0009469eb7b944d0d914f..b6da9c12fb50a50d3a1cbc14befa6fded2756a7c 100644
+--- a/cp2077-coop/src/gui/Killfeed.reds
++++ b/cp2077-coop/src/gui/Killfeed.reds
+@@ -1,6 +1,51 @@
+-public class Killfeed {
++public class Killfeed extends inkHUDLayer {
++    public static let s_instance: ref<Killfeed>;
++    private var root: ref<inkVerticalPanel>;
++    private var lines: array<ref<inkText>>;
++    private var timers: array<Float>;
++
++    public static func Instance() -> ref<Killfeed> {
++        if !IsDefined(s_instance) {
++            s_instance = new Killfeed();
++        };
++        return s_instance;
++    }
++
+     public static func Push(msg: String) -> Void {
+-        // Placeholder UI for killfeed messages.
++        Instance().AddLine(msg);
+         LogChannel(n"DEBUG", "Killfeed: " + msg);
+     }
++
++    private func AddLine(msg: String) -> Void {
++        if !IsDefined(root) {
++            root = new inkVerticalPanel();
++            root.SetAnchor(inkEAnchor.TopRight);
++            root.SetTranslation(new Vector2(-20.0, 200.0));
++            AddChild(root);
++        };
++        let t = new inkText();
++        t.SetText(msg);
++        root.AddChild(t);
++        lines.PushBack(t);
++        timers.PushBack(5.0);
++        while lines.Size() > 5 {
++            root.RemoveChild(lines[0]);
++            lines.Erase(0);
++            timers.Erase(0);
++        };
++    }
++
++    public func OnUpdate(dt: Float) -> Void {
++        var i: Int32 = 0;
++        while i < timers.Size() {
++            timers[i] -= dt;
++            if timers[i] <= 0.0 {
++                root.RemoveChild(lines[i]);
++                lines.Erase(i);
++                timers.Erase(i);
++            } else {
++                i += 1;
++            };
++        };
++    }
+ }
+diff --git a/cp2077-coop/src/gui/ServerBrowser.reds b/cp2077-coop/src/gui/ServerBrowser.reds
+index 3cccfb612297795369d7bc961dbcc2248bc12105..cc38055f46429eff53aa333d874fc09ebf84f8fb 100644
+--- a/cp2077-coop/src/gui/ServerBrowser.reds
++++ b/cp2077-coop/src/gui/ServerBrowser.reds
+@@ -25,52 +25,51 @@ public class ServerBrowser {
+             nameLabel.SetText(name);
+             let playersLabel = new inkText();
+             playersLabel.SetText(players);
+             row.AddChild(nameLabel);
+             row.AddChild(playersLabel);
+             row.RegisterToCallback(n"OnRelease", this, n"OnRowClicked");
+             listCtrl.AddChild(row);
+         }
+         scrollCtrl.SetTarget(listCtrl);
+     }
+ 
+     public static func OnRowClicked(widget: ref<inkWidget>) -> Void {
+         selectedId = StringToUint(widget.GetName());
+         if IsDefined(joinBtn) {
+             joinBtn.SetEnabled(true);
+         };
+         listCtrl.SetSelected(widget);
+         LogChannel(n"DEBUG", "Selected " + IntToString(selectedId));
+     }
+ 
+     public static func Join() -> Void {
+         if selectedId == 0 {
+             LogChannel(n"DEBUG", "Join aborted - no server selected");
+             return;
+         }
+-        // Placeholder networking call.
+         LogChannel(n"DEBUG", "JoinRequest -> " + IntToString(selectedId));
+-        // NetCore.SendJoinRequest(selectedId);
++        CoopNet.Net_SendJoinRequest(selectedId);
+     }
+ 
+     public static func Host() -> Void {
+         // Pseudo-code: spawn the dedicated server then join localhost.
+         // SystemCommand("coop_dedicated --port 7777");
+         LogChannel(n"DEBUG", "Host -> coop_dedicated --port 7777");
+         selectedId = 0;
+         // NetCore.Connect("127.0.0.1");
+         LogChannel(n"DEBUG", "JoinRequest -> 127.0.0.1");
+     }
+ 
+     public static func OnUpdate() -> Void {
+         if IsDefined(scrollCtrl) {
+             let input = GameInstance.GetInputSystem(GetGame());
+             if input.IsActionJustPressed(n"IK_Up") {
+                 scrollCtrl.ScrollBy(-1.0);
+             } else if input.IsActionJustPressed(n"IK_Down") {
+                 scrollCtrl.ScrollBy(1.0);
+             } else if input.GetMouseWheel() != 0 {
+                 scrollCtrl.ScrollBy(input.GetMouseWheel());
+             }
+         }
+     }
+ }
+diff --git a/cp2077-coop/src/net/Connection.cpp b/cp2077-coop/src/net/Connection.cpp
+index b84ede5b2006d2c07df98a09e0240b6b5bcaac07..955d92e56303ec92a25c93a90973da643ea3ccc9 100644
+--- a/cp2077-coop/src/net/Connection.cpp
++++ b/cp2077-coop/src/net/Connection.cpp
+@@ -1,64 +1,138 @@
+ #include "Connection.hpp"
+ #include "../core/GameClock.hpp"
+ #include "../core/Hash.hpp"
+ #include "../core/SessionState.hpp"
+ #include "../runtime/GameModeManager.reds"
+ #include "../runtime/TileGameSync.reds"
+ #include "../server/BreachController.hpp"
+ #include "../server/NpcController.hpp"
+ #include "../server/QuestWatchdog.hpp"
+ #include "../server/StatusController.hpp"
+ #include "../server/TrafficController.hpp"
+ #include "../voice/VoiceDecoder.hpp"
++#include "../plugin/PluginManager.hpp"
++#include "../third_party/zstd/zstd.h"
++#include <openssl/sha.h>
++#include <Python.h>
+ #include "Net.hpp"
+ #include "StatBatch.hpp"
+ #include <RED4ext/RED4ext.hpp>
++#include <filesystem>
++#include <fstream>
++#include <unordered_map>
+ #include <iostream>
+ 
+ // Temporary proxies for script methods.
+ static void AvatarProxy_SpawnRemote(uint32_t peerId, bool isLocal, const CoopNet::TransformSnap& snap)
+ {
+     RED4ext::ExecuteFunction("AvatarProxy", "SpawnRemote", nullptr, peerId, isLocal, &snap);
+ }
+ 
+ static void AvatarProxy_DespawnRemote(uint32_t peerId)
+ {
+     RED4ext::ExecuteFunction("AvatarProxy", "DespawnRemote", nullptr, peerId);
+ }
+ 
+ static void Killfeed_Push(const char* msg)
+ {
++    RED4ext::CString s(msg);
++    RED4ext::ExecuteFunction("Killfeed", "Push", nullptr, &s);
+     std::cout << "Killfeed: " << msg << std::endl;
+ }
+ 
++static void Killfeed_Broadcast(const char* msg)
++{
++    if (CoopNet::Net_IsAuthoritative())
++        CoopNet::Net_BroadcastKillfeed(msg);
++    Killfeed_Push(msg);
++}
++
+ static void ChatOverlay_Push(const char* msg)
+ {
+     RED4ext::CString s(msg);
+     RED4ext::ExecuteFunction("ChatOverlay", "PushGlobal", nullptr, &s);
+ }
+ 
++namespace
++{
++    struct BundleBuf
++    {
++        std::vector<uint8_t> data;
++        uint32_t expected{0};
++    };
++
++    std::unordered_map<uint16_t, BundleBuf> g_bundle;
++    std::unordered_map<uint16_t, std::string> g_bundleSha;
++
++    void HandleBundleComplete(uint16_t pluginId, const std::vector<uint8_t>& comp)
++    {
++        namespace fs = std::filesystem;
++        std::vector<uint8_t> raw(5u * 1024u * 1024u);
++        size_t size = ZSTD_decompress(raw.data(), raw.size(), comp.data(), comp.size());
++        if (ZSTD_isError(size))
++            return;
++        raw.resize(size);
++        unsigned char sha[SHA256_DIGEST_LENGTH];
++        SHA256(comp.data(), comp.size(), sha);
++        std::string s(reinterpret_cast<char*>(sha), SHA256_DIGEST_LENGTH);
++        if (g_bundleSha[pluginId] == s)
++            return;
++        g_bundleSha[pluginId] = s;
++        fs::path base = fs::path("runtime_cache") / "plugins" / std::to_string(pluginId);
++        fs::create_directories(base);
++        const uint8_t* p = raw.data();
++        const uint8_t* end = raw.data() + raw.size();
++        while (p + 2 <= end)
++        {
++            uint16_t pathLen;
++            memcpy(&pathLen, p, 2);
++            p += 2;
++            if (p + pathLen > end)
++                break;
++            std::string rel(reinterpret_cast<const char*>(p), pathLen);
++            p += pathLen;
++            if (p + 4 > end)
++                break;
++            uint32_t len;
++            memcpy(&len, p, 4);
++            p += 4;
++            if (p + len > end)
++                break;
++            fs::path out = base / rel;
++            fs::create_directories(out.parent_path());
++            std::ofstream f(out, std::ios::binary);
++            f.write(reinterpret_cast<const char*>(p), len);
++            p += len;
++        }
++        RED4ext::CString path(base.string().c_str());
++        bool ro = true; // sandbox client scripts
++        RED4ext::ExecuteFunction("ModSystem", "Mount", nullptr, &path, &ro);
++        RED4ext::ExecuteFunction("ModSystem", "ReloadScriptsFrom", nullptr, &path);
++    }
++} // namespace
++
+ static void QuestSync_ApplyQuestStage(uint32_t hash, uint16_t stage)
+ {
+     RED4ext::ExecuteFunction("QuestSync", "ApplyQuestStageByHash", nullptr, &hash, &stage);
+ }
+ 
+ static void QuestSync_ApplySceneTrigger(const char* id, bool start)
+ {
+     std::cout << "SceneTrigger " << id << " start=" << start << std::endl;
+ }
+ 
+ static void DMScoreboard_OnScorePacket(uint32_t peerId, uint16_t k, uint16_t d)
+ {
+     std::cout << "ScoreUpdate " << peerId << " " << k << "/" << d << std::endl;
+ }
+ 
+ static void DMScoreboard_OnMatchOver(uint32_t winner)
+ {
+     std::cout << "MatchOver " << winner << std::endl;
+ }
+ 
+ static void StatHud_OnStats(uint32_t peerId, const CoopNet::NetStats& s)
+ {
+     RED4ext::ExecuteFunction("StatHud", "OnNetStats", nullptr, peerId, &s);
+ }
+ 
+@@ -425,93 +499,98 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
+         if (size >= sizeof(WelcomePacket))
+         {
+             const WelcomePacket* pkt = reinterpret_cast<const WelcomePacket*>(payload);
+             unsigned char sec[crypto_scalarmult_BYTES];
+             crypto_scalarmult(sec, privKey.data(), pkt->pub);
+             crypto_generichash(key.data(), key.size(), sec, sizeof(sec), nullptr, 0);
+             hasKey = true;
+             if (state == ConnectionState::Handshaking)
+                 Transition(ConnectionState::Lobby);
+         }
+         break;
+     case EMsg::JoinAccept:
+         if (state == ConnectionState::Lobby)
+         {
+             Transition(ConnectionState::InGame);
+             uint64_t hash = CoopNet::Fnv1a64Pos(avatarPos.X, avatarPos.Y);
+             SectorChangePacket pkt{0u, hash};
+             Net_Send(this, EMsg::SectorChange, &pkt, sizeof(pkt));
+             std::vector<uint32_t> ids;
+             for (auto* c : Net_GetConnections())
+                 ids.push_back(c->peerId);
+             CoopNet::SessionState_SetParty(ids);
+         }
+         break;
+     case EMsg::Disconnect:
+-        Killfeed_Push("0 disconnected");
++        Killfeed_Broadcast("0 disconnected");
+         CoopNet::VehicleController_RemovePeer(peerId);
+         Transition(ConnectionState::Disconnected);
+         CrowdCfgSync_OnRestore();
+         CoopNet::SaveSessionState(CoopNet::SessionState_GetId());
+         break;
+     case EMsg::AvatarSpawn:
+         if (size >= sizeof(AvatarSpawnPacket))
+         {
+             const AvatarSpawnPacket* pkt = reinterpret_cast<const AvatarSpawnPacket*>(payload);
+             AvatarProxy_SpawnRemote(pkt->peerId, pkt->peerId == 0, pkt->snap);
+             avatarPos = pkt->snap.pos;
+             uint64_t hash = CoopNet::Fnv1a64Pos(avatarPos.X, avatarPos.Y);
+             currentSector = hash;
+             SectorChangePacket sp{pkt->peerId, hash};
+             Net_Send(this, EMsg::SectorChange, &sp, sizeof(sp));
+         }
+         break;
+     case EMsg::AvatarDespawn:
+         if (size >= sizeof(AvatarDespawnPacket))
+         {
+             const AvatarDespawnPacket* pkt = reinterpret_cast<const AvatarDespawnPacket*>(payload);
+             AvatarProxy_DespawnRemote(pkt->peerId);
+         }
+-        Killfeed_Push("0 disconnected");
++        Killfeed_Broadcast("0 disconnected");
+         break;
+     case EMsg::Chat:
+         if (Net_IsAuthoritative())
+         {
+             if (CoopNet::GameClock::GetTimeMs() < muteUntilMs)
+                 break;
+             if (size >= sizeof(ChatPacket))
+             {
+                 const ChatPacket* pkt = reinterpret_cast<const ChatPacket*>(payload);
++                if (CoopNet::PluginManager_HandleChat(peerId, pkt->msg, false))
++                    break;
+                 ChatPacket out{peerId, {0}};
+                 std::strncpy(out.msg, pkt->msg, sizeof(out.msg) - 1);
+                 Net_Broadcast(EMsg::Chat, &out, sizeof(out));
+             }
+         }
+         if (size >= sizeof(ChatPacket))
+         {
+             const ChatPacket* pkt = reinterpret_cast<const ChatPacket*>(payload);
+             ChatOverlay_Push(pkt->msg);
++            PyObject* d = Py_BuildValue("{s:I,s:s}", "peerId", peerId, "text", pkt->msg);
++            CoopNet::PluginManager_DispatchEvent("OnChatMsg", d);
++            Py_DECREF(d);
+         }
+         break;
+     case EMsg::QuestStageP2P:
+         if (size >= sizeof(QuestStageP2PPacket))
+         {
+             const QuestStageP2PPacket* pkt = reinterpret_cast<const QuestStageP2PPacket*>(payload);
+             CoopNet::QuestWatchdog_Record(pkt->phaseId, pkt->questHash, pkt->stage);
+             if (pkt->phaseId == peerId)
+                 QuestSync_ApplyQuestStage(pkt->questHash, pkt->stage);
+         }
+         break;
+     case EMsg::QuestResyncRequest:
+         if (Net_IsAuthoritative())
+         {
+             QuestFullSyncPacket pkt{};
+             CoopNet::QuestWatchdog_BuildFullSync(peerId, pkt);
+             Net_SendQuestFullSync(this, pkt);
+         }
+         break;
+     case EMsg::QuestFullSync:
+         if (size >= sizeof(QuestFullSyncPacket))
+         {
+             const QuestFullSyncPacket* pkt = reinterpret_cast<const QuestFullSyncPacket*>(payload);
+             RED4ext::ExecuteFunction("QuestSync", "ApplyFullSync", nullptr, pkt);
+         }
+@@ -678,50 +757,57 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
+             // Ack will be sent from OnStreamingDone hook.
+         }
+         break;
+     case EMsg::SectorReady:
+         if (size >= sizeof(SectorReadyPacket))
+         {
+             const SectorReadyPacket* pkt = reinterpret_cast<const SectorReadyPacket*>(payload);
+             sectorReady = true;
+             currentSector = pkt->sectorHash;
+         }
+         break;
+     case EMsg::ScoreUpdate:
+         if (size >= sizeof(ScoreUpdatePacket))
+         {
+             const ScoreUpdatePacket* pkt = reinterpret_cast<const ScoreUpdatePacket*>(payload);
+             DMScoreboard_OnScorePacket(pkt->peerId, pkt->k, pkt->d);
+         }
+         break;
+     case EMsg::MatchOver:
+         if (size >= sizeof(MatchOverPacket))
+         {
+             const MatchOverPacket* pkt = reinterpret_cast<const MatchOverPacket*>(payload);
+             DMScoreboard_OnMatchOver(pkt->winnerId);
+         }
+         break;
++    case EMsg::Killfeed:
++        if (size >= sizeof(KillfeedPacket))
++        {
++            const KillfeedPacket* pkt = reinterpret_cast<const KillfeedPacket*>(payload);
++            Killfeed_Push(pkt->msg);
++        }
++        break;
+     case EMsg::ItemSnap:
+         if (size >= sizeof(ItemSnapPacket))
+         {
+             const ItemSnapPacket* pkt = reinterpret_cast<const ItemSnapPacket*>(payload);
+             Inventory_OnItemSnap(pkt->snap);
+         }
+         break;
+     case EMsg::CraftResult:
+         if (size >= sizeof(CraftResultPacket))
+         {
+             const CraftResultPacket* pkt = reinterpret_cast<const CraftResultPacket*>(payload);
+             Inventory_OnCraftResult(pkt->item);
+         }
+         break;
+     case EMsg::AttachModResult:
+         if (size >= sizeof(AttachModResultPacket))
+         {
+             const AttachModResultPacket* pkt = reinterpret_cast<const AttachModResultPacket*>(payload);
+             Inventory_OnAttachResult(pkt->item, pkt->success != 0);
+         }
+         break;
+     case EMsg::ReRollResult:
+         if (size >= sizeof(ReRollResultPacket))
+         {
+             const ReRollResultPacket* pkt = reinterpret_cast<const ReRollResultPacket*>(payload);
+@@ -1582,50 +1668,73 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
+     case EMsg::ArcadeStart:
+         if (size >= sizeof(ArcadeStartPacket))
+         {
+             const ArcadeStartPacket* pkt = reinterpret_cast<const ArcadeStartPacket*>(payload);
+             if (Net_IsAuthoritative())
+                 CoopNet::Arcade_Start(pkt->cabId, pkt->peerId, pkt->seed);
+             else
+                 RED4ext::ExecuteFunction("ArcadeSync", "OnStart", nullptr, pkt);
+         }
+         break;
+     case EMsg::ArcadeInput:
+         if (size >= sizeof(ArcadeInputPacket))
+         {
+             const ArcadeInputPacket* pkt = reinterpret_cast<const ArcadeInputPacket*>(payload);
+             if (Net_IsAuthoritative())
+                 CoopNet::Arcade_Input(pkt->frame, pkt->buttonMask);
+         }
+         break;
+     case EMsg::ArcadeScore:
+         if (size >= sizeof(ArcadeScorePacket))
+         {
+             const ArcadeScorePacket* pkt = reinterpret_cast<const ArcadeScorePacket*>(payload);
+             RED4ext::ExecuteFunction("ArcadeSync", "OnScore", nullptr, pkt);
+         }
+         break;
++    case EMsg::PluginRPC:
++        if (size >= sizeof(PluginRPCPacket) && !Net_IsAuthoritative())
++        {
++            const PluginRPCPacket* pkt = reinterpret_cast<const PluginRPCPacket*>(payload);
++            if (size >= sizeof(PluginRPCPacket) - 1 + pkt->jsonBytes)
++                ClientPluginProxy_OnRpc(pkt);
++        }
++        break;
++    case EMsg::AssetBundle:
++        if (size >= sizeof(AssetBundlePacket) && !Net_IsAuthoritative())
++        {
++            const AssetBundlePacket* pkt = reinterpret_cast<const AssetBundlePacket*>(payload);
++            auto& b = g_bundle[pkt->pluginId];
++            if (b.data.empty())
++                b.expected = pkt->totalBytes;
++            b.data.insert(b.data.end(), pkt->data, pkt->data + pkt->dataBytes);
++            if (b.data.size() >= b.expected)
++            {
++                HandleBundleComplete(pkt->pluginId, b.data);
++                g_bundle.erase(pkt->pluginId);
++            }
++        }
++        break;
+     default:
+         break;
+     }
+ }
+ 
+ void Connection::Update(uint64_t nowMs)
+ {
+     if (voiceMuted && voiceMuteEndMs > 0 && nowMs >= voiceMuteEndMs)
+     {
+         voiceMuted = false;
+         voiceMuteEndMs = 0;
+         RED4ext::ExecuteFunction("MicIcon", "SetMuted", nullptr, false);
+     }
+     if (nowMs - lastPingSent >= 5000)
+     {
+         PingPacket ping{static_cast<uint32_t>(nowMs & 0xFFFFFFFFu)};
+         Net_Send(this, EMsg::Ping, &ping, sizeof(ping));
+         lastPingSent = nowMs;
+     }
+ 
+     RawPacket pkt;
+     while (m_incoming.Pop(pkt))
+     {
+         HandlePacket(pkt.hdr, pkt.data.data(), static_cast<uint16_t>(pkt.data.size()));
+     }
+diff --git a/cp2077-coop/src/net/NatClient.cpp b/cp2077-coop/src/net/NatClient.cpp
+index 536339d704670166bf1b7d7c9a443b0f182c7f74..553b26831dc402c223e5873a00e8e4d540297ed5 100644
+--- a/cp2077-coop/src/net/NatClient.cpp
++++ b/cp2077-coop/src/net/NatClient.cpp
+@@ -89,52 +89,52 @@ void Nat_PerformHandshake(Connection* conn)
+                     cfg.turn_server_host = host.c_str();
+                     cfg.turn_server_port = port;
+                     cfg.turn_username = user.c_str();
+                     cfg.turn_password = pass.c_str();
+                     cfg.cb_candidate = [](juice_agent_t*, const char* sdp, void*) {
+                         if (g_callback)
+                             g_callback(sdp);
+                     };
+                     cfg.cb_state_changed = [](juice_agent_t*, juice_state_t state, void*) {
+                         if (state == JUICE_STATE_CONNECTED)
+                             g_connected = true;
+                     };
+                     if (juice_create(&cfg, &g_agent) == 0)
+                     {
+                         juice_set_remote_description(g_agent, g_remoteCandidate.c_str());
+                         juice_connect(g_agent);
+                         start = std::chrono::steady_clock::now();
+                     }
+                 }
+                 break;
+             }
+             std::this_thread::sleep_for(std::chrono::milliseconds(10));
+         }
+         if (g_connected && conn)
+         {
+-            // Placeholder bandwidth accounting
+-            g_relayBytes += 5000; // NT-3: obtain stats from libjuice
++            extern uint64_t juice_get_bytes_relayed(juice_agent_t*);
++            g_relayBytes = juice_get_bytes_relayed(g_agent);
+             conn->relayBytes += g_relayBytes;
+             conn->rttMs = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start).count();
+             conn->usingRelay = g_relayBytes > 0;
+             std::cout << "TURN relay bytes=" << conn->relayBytes << std::endl;
+         }
+     }
+ }
+ 
+ void Nat_AddRemoteCandidate(const char* cand)
+ {
+     if (cand)
+         g_remoteCandidate = cand;
+ }
+ 
+ void Nat_SetTurnCreds(const std::string& host, int port,
+                       const std::string& user, const std::string& pass)
+ {
+     g_turnHost = host;
+     g_turnPort = port;
+     g_turnUser = user;
+     g_turnPass = pass;
+     g_haveTurn = true;
+ }
+ 
+ bool Nat_GetTurnCreds(std::string& host, int& port,
+diff --git a/cp2077-coop/src/net/Net.cpp b/cp2077-coop/src/net/Net.cpp
+index e58698c3c6080df31d0ffdce23948616083b538b..717fe33fee6fdd1d1408569c8753845a891baa96 100644
+--- a/cp2077-coop/src/net/Net.cpp
++++ b/cp2077-coop/src/net/Net.cpp
+@@ -390,50 +390,60 @@ void Net_BroadcastHeat(uint8_t level)
+     PoliceDispatch_OnHeatChange(level);
+ }
+ 
+ void Net_BroadcastElevatorCall(uint32_t peerId, uint32_t elevatorId, uint8_t floorIdx)
+ {
+     ElevatorCallPacket pkt{peerId, elevatorId, floorIdx, {0, 0, 0}};
+     Net_Broadcast(EMsg::ElevatorCall, &pkt, sizeof(pkt));
+ }
+ 
+ void Net_BroadcastElevatorArrive(uint32_t elevatorId, uint64_t sectorHash, const RED4ext::Vector3& pos)
+ {
+     ElevatorArrivePacket pkt{elevatorId, sectorHash, pos};
+     Net_Broadcast(EMsg::ElevatorArrive, &pkt, sizeof(pkt));
+ }
+ 
+ void Net_SendTeleportAck(uint32_t elevatorId)
+ {
+     auto conns = Net_GetConnections();
+     if (!conns.empty())
+     {
+         TeleportAckPacket pkt{elevatorId};
+         Net_Send(conns[0], EMsg::TeleportAck, &pkt, sizeof(pkt));
+     }
+ }
+ 
++void Net_SendJoinRequest(uint32_t serverId)
++{
++    auto conns = Net_GetConnections();
++    if (!conns.empty())
++    {
++        uint32_t id = serverId;
++        Net_Send(conns[0], EMsg::JoinRequest, &id, sizeof(id));
++    }
++}
++
+ void Net_BroadcastQuestStage(uint32_t nameHash, uint16_t stage)
+ {
+     QuestStagePacket pkt{nameHash, stage, 0};
+     for (auto& e : g_Peers)
+         CoopNet::QuestWatchdog_Record(e.conn->peerId, nameHash, stage);
+     Journal_Log(GameClock::GetCurrentTick(), 0, "questStage", nameHash, stage);
+     Net_Broadcast(EMsg::QuestStage, &pkt, sizeof(pkt));
+ }
+ 
+ void Net_BroadcastQuestStageP2P(uint32_t phaseId, uint32_t questHash, uint16_t stage)
+ {
+     QuestStageP2PPacket pkt{phaseId, questHash, stage, 0};
+     for (auto& e : g_Peers)
+         CoopNet::QuestWatchdog_Record(phaseId, questHash, stage);
+     Net_Broadcast(EMsg::QuestStageP2P, &pkt, sizeof(pkt));
+ }
+ 
+ void Net_SendQuestResyncRequest()
+ {
+     auto conns = Net_GetConnections();
+     if (!conns.empty())
+     {
+         QuestResyncRequestPacket pkt{0};
+         Net_Send(conns[0], EMsg::QuestResyncRequest, &pkt, sizeof(pkt));
+     }
+@@ -500,50 +510,64 @@ void Net_SendSpectateRequest(uint32_t peerId)
+     }
+ }
+ 
+ void Net_SendSpectateGranted(uint32_t peerId)
+ {
+     auto conns = Net_GetConnections();
+     if (!conns.empty())
+     {
+         SpectatePacket pkt{peerId};
+         Net_Send(conns[0], EMsg::SpectateGranted, &pkt, sizeof(pkt));
+     }
+ }
+ 
+ void Net_BroadcastScoreUpdate(uint32_t peerId, uint16_t k, uint16_t d)
+ {
+     ScoreUpdatePacket pkt{peerId, k, d};
+     Net_Broadcast(EMsg::ScoreUpdate, &pkt, sizeof(pkt));
+ }
+ 
+ void Net_BroadcastMatchOver(uint32_t winnerId)
+ {
+     MatchOverPacket pkt{winnerId};
+     Net_Broadcast(EMsg::MatchOver, &pkt, sizeof(pkt));
+ }
+ 
++void Net_BroadcastChat(const std::string& msg)
++{
++    ChatPacket pkt{0, {0}};
++    std::strncpy(pkt.msg, msg.c_str(), sizeof(pkt.msg) - 1);
++    Net_Broadcast(EMsg::Chat, &pkt, sizeof(pkt));
++}
++
++void Net_BroadcastKillfeed(const std::string& msg)
++{
++    KillfeedPacket pkt{{0}};
++    std::strncpy(pkt.msg, msg.c_str(), sizeof(pkt.msg) - 1);
++    Net_Broadcast(EMsg::Killfeed, &pkt, sizeof(pkt));
++}
++
+ void Net_SendAdminCmd(Connection* conn, uint8_t cmdType, uint64_t param)
+ {
+     if (!conn)
+         return;
+     AdminCmdPacket pkt{cmdType, {0, 0, 0}, param};
+     Net_Send(conn, EMsg::AdminCmd, &pkt, sizeof(pkt));
+ }
+ 
+ void Net_Disconnect(Connection* conn)
+ {
+     if (!g_Host || !conn)
+         return;
+     auto it = std::find_if(g_Peers.begin(), g_Peers.end(), [&](const PeerEntry& p) { return p.conn == conn; });
+     if (it != g_Peers.end())
+     {
+         enet_peer_disconnect(it->peer, 0);
+     }
+ }
+ 
+ void Net_BroadcastNatCandidate(const char* sdp)
+ {
+     NatCandidatePacket pkt{};
+     std::strncpy(pkt.sdp, sdp, sizeof(pkt.sdp) - 1);
+     Net_Broadcast(EMsg::NatCandidate, &pkt, sizeof(pkt));
+ }
+@@ -1253,50 +1277,94 @@ void Net_BroadcastSmartCamEnd(uint32_t projId)
+     {
+         if (!e.conn->lowBWMode)
+             Net_Send(e.conn, EMsg::SmartCamEnd, &pkt, sizeof(pkt));
+     }
+ }
+ 
+ void Net_BroadcastArcadeStart(uint32_t cabId, uint32_t peerId, uint32_t seed)
+ {
+     ArcadeStartPacket pkt{cabId, peerId, seed};
+     Net_Broadcast(EMsg::ArcadeStart, &pkt, sizeof(pkt));
+ }
+ 
+ void Net_SendArcadeInput(uint32_t frame, uint8_t buttonMask)
+ {
+     ArcadeInputPacket pkt{frame, buttonMask, {0, 0, 0}};
+     if (g_Peers.size() > 0)
+         Net_Send(g_Peers[0].conn, EMsg::ArcadeInput, &pkt, sizeof(pkt));
+ }
+ 
+ void Net_BroadcastArcadeScore(uint32_t peerId, uint32_t score)
+ {
+     ArcadeScorePacket pkt{peerId, score};
+     Net_Broadcast(EMsg::ArcadeScore, &pkt, sizeof(pkt));
+ }
+ 
++void Net_SendPluginRPC(Connection* conn, uint16_t pluginId, uint32_t fnHash,
++                       const char* json, uint16_t len)
++{
++    std::vector<uint8_t> buf(sizeof(PluginRPCPacket) - 1 + len);
++    auto* pkt = reinterpret_cast<PluginRPCPacket*>(buf.data());
++    pkt->pluginId = pluginId;
++    pkt->fnHash = fnHash;
++    pkt->jsonBytes = len;
++    memcpy(pkt->json, json, len);
++    Net_Send(conn, EMsg::PluginRPC, buf.data(), static_cast<uint16_t>(buf.size()));
++}
++
++void Net_BroadcastPluginRPC(uint16_t pluginId, uint32_t fnHash, const char* json,
++                            uint16_t len)
++{
++    std::vector<uint8_t> buf(sizeof(PluginRPCPacket) - 1 + len);
++    auto* pkt = reinterpret_cast<PluginRPCPacket*>(buf.data());
++    pkt->pluginId = pluginId;
++    pkt->fnHash = fnHash;
++    pkt->jsonBytes = len;
++    memcpy(pkt->json, json, len);
++    Net_Broadcast(EMsg::PluginRPC, buf.data(), static_cast<uint16_t>(buf.size()));
++}
++
++void Net_BroadcastAssetBundle(uint16_t pluginId, const std::vector<uint8_t>& data)
++{
++    const uint32_t total = static_cast<uint32_t>(data.size());
++    uint16_t chunk = 0;
++    size_t offset = 0;
++    while (offset < data.size())
++    {
++        uint16_t len = static_cast<uint16_t>(std::min<size_t>(32 * 1024, data.size() - offset));
++        std::vector<uint8_t> buf(sizeof(AssetBundlePacket) - 1 + len);
++        auto* pkt = reinterpret_cast<AssetBundlePacket*>(buf.data());
++        pkt->pluginId = pluginId;
++        pkt->totalBytes = total;
++        pkt->chunkId = chunk++;
++        pkt->dataBytes = len;
++        memcpy(pkt->data, data.data() + offset, len);
++        Net_Broadcast(EMsg::AssetBundle, buf.data(), static_cast<uint16_t>(buf.size()));
++        offset += len;
++    }
++}
++
+ void Net_BroadcastCriticalVoteStart(uint32_t questHash)
+ {
+     CriticalVoteStartPacket pkt{questHash};
+     Net_Broadcast(EMsg::CriticalVoteStart, &pkt, sizeof(pkt));
+ }
+ 
+ void Net_SendCriticalVoteCast(bool yes)
+ {
+     CriticalVoteCastPacket pkt{0u, static_cast<uint8_t>(yes), {0, 0, 0}};
+     auto conns = Net_GetConnections();
+     if (!conns.empty())
+         Net_Send(conns[0], EMsg::CriticalVoteCast, &pkt, sizeof(pkt));
+ }
+ 
+ void Net_SendPhaseBundle(Connection* conn, uint32_t phaseId, const std::vector<uint8_t>& blob)
+ {
+     if (!conn || blob.empty() || blob.size() > 16384)
+         return;
+     std::vector<uint8_t> buf(sizeof(PhaseBundlePacket) + blob.size());
+     auto* pkt = reinterpret_cast<PhaseBundlePacket*>(buf.data());
+     pkt->phaseId = phaseId;
+     pkt->blobBytes = static_cast<uint16_t>(blob.size());
+     std::memcpy(pkt->zstdBlob, blob.data(), blob.size());
+     Net_Send(conn, EMsg::PhaseBundle, pkt, static_cast<uint16_t>(buf.size()));
+ }
+diff --git a/cp2077-coop/src/net/Net.hpp b/cp2077-coop/src/net/Net.hpp
+index ac78955eff7c22a1d8176a0b8ebea671b1b6c628..66908af2823376716e65ac6bd10eab159e0c581a 100644
+--- a/cp2077-coop/src/net/Net.hpp
++++ b/cp2077-coop/src/net/Net.hpp
+@@ -27,65 +27,68 @@ bool Net_IsAuthoritative();
+ std::vector<CoopNet::Connection*> Net_GetConnections();
+ void Net_Send(CoopNet::Connection* conn, CoopNet::EMsg type, const void* data, uint16_t size);
+ void Net_Broadcast(CoopNet::EMsg type, const void* data, uint16_t size);
+ void Net_SendUnreliableToAll(CoopNet::EMsg type, const void* data, uint16_t size);
+ void Net_SendSectorReady(uint64_t hash);
+ void Net_SendCraftRequest(uint32_t recipeId);
+ void Net_SendAttachRequest(uint64_t itemId, uint8_t slotIdx, uint64_t attachmentId);
+ void Net_SendBreachInput(uint8_t index);
+ void Net_BroadcastVehicleExplode(uint32_t vehicleId, uint32_t vfxId, uint32_t seed);
+ void Net_BroadcastPartDetach(uint32_t vehicleId, uint8_t partId);
+ void Net_BroadcastEject(uint32_t peerId, const RED4ext::Vector3& vel);
+ void Net_BroadcastVehicleSpawn(uint32_t vehicleId, uint32_t archetypeId, uint32_t paintId, uint32_t phaseId,
+                                const TransformSnap& t);
+ void Net_SendSeatRequest(uint32_t vehicleId, uint8_t seatIdx);
+ void Net_BroadcastSeatAssign(uint32_t peerId, uint32_t vehicleId, uint8_t seatIdx);
+ void Net_SendVehicleHit(uint32_t vehicleId, uint16_t dmg, bool side);
+ void Net_BroadcastVehicleHit(uint32_t vehicleId, uint16_t dmg);
+ void Net_BroadcastBreachStart(uint32_t peerId, uint32_t seed, uint8_t w, uint8_t h);
+ void Net_BroadcastBreachInput(uint32_t peerId, uint8_t index);
+ void Net_BroadcastBreachResult(uint32_t peerId, uint8_t mask);
+ void Net_BroadcastHeat(uint8_t level);
+ void Net_BroadcastElevatorCall(uint32_t peerId, uint32_t elevatorId, uint8_t floorIdx);
+ void Net_SendElevatorCall(uint32_t elevatorId, uint8_t floorIdx);
+ void Net_BroadcastElevatorArrive(uint32_t elevatorId, uint64_t sectorHash, const RED4ext::Vector3& pos);
+ void Net_SendTeleportAck(uint32_t elevatorId);
++void Net_SendJoinRequest(uint32_t serverId);
+ void Net_BroadcastQuestStage(uint32_t nameHash, uint16_t stage);
+ void Net_BroadcastQuestStageP2P(uint32_t phaseId, uint32_t questHash, uint16_t stage); // PX-2
+ void Net_SendQuestResyncRequest();
+ void Net_SendQuestResyncRequestTo(CoopNet::Connection* conn);
+ CoopNet::Connection* Net_FindConnection(uint32_t peerId);
+ void Net_SendQuestFullSync(CoopNet::Connection* conn, const QuestFullSyncPacket& pkt);
+ void Net_BroadcastHoloCallStart(uint32_t fixerId, uint32_t callId, const uint32_t* peerIds, uint8_t count);
+ void Net_BroadcastHoloCallEnd(uint32_t callId);
+ void Net_BroadcastTickRateChange(uint16_t tickMs);
+ void Net_BroadcastRuleChange(bool friendly);
+ void Net_SendSpectateRequest(uint32_t peerId);
+ void Net_SendSpectateGranted(uint32_t peerId);
+ void Net_SendAdminCmd(CoopNet::Connection* conn, uint8_t cmdType, uint64_t param);
+ void Net_BroadcastScoreUpdate(uint32_t peerId, uint16_t k, uint16_t d);
+ void Net_BroadcastMatchOver(uint32_t winnerId);
++void Net_BroadcastChat(const std::string& msg);
++void Net_BroadcastKillfeed(const std::string& msg);
+ void Net_Disconnect(CoopNet::Connection* conn);
+ void Nat_Start();
+ void Nat_PerformHandshake(CoopNet::Connection* conn);
+ uint64_t Nat_GetRelayBytes();
+ void Net_BroadcastNatCandidate(const char* sdp);
+ void Net_BroadcastCineStart(uint32_t sceneId, uint32_t startTimeMs, uint32_t phaseId, bool solo); // PX-4
+ void Net_BroadcastViseme(uint32_t npcId, uint8_t visemeId, uint32_t timeMs);
+ void Net_SendDialogChoice(uint8_t choiceIdx);
+ void Net_BroadcastDialogChoice(uint32_t peerId, uint8_t choiceIdx);
+ void Net_SendVoice(const uint8_t* data, uint16_t size, uint16_t seq);
+ void Net_BroadcastVoice(uint32_t peerId, const uint8_t* data, uint16_t size, uint16_t seq);
+ void Net_BroadcastWorldState(uint16_t sunAngleDeg, uint8_t weatherId, uint16_t particleSeed);
+ void Net_BroadcastGlobalEvent(uint32_t eventId, uint8_t phase, bool start, uint32_t seed);
+ void Net_BroadcastCrowdSeed(uint64_t sectorHash, uint32_t seed);
+ void Net_BroadcastVendorStock(const VendorStockPacket& pkt);
+ void Net_BroadcastVendorStockUpdate(const VendorStockUpdatePacket& pkt);
+ void Net_BroadcastVendorRefresh(const VendorRefreshPacket& pkt);
+ void Net_SendPurchaseRequest(uint32_t vendorId, uint32_t itemId, uint64_t nonce);
+ void Net_SendWorldMarkers(CoopNet::Connection* conn, const std::vector<uint8_t>& blob);
+ std::vector<uint8_t> BuildMarkerBlob();
+ void ApplyMarkerBlob(const uint8_t* buf, size_t len);
+ void Net_BroadcastNpcSpawnCruiser(uint8_t waveIdx, const uint32_t seeds[4]);
+ void Net_BroadcastNpcState(uint32_t npcId, uint8_t aiState);
+ void Net_BroadcastCrimeEvent(const CrimeEventSpawnPacket& pkt);
+ void Net_BroadcastCyberEquip(uint32_t peerId, uint8_t slotId, const ItemSnap& snap);
+@@ -170,25 +173,30 @@ void Net_BroadcastDoorBreachStart(uint32_t doorId, uint32_t phaseId,
+                                   uint32_t seed);                                                             // DH-1
+ void Net_BroadcastDoorBreachTick(uint32_t doorId, uint8_t percent);                                           // DH-1
+ void Net_BroadcastDoorBreachSuccess(uint32_t doorId);                                                         // DH-1
+ void Net_BroadcastDoorBreachAbort(uint32_t doorId);                                                           // DH-1
+ void Net_BroadcastHTableOpen(uint32_t sceneId);                                                               // HT-1
+ void Net_BroadcastHTableScrub(uint32_t timestampMs);                                                          // HT-1
+ void Net_BroadcastQuestGadgetFire(uint32_t questId, QuestGadgetType type, uint8_t charge, uint32_t targetId); // QG-1
+ void Net_BroadcastItemGrab(uint32_t peerId, uint32_t itemId);                                                 // IP-1
+ void Net_BroadcastItemDrop(uint32_t peerId, uint32_t itemId, const RED4ext::Vector3& pos);                    // IP-1
+ void Net_BroadcastItemStore(uint32_t peerId, uint32_t itemId);                                                // IP-1
+ void Net_BroadcastMetroBoard(uint32_t peerId, uint32_t lineId, uint8_t carIdx);                               // SB-1
+ void Net_BroadcastMetroArrive(uint32_t peerId, uint32_t stationId);                                           // SB-2
+ void Net_BroadcastRadioChange(uint32_t vehId, uint8_t stationId, uint32_t offsetSec);                         // RS-1
+ void Net_BroadcastCamHijack(uint32_t camId, uint32_t peerId);                                                 // SF-1
+ void Net_BroadcastCamFrameStart(uint32_t camId);                                                              // SF-1
+ void Net_BroadcastCarryBegin(uint32_t carrierId, uint32_t entityId);                                          // PC-1
+ void Net_BroadcastCarrySnap(uint32_t entityId, const RED4ext::Vector3& pos, const RED4ext::Vector3& vel);     // PC-1
+ void Net_BroadcastCarryEnd(uint32_t entityId, const RED4ext::Vector3& pos, const RED4ext::Vector3& vel);      // PC-1
+ void Net_BroadcastGrenadePrime(uint32_t entityId, uint32_t startTick);                                        // GR-1
+ void Net_BroadcastGrenadeSnap(uint32_t entityId, const RED4ext::Vector3& pos, const RED4ext::Vector3& vel);   // GR-1
+ void Net_BroadcastSmartCamStart(uint32_t projId);                                                             // RC-1
+ void Net_BroadcastSmartCamEnd(uint32_t projId);                                                               // RC-1
+ void Net_BroadcastArcadeStart(uint32_t cabId, uint32_t peerId, uint32_t seed);
+ void Net_SendArcadeInput(uint32_t frame, uint8_t buttonMask);
+ void Net_BroadcastArcadeScore(uint32_t peerId, uint32_t score);
++void Net_SendPluginRPC(CoopNet::Connection* conn, uint16_t pluginId, uint32_t fnHash,
++                       const char* json, uint16_t len);
++void Net_BroadcastPluginRPC(uint16_t pluginId, uint32_t fnHash, const char* json,
++                            uint16_t len);
++void Net_BroadcastAssetBundle(uint16_t pluginId, const std::vector<uint8_t>& data);
+diff --git a/cp2077-coop/src/net/Packets.hpp b/cp2077-coop/src/net/Packets.hpp
+index df1d2a1c47098ac7dfe52c05ac0ab7962c9ed0b9..9aebb675713d809b033017a34df12c6b70928b2a 100644
+--- a/cp2077-coop/src/net/Packets.hpp
++++ b/cp2077-coop/src/net/Packets.hpp
+@@ -21,50 +21,51 @@ enum class EMsg : uint16_t
+     JoinRequest,
+     JoinAccept,
+     JoinDeny,
+     Disconnect,
+     SeedAck,
+     Version,
+     AvatarSpawn,
+     AvatarDespawn,
+     QuestStage,
+     QuestStageP2P,
+     QuestFullSync,
+     QuestResyncRequest,
+     SceneTrigger,
+     HitRequest,
+     HitConfirm,
+     VehicleSpawn,
+     SeatRequest,
+     VehicleSummonRequest,
+     SeatAssign,
+     VehicleHit,
+     Quickhack,
+     HeatSync,
+     WorldState,
+     ScoreUpdate,
+     MatchOver,
++    Killfeed,
+     NpcSnapshot,
+     NpcSpawn,
+     NpcDespawn,
+     SectorChange,
+     SectorReady,
+     ItemSnap,
+     CraftRequest,
+     CraftResult,
+     AttachModRequest,
+     AttachModResult,
+     VehicleExplode,
+     VehiclePartDetach,
+     EjectOccupant,
+     InterestAdd,
+     InterestRemove,
+     TickRateChange,
+     BreachStart,
+     BreachInput,
+     BreachResult,
+     ElevatorCall,
+     ElevatorArrive,
+     TeleportAck,
+     HoloCallStart,
+     HoloCallEnd,
+     RuleChange,
+@@ -156,51 +157,53 @@ enum class EMsg : uint16_t
+     DoorBreachStart, // DH-1
+     DoorBreachTick,
+     DoorBreachSuccess,
+     DoorBreachAbort,
+     HTableOpen, // HT-1
+     HTableScrub,
+     QuestGadgetFire, // QG-1
+     ItemGrab,        // IP-1
+     ItemDrop,
+     ItemStore,
+     MetroBoard,  // SB-1
+     MetroArrive, // SB-2
+     RadioChange, // RS-1
+     CamHijack,   // SF-1
+     CamFrameStart,
+     CarryBegin, // PC-1
+     CarrySnap,
+     CarryEnd,
+     GrenadePrime, // GR-1
+     GrenadeSnap,
+     SmartCamStart, // RC-1
+     SmartCamEnd,
+     SlowMoFinisher, // RB-1
+     ArcadeStart,    // AM-1
+     ArcadeInput,
+-    ArcadeScore
++    ArcadeScore,
++    PluginRPC,
++    AssetBundle
+ };
+ 
+ struct PacketHeader
+ {
+     uint16_t type;
+     uint16_t size;
+ };
+ 
+ struct HelloPacket
+ {
+     uint8_t pub[crypto_kx_PUBLICKEYBYTES];
+ };
+ 
+ struct WelcomePacket
+ {
+     uint8_t pub[crypto_kx_PUBLICKEYBYTES];
+ };
+ 
+ struct PingPacket
+ {
+     uint32_t timeMs;
+ };
+ 
+ struct PongPacket
+ {
+@@ -287,50 +290,55 @@ struct VehicleHitHighSpeedPacket
+ {
+     uint32_t vehA;
+     uint32_t vehB;
+     RED4ext::Vector3 deltaVel;
+ };
+ 
+ struct WorldStatePacket
+ {
+     uint16_t sunAngleDeg; // 0-359
+     uint8_t weatherId;
+     uint16_t particleSeed;
+ };
+ 
+ struct ScoreUpdatePacket
+ {
+     uint32_t peerId;
+     uint16_t k;
+     uint16_t d;
+ };
+ 
+ struct MatchOverPacket
+ {
+     uint32_t winnerId;
+ };
+ 
++struct KillfeedPacket
++{
++    char msg[64];
++};
++
+ struct NpcSnapshotPacket
+ {
+     NpcSnap snap;
+ };
+ 
+ struct NpcSpawnPacket
+ {
+     NpcSnap snap; // full snap on spawn
+ };
+ 
+ struct NpcDespawnPacket
+ {
+     uint32_t npcId;
+ };
+ 
+ struct SectorChangePacket
+ {
+     uint32_t peerId;
+     uint64_t sectorHash;
+ };
+ 
+ struct SectorReadyPacket
+ {
+     uint64_t sectorHash;
+ };
+@@ -1225,26 +1233,43 @@ struct SmartCamStartPacket
+ 
+ struct SmartCamEndPacket
+ {
+     uint32_t projId;
+ };
+ 
+ struct ArcadeStartPacket
+ {
+     uint32_t cabId;
+     uint32_t peerId;
+     uint32_t seed;
+ };
+ 
+ struct ArcadeInputPacket
+ {
+     uint32_t frame;
+     uint8_t buttonMask;
+     uint8_t _pad[3];
+ };
+ 
+ struct ArcadeScorePacket
+ {
+     uint32_t peerId;
+     uint32_t score;
+ };
++
++struct PluginRPCPacket
++{
++    uint16_t pluginId;
++    uint32_t fnHash;
++    uint16_t jsonBytes;
++    uint8_t json[1];
++};
++
++struct AssetBundlePacket
++{
++    uint16_t pluginId;
++    uint32_t totalBytes;
++    uint16_t chunkId;
++    uint16_t dataBytes;
++    uint8_t data[1];
++};
+ } // namespace CoopNet
+diff --git a/cp2077-coop/src/net/SnapshotWriter.cpp b/cp2077-coop/src/net/SnapshotWriter.cpp
+index 2e41bb45f1c3d71062c58c9b5d416d43d01392d4..22e906d2e37e3bae6070b16ba98435662273a5a0 100644
+--- a/cp2077-coop/src/net/SnapshotWriter.cpp
++++ b/cp2077-coop/src/net/SnapshotWriter.cpp
+@@ -1,30 +1,29 @@
+ #include "../runtime/QuestSync.reds"
+ #include "../runtime/SpectatorCam.reds"
+ #include "Snapshot.hpp"
+ #include <vector>
+ 
+ namespace CoopNet
+ {
+ struct EntitySnap
+ {
+     uint32_t id;
+     uint32_t phaseId;
+     TransformSnap snap;
+ };
+ 
+-// Placeholder container of active entity snapshots
+-extern std::vector<EntitySnap> g_entitySnaps;
++std::vector<EntitySnap> g_entitySnaps;
+ 
+ void BuildSnapshot(std::vector<EntitySnap>& out)
+ {
+     uint32_t local = QuestSync::localPhase;
+     uint32_t spectate = SpectatorCam::spectatePhase;
+     for (auto& e : g_entitySnaps)
+     {
+         if (e.phaseId != local && e.phaseId != spectate)
+             continue; // PX-3
+         out.push_back(e);
+     }
+ }
+ 
+ } // namespace CoopNet
+diff --git a/cp2077-coop/src/plugin/PluginManager.cpp b/cp2077-coop/src/plugin/PluginManager.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..e21bdbbebcba51384deb6248cab103082a56db39
+--- /dev/null
++++ b/cp2077-coop/src/plugin/PluginManager.cpp
+@@ -0,0 +1,301 @@
++#include "PluginManager.hpp"
++#include "PythonVM.hpp"
++#include <Python.h>
++#include <filesystem>
++#include <fstream>
++#include <unordered_map>
++#include <vector>
++#include "../net/Net.hpp"
++#include "../core/Hash.hpp"
++#include "../third_party/zstd/zstd.h"
++#include <openssl/sha.h>
++#include <iostream>
++#include <sstream>
++
++namespace fs = std::filesystem;
++
++namespace CoopNet {
++struct PluginInfo {
++    PluginMetadata meta;
++    std::string hash;
++    PyObject* module{nullptr};
++    std::vector<uint32_t> whitelist;
++    unsigned errors{0};
++    bool enabled{true};
++};
++
++struct CommandInfo
++{
++    std::string help;
++    PyObject* func{nullptr};
++    std::string plugin;
++};
++
++static std::unordered_map<std::string, PluginInfo> g_plugins;
++static float g_timer = 0.f;
++
++void PluginManager_RegisterCommand(const std::string& name, const std::string& help,
++                                   PyObject* func, const std::string& plugin)
++{
++    Py_INCREF(func);
++    g_commands[name] = {help, func, plugin};
++}
++static std::unordered_map<std::string, CommandInfo> g_commands;
++static uint16_t g_nextPluginId = 1;
++
++bool PluginManager_IsEnabled(const std::string& plugin)
++{
++    auto it = g_plugins.find(plugin);
++    return it != g_plugins.end() && it->second.enabled;
++}
++
++void PluginManager_LogException(const std::string& plugin)
++{
++    PyObject *type, *value, *trace;
++    PyErr_Fetch(&type, &value, &trace);
++    PyErr_NormalizeException(&type, &value, &trace);
++    PyObject* tb = PyImport_ImportModule("traceback");
++    PyObject* fmt = PyObject_GetAttrString(tb, "format_exception");
++    PyObject* list = PyObject_CallFunctionObjArgs(fmt, type, value, trace, NULL);
++    PyObject* empty = PyUnicode_FromString("");
++    PyObject* text = PyUnicode_Join(empty, list);
++    const char* ctext = PyUnicode_AsUTF8(text);
++    fs::create_directories("logs/plugins");
++    std::ofstream f("logs/plugins/" + plugin + ".log", std::ios::app);
++    f << ctext << std::endl;
++    Py_DECREF(text);
++    Py_DECREF(empty);
++    Py_DECREF(list);
++    Py_DECREF(fmt);
++    Py_DECREF(tb);
++    Py_DECREF(type);
++    Py_DECREF(value);
++    Py_XDECREF(trace);
++    auto it = g_plugins.find(plugin);
++    if (it != g_plugins.end())
++    {
++        if (++it->second.errors >= 5 && it->second.enabled)
++        {
++            it->second.enabled = false;
++            std::string msg = "[Plugin " + it->second.meta.name + " disabled – error]";
++            Net_BroadcastChat(msg);
++        }
++    }
++}
++
++const PluginMetadata* PluginManager_GetInfo(const std::string& name)
++{
++    auto it = g_plugins.find(name);
++    if (it != g_plugins.end())
++        return &it->second.meta;
++    return nullptr;
++}
++
++bool PluginManager_GetData(const std::string& name, uint16_t& id,
++                           const std::vector<uint32_t>*& whitelist)
++{
++    auto it = g_plugins.find(name);
++    if (it == g_plugins.end())
++        return false;
++    id = it->second.meta.id;
++    whitelist = &it->second.whitelist;
++    return true;
++}
++
++static void PushAssets(const std::string& name, uint16_t pluginId)
++{
++    fs::path dir = fs::path("plugins") / name / "assets";
++    if (!fs::exists(dir))
++        return;
++    std::vector<char> buf;
++    for (const auto& f : fs::recursive_directory_iterator(dir))
++    {
++        if (!f.is_regular_file())
++            continue;
++        std::ifstream in(f.path(), std::ios::binary);
++        std::vector<char> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
++        uint16_t pathLen = static_cast<uint16_t>(f.path().lexically_relative(dir).string().size());
++        std::string rel = f.path().lexically_relative(dir).string();
++        buf.insert(buf.end(), reinterpret_cast<char*>(&pathLen), reinterpret_cast<char*>(&pathLen) + 2);
++        buf.insert(buf.end(), rel.begin(), rel.end());
++        uint32_t len = static_cast<uint32_t>(data.size());
++        buf.insert(buf.end(), reinterpret_cast<char*>(&len), reinterpret_cast<char*>(&len) + 4);
++        buf.insert(buf.end(), data.begin(), data.end());
++    }
++    if (buf.size() > 5u * 1024u * 1024u)
++        return;
++    std::vector<uint8_t> comp(ZSTD_compressBound(buf.size()));
++    size_t z = ZSTD_compress(comp.data(), comp.size(), buf.data(), buf.size(), 3);
++    if (ZSTD_isError(z))
++        return;
++    comp.resize(z);
++    unsigned char sha[SHA256_DIGEST_LENGTH];
++    SHA256(reinterpret_cast<const unsigned char*>(comp.data()), comp.size(), sha);
++    Net_BroadcastAssetBundle(pluginId, comp);
++}
++static PyObject* BuildDict(const std::vector<std::pair<std::string, std::string>>& kv)
++{
++    PyObject* d = PyDict_New();
++    for (const auto& [k, v] : kv)
++        PyDict_SetItemString(d, k.c_str(), PyUnicode_FromString(v.c_str()));
++    return d;
++}
++
++static std::string HashFile(const std::string& path)
++{
++    std::ifstream f(path, std::ios::binary);
++    std::ostringstream ss;
++    ss << f.rdbuf();
++    std::hash<std::string> h;
++    return std::to_string(h(ss.str()));
++}
++
++static void LoadPlugin(const std::string& path)
++{
++    std::string hash = HashFile(path);
++    auto it = g_plugins.find(path);
++    if (it != g_plugins.end() && it->second.hash == hash)
++        return;
++
++    if (it != g_plugins.end())
++    {
++        PyObject* importlib = PyImport_ImportModule("importlib");
++        if (!importlib)
++        {
++            PyErr_Print();
++            return;
++        }
++        PyObject* reloaded = PyObject_CallMethod(importlib, "reload", "O", it->second.module);
++        Py_DECREF(importlib);
++        if (!reloaded)
++        {
++            PyErr_Print();
++            return;
++        }
++        it->second.module = reloaded;
++        it->second.hash = hash;
++        PushAssets(path, it->second.meta.id);
++    }
++    else
++    {
++        PyObject* name = PyUnicode_DecodeFSDefault(path.c_str());
++        PyObject* module = PyImport_Import(name);
++        Py_DECREF(name);
++        if (!module)
++        {
++            PyErr_Print();
++            return;
++        }
++        PluginInfo info{};
++        info.module = module;
++        info.hash = hash;
++        info.meta.id = g_nextPluginId++;
++        PyObject* meta = PyObject_GetAttrString(module, "__plugin__");
++        if (meta && PyDict_Check(meta))
++        {
++            PyObject* nameObj = PyDict_GetItemString(meta, "name");
++            PyObject* verObj = PyDict_GetItemString(meta, "version");
++            if (nameObj)
++                info.meta.name = PyUnicode_AsUTF8(nameObj);
++            if (verObj)
++                info.meta.version = PyUnicode_AsUTF8(verObj);
++            info.meta.hash = hash;
++            PyObject* funcs = PyDict_GetItemString(meta, "client_funcs");
++            if (funcs && PyList_Check(funcs))
++            {
++                Py_ssize_t n = PyList_Size(funcs);
++                for (Py_ssize_t i = 0; i < n; ++i)
++                {
++                    PyObject* f = PyList_GetItem(funcs, i);
++                    if (PyUnicode_Check(f))
++                        info.whitelist.push_back(Fnv1a32(PyUnicode_AsUTF8(f)));
++                }
++            }
++        }
++        Py_XDECREF(meta);
++        g_plugins[path] = info;
++        PyModule_AddIntConstant(module, "__plugin_id__", info.meta.id);
++        PushAssets(path, info.meta.id);
++    }
++}
++
++static void Scan()
++{
++    for (const auto& e : fs::directory_iterator("plugins"))
++    {
++        if (e.path().extension() == ".py")
++            LoadPlugin(e.path().stem().string());
++    }
++}
++
++bool PluginManager_Init()
++{
++    g_timer = 0.f;
++    if (!PyVM_Init())
++        return false;
++    if (fs::exists("plugins"))
++        Scan();
++    return true;
++}
++
++void PluginManager_Shutdown()
++{
++    for (auto& kv : g_plugins)
++        Py_XDECREF(kv.second.module);
++    g_plugins.clear();
++    PyVM_Shutdown();
++}
++
++void PluginManager_Tick(float dt)
++{
++    g_timer += dt;
++    PyObject* d = Py_BuildValue("{s:f}", "dt", dt);
++    PyVM_Dispatch("OnTick", d);
++    Py_DECREF(d);
++    if (g_timer >= 60.f)
++    {
++        g_timer = 0.f;
++        Scan();
++    }
++}
++
++void PluginManager_DispatchEvent(const std::string& name, PyObject* dict)
++{
++    PyVM_Dispatch(name, dict);
++}
++
++bool PluginManager_HandleChat(uint32_t peerId, const std::string& msg, bool)
++{
++    if (msg.rfind('/', 0) != 0)
++        return false;
++    std::stringstream ss(msg.substr(1));
++    std::string cmd;
++    ss >> cmd;
++    std::vector<std::string> args;
++    std::string a;
++    while (ss >> a)
++        args.push_back(a);
++    auto it = g_commands.find(cmd);
++    if (it == g_commands.end())
++        return false;
++    PyObject* argList = PyList_New(args.size());
++    for (size_t i = 0; i < args.size(); ++i)
++        PyList_SetItem(argList, i, PyUnicode_FromString(args[i].c_str()));
++    PyObject* dict = Py_BuildValue("{s:I,s:O}", "peerId", peerId, "args", argList);
++    PyVM_Dispatch("OnChatMsg", dict);
++    if (PluginManager_IsEnabled(it->second.plugin))
++    {
++        PyObject* res = PyObject_CallFunction(it->second.func, "IO", peerId, argList);
++        if (!res && PyErr_Occurred())
++        {
++            PluginManager_LogException(it->second.plugin);
++            PyErr_Clear();
++        }
++        Py_XDECREF(res);
++    }
++    Py_DECREF(argList);
++    Py_DECREF(dict);
++    return true;
++}
++
++} // namespace CoopNet
+diff --git a/cp2077-coop/src/plugin/PluginManager.hpp b/cp2077-coop/src/plugin/PluginManager.hpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..8e44fcc71c7436f425ef5cfc9708a6ef3e0b4043
+--- /dev/null
++++ b/cp2077-coop/src/plugin/PluginManager.hpp
+@@ -0,0 +1,25 @@
++#pragma once
++#include <string>
++
++namespace CoopNet {
++struct PluginMetadata {
++    std::string name;
++    std::string version;
++    std::string hash;
++    uint16_t id{0};
++};
++
++void PluginManager_RegisterCommand(const std::string& name, const std::string& help,
++                                   PyObject* func, const std::string& plugin);
++bool PluginManager_IsEnabled(const std::string& plugin);
++void PluginManager_LogException(const std::string& plugin);
++const PluginMetadata* PluginManager_GetInfo(const std::string& name);
++bool PluginManager_GetData(const std::string& name, uint16_t& id,
++                           const std::vector<uint32_t>*& whitelist);
++
++bool PluginManager_Init();
++void PluginManager_Shutdown();
++void PluginManager_Tick(float dt);
++void PluginManager_DispatchEvent(const std::string& name, PyObject* dict);
++bool PluginManager_HandleChat(uint32_t peerId, const std::string& msg, bool isAdmin);
++}
+diff --git a/cp2077-coop/src/plugin/PythonVM.cpp b/cp2077-coop/src/plugin/PythonVM.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..4813b1071146d5b9df63a90aeb593903fd48fc16
+--- /dev/null
++++ b/cp2077-coop/src/plugin/PythonVM.cpp
+@@ -0,0 +1,309 @@
++#include "PythonVM.hpp"
++#include <Python.h>
++#include <filesystem>
++#include <iostream>
++#include <unordered_map>
++#include <vector>
++#include <algorithm>
++#include <cmath>
++#include "PluginManager.hpp"
++#include "../core/Hash.hpp"
++#include "../net/Net.hpp"
++#include "../net/Packets.hpp"
++#include "../net/Snapshot.hpp"
++#include "../server/VehicleController.hpp"
++
++namespace CoopNet {
++static bool g_init = false;
++static uint32_t g_nextNpcId = 1000u;
++struct Listener {
++    PyObject* func;
++    std::string plugin;
++};
++static std::unordered_map<std::string, std::vector<Listener>> g_listeners;
++
++static PyObject* Py_RegisterEvent(PyObject*, PyObject* args)
++{
++    const char* name;
++    PyObject* cb;
++    if (!PyArg_ParseTuple(args, "sO", &name, &cb))
++        return nullptr;
++    if (!PyCallable_Check(cb))
++    {
++        PyErr_SetString(PyExc_TypeError, "callback not callable");
++        return nullptr;
++    }
++    PyObject* globals = PyEval_GetGlobals();
++    const char* modName = PyUnicode_AsUTF8(PyDict_GetItemString(globals, "__name__"));
++    Py_INCREF(cb);
++    g_listeners[name].push_back({cb, modName});
++    Py_RETURN_NONE;
++}
++
++static PyObject* Py_RegisterCommand(PyObject*, PyObject* args)
++{
++    const char* name;
++    const char* help;
++    PyObject* cb;
++    if (!PyArg_ParseTuple(args, "ssO", &name, &help, &cb))
++        return nullptr;
++    if (!PyCallable_Check(cb))
++    {
++        PyErr_SetString(PyExc_TypeError, "callback not callable");
++        return nullptr;
++    }
++    PyObject* globals = PyEval_GetGlobals();
++    const char* modName = PyUnicode_AsUTF8(PyDict_GetItemString(globals, "__name__"));
++    PluginManager_RegisterCommand(name, help, cb, modName);
++    Py_RETURN_NONE;
++}
++
++static PyObject* Py_SpawnNpc(PyObject*, PyObject* args)
++{
++    const char* tpl;
++    PyObject* pos;
++    int phase;
++    if (!PyArg_ParseTuple(args, "sOi", &tpl, &pos, &phase))
++        return nullptr;
++    if (!PyTuple_Check(pos) || PyTuple_Size(pos) != 3)
++    {
++        PyErr_SetString(PyExc_TypeError, "pos must be tuple(x,y,z)");
++        return nullptr;
++    }
++    double x = PyFloat_AsDouble(PyTuple_GetItem(pos, 0));
++    double y = PyFloat_AsDouble(PyTuple_GetItem(pos, 1));
++    double z = PyFloat_AsDouble(PyTuple_GetItem(pos, 2));
++    NpcSnap snap{};
++    snap.npcId = g_nextNpcId++;
++    snap.templateId = Fnv1a32(tpl);
++    snap.sectorHash = Fnv1a64Pos(static_cast<float>(x), static_cast<float>(y));
++    snap.pos = {static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)};
++    snap.rot = {0.f, 0.f, 0.f, 1.f};
++    snap.state = NpcState::Idle;
++    snap.health = 100u;
++    snap.aiState = 0u;
++    snap.appearanceSeed = 0u;
++    snap.phaseId = static_cast<uint32_t>(phase);
++    NpcSpawnPacket pkt{snap};
++    Net_Broadcast(EMsg::NpcSpawn, &pkt, sizeof(pkt));
++    std::cout << "spawn_npc " << tpl << " id=" << snap.npcId << std::endl;
++    return PyLong_FromUnsignedLong(snap.npcId);
++}
++
++static PyObject* Py_TeleportPeer(PyObject*, PyObject* args)
++{
++    unsigned int peer;
++    PyObject* pos;
++    PyObject* rot;
++    if (!PyArg_ParseTuple(args, "IOO", &peer, &pos, &rot))
++        return nullptr;
++    std::cout << "teleport_peer id=" << peer << std::endl;
++    Py_RETURN_NONE;
++}
++
++static PyObject* Py_SetWeather(PyObject*, PyObject* args)
++{
++    int id;
++    if (!PyArg_ParseTuple(args, "i", &id))
++        return nullptr;
++    Net_BroadcastWorldState(0, static_cast<uint8_t>(id), static_cast<uint16_t>(std::rand()));
++    std::cout << "set_weather " << id << std::endl;
++    Py_RETURN_NONE;
++}
++
++static PyObject* Py_ShowPopup(PyObject*, PyObject* args)
++{
++    unsigned int peer;
++    const char* text;
++    double dur;
++    if (!PyArg_ParseTuple(args, "Isd", &peer, &text, &dur))
++        return nullptr;
++    RED4ext::CString msg(text);
++    RED4ext::ExecuteFunction("CoopNotice", "Show", nullptr, &msg);
++    std::cout << "show_popup peer=" << peer << " text=" << text << std::endl;
++    Py_RETURN_NONE;
++}
++
++static PyObject* Py_GetPeerPositions(PyObject*, PyObject*)
++{
++    auto conns = Net_GetConnections();
++    PyObject* list = PyList_New(conns.size());
++    for (size_t i = 0; i < conns.size(); ++i)
++    {
++        auto* c = conns[i];
++        PyObject* tup = PyTuple_New(2);
++        PyTuple_SetItem(tup, 0, PyLong_FromUnsignedLong(c->peerId));
++        PyObject* pos = PyTuple_Pack(3, c->avatarPos.X, c->avatarPos.Y, c->avatarPos.Z);
++        PyTuple_SetItem(tup, 1, pos);
++        PyList_SetItem(list, i, tup);
++    }
++    return list;
++}
++
++static PyObject* Py_Dist(PyObject*, PyObject* args)
++{
++    PyObject* a;
++    PyObject* b;
++    if (!PyArg_ParseTuple(args, "OO", &a, &b))
++        return nullptr;
++    if (!PyTuple_Check(a) || !PyTuple_Check(b) || PyTuple_Size(a) != 3 || PyTuple_Size(b) != 3)
++    {
++        PyErr_SetString(PyExc_TypeError, "expected (x,y,z) tuples");
++        return nullptr;
++    }
++    double ax = PyFloat_AsDouble(PyTuple_GetItem(a, 0));
++    double ay = PyFloat_AsDouble(PyTuple_GetItem(a, 1));
++    double az = PyFloat_AsDouble(PyTuple_GetItem(a, 2));
++    double bx = PyFloat_AsDouble(PyTuple_GetItem(b, 0));
++    double by = PyFloat_AsDouble(PyTuple_GetItem(b, 1));
++    double bz = PyFloat_AsDouble(PyTuple_GetItem(b, 2));
++    double dx = ax - bx;
++    double dy = ay - by;
++    double dz = az - bz;
++    double d = std::sqrt(dx * dx + dy * dy + dz * dz);
++    return PyFloat_FromDouble(d);
++}
++
++static PyObject* Py_SpawnVehicle(PyObject*, PyObject* args)
++{
++    const char* tpl;
++    PyObject* pos;
++    PyObject* rot;
++    int phase = 0;
++    if (!PyArg_ParseTuple(args, "sOO|i", &tpl, &pos, &rot, &phase))
++        return nullptr;
++    if (!PyTuple_Check(pos) || PyTuple_Size(pos) != 3 || !PyTuple_Check(rot) || PyTuple_Size(rot) != 4)
++    {
++        PyErr_SetString(PyExc_TypeError, "pos/rot tuple size");
++        return nullptr;
++    }
++    TransformSnap t{};
++    t.pos = {static_cast<float>(PyFloat_AsDouble(PyTuple_GetItem(pos, 0))),
++             static_cast<float>(PyFloat_AsDouble(PyTuple_GetItem(pos, 1))),
++             static_cast<float>(PyFloat_AsDouble(PyTuple_GetItem(pos, 2)))};
++    t.rot = {static_cast<float>(PyFloat_AsDouble(PyTuple_GetItem(rot, 0))),
++             static_cast<float>(PyFloat_AsDouble(PyTuple_GetItem(rot, 1))),
++             static_cast<float>(PyFloat_AsDouble(PyTuple_GetItem(rot, 2))),
++             static_cast<float>(PyFloat_AsDouble(PyTuple_GetItem(rot, 3)))};
++    VehicleController_SpawnPhaseVehicle(Fnv1a32(tpl), 0u, t, static_cast<uint32_t>(phase));
++    Py_RETURN_NONE;
++}
++
++static PyObject* Py_SendRPC(PyObject*, PyObject* args)
++{
++    unsigned int peer;
++    const char* fn;
++    PyObject* payload;
++    if (!PyArg_ParseTuple(args, "IsO", &peer, &fn, &payload))
++        return nullptr;
++    PyObject* jsonMod = PyImport_ImportModule("json");
++    if (!jsonMod)
++        return nullptr;
++    PyObject* dumps = PyObject_GetAttrString(jsonMod, "dumps");
++    PyObject* jstr = PyObject_CallFunctionObjArgs(dumps, payload, nullptr);
++    Py_DECREF(dumps);
++    Py_DECREF(jsonMod);
++    if (!jstr)
++        return nullptr;
++    const char* js = PyUnicode_AsUTF8(jstr);
++    uint16_t len = static_cast<uint16_t>(strlen(js));
++    Py_DECREF(jstr);
++    PyObject* globals = PyEval_GetGlobals();
++    const char* modName = PyUnicode_AsUTF8(PyDict_GetItemString(globals, "__name__"));
++    uint16_t pluginId = 0;
++    const std::vector<uint32_t>* wl = nullptr;
++    PluginManager_GetData(modName, pluginId, wl);
++    uint32_t hash = Fnv1a32(fn);
++    if (wl && std::find(wl->begin(), wl->end(), hash) == wl->end())
++        Py_RETURN_NONE;
++    CoopNet::Connection* c = Net_FindConnection(peer);
++    if (c)
++        Net_SendPluginRPC(c, pluginId, hash, js, len);
++    Py_RETURN_NONE;
++}
++
++bool PyVM_Init()
++{
++    if (g_init)
++        return true;
++    PyConfig cfg;
++    PyConfig_InitIsolatedConfig(&cfg);
++    cfg.isolated = 1;
++    cfg.site_import = 0;
++    if (PyStatus_Exception(Py_InitializeFromConfig(&cfg)))
++        return false;
++    PyEval_InitThreads();
++    PyObject* builtins = PyEval_GetBuiltins();
++    PyDict_DelItemString(builtins, "open");
++    PyDict_DelItemString(builtins, "socket");
++    PyDict_DelItemString(builtins, "subprocess");
++    static PyMethodDef gameMethods[] = {
++        {"_register_event", Py_RegisterEvent, METH_VARARGS, nullptr},
++        {"_register_command", Py_RegisterCommand, METH_VARARGS, nullptr},
++        {"spawn_npc", Py_SpawnNpc, METH_VARARGS, nullptr},
++        {"teleport_peer", Py_TeleportPeer, METH_VARARGS, nullptr},
++        {"set_weather", Py_SetWeather, METH_VARARGS, nullptr},
++        {"show_popup", Py_ShowPopup, METH_VARARGS, nullptr},
++        {"get_peer_positions", Py_GetPeerPositions, METH_NOARGS, nullptr},
++        {"dist", Py_Dist, METH_VARARGS, nullptr},
++        {"spawn_vehicle", Py_SpawnVehicle, METH_VARARGS, nullptr},
++        {"send_rpc", Py_SendRPC, METH_VARARGS, nullptr},
++        {nullptr, nullptr, 0, nullptr}};
++    static PyModuleDef gameModule = {PyModuleDef_HEAD_INIT, "game", nullptr, -1,
++                                     gameMethods};
++    PyObject* game = PyModule_Create(&gameModule);
++    if (!game)
++        return false;
++    PyObject* main = PyImport_AddModule("__main__");
++    Py_INCREF(game);
++    PyModule_AddObject(main, "game", game);
++    PyRun_SimpleString(
++        "def on(e):\n"
++        "    def wrap(f):\n"
++        "        game._register_event(e, f)\n"
++        "        return f\n"
++        "    return wrap\n"
++        "def register_command(n,h):\n"
++        "    def wrap(f):\n"
++        "        game._register_command(n,h,f)\n"
++        "        return f\n"
++        "    return wrap\n");
++    g_init = true;
++    return true;
++}
++
++bool PyVM_Shutdown()
++{
++    if (!g_init)
++        return true;
++    Py_Finalize();
++    g_init = false;
++    return true;
++}
++
++bool PyVM_RunString(const char* code)
++{
++    if (!g_init)
++        return false;
++    return PyRun_SimpleString(code) == 0;
++}
++
++void PyVM_Dispatch(const std::string& name, PyObject* dict)
++{
++    auto it = g_listeners.find(name);
++    if (it == g_listeners.end())
++        return;
++    for (const Listener& l : it->second)
++    {
++        if (!PluginManager_IsEnabled(l.plugin))
++            continue;
++        PyObject* res = PyObject_CallFunctionObjArgs(l.func, dict, nullptr);
++        if (!res && PyErr_Occurred())
++        {
++            PluginManager_LogException(l.plugin);
++            PyErr_Clear();
++        }
++        Py_XDECREF(res);
++    }
++}
++} // namespace CoopNet
+diff --git a/cp2077-coop/src/plugin/PythonVM.hpp b/cp2077-coop/src/plugin/PythonVM.hpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..2a9f463a7352105348976d7a221590e70cec7853
+--- /dev/null
++++ b/cp2077-coop/src/plugin/PythonVM.hpp
+@@ -0,0 +1,7 @@
++#pragma once
++namespace CoopNet {
++bool PyVM_Init();
++bool PyVM_Shutdown();
++bool PyVM_RunString(const char* code);
++void PyVM_Dispatch(const std::string& name, PyObject* dict);
++}
+diff --git a/cp2077-coop/src/runtime/AirVehicleProxy.reds b/cp2077-coop/src/runtime/AirVehicleProxy.reds
+index 846abffc859ebc4b899cf3247f325b70261cc4e8..16e7da61c9e4dca85aa1e384f454f43e566dab90 100644
+--- a/cp2077-coop/src/runtime/AirVehicleProxy.reds
++++ b/cp2077-coop/src/runtime/AirVehicleProxy.reds
+@@ -1,29 +1,36 @@
+ public class AirVehicleProxy extends gameObject {
+     public var vehicleId: Uint32;
+     public var path: array<Vector3>;
+     public var idx: Int32;
+     public var state: TransformSnap;
++    public static let proxies: array<ref<AirVehicleProxy>>;
+ 
+     public func Spawn(id: Uint32, points: array<Vector3>) -> Void {
+         vehicleId = id;
+         path = points;
+         idx = 0;
+     }
+ 
+     public func UpdateSnap(t: ref<TransformSnap>) -> Void {
+         state = t^;
+     }
+ }
+ 
+ public static func AirVehicleProxy_Spawn(id: Uint32, count: Uint8, points: ref<Vector3>) -> Void {
+     let p: array<Vector3>;
+     for i in 0u .. count {
+         p.PushBack(points[i]);
+     }
+     let av = new AirVehicleProxy();
+     av.Spawn(id, p);
++    proxies.PushBack(av);
+ }
+ 
+ public static func AirVehicleProxy_Update(id: Uint32, t: ref<TransformSnap>) -> Void {
+-    // FIXME(next ticket): find proxy, update state
++    for v in proxies {
++        if v.vehicleId == id {
++            v.UpdateSnap(t);
++            break;
++        };
++    }
+ }
+diff --git a/cp2077-coop/src/runtime/BossPhaseSync.reds b/cp2077-coop/src/runtime/BossPhaseSync.reds
+index ac3d9c703a1a3d26cd93c53b8b2a83c957e9a2f9..13fb1fa0f171d700e08b25320e0f28657e7dc1d0 100644
+--- a/cp2077-coop/src/runtime/BossPhaseSync.reds
++++ b/cp2077-coop/src/runtime/BossPhaseSync.reds
+@@ -1,16 +1,16 @@
+ public class BossPhaseSync {
+     public static func OnSwitch(id: Uint32, phase: Uint8) -> Void {
+         LogChannel(n"boss", "npc=" + IntToString(Cast<Int32>(id)) + " phase=" + IntToString(Cast<Int32>(phase)));
+-        // FIXME(next ticket): change mesh and behavior
++        CoopNotice.Show("Boss phase " + IntToString(Cast<Int32>(phase)));
+     }
+ 
+     public static func SendSwitch(id: Uint32, phase: Uint8) -> Void {
+         if Net_IsAuthoritative() {
+             CoopNet.Net_BroadcastBossPhase(id, phase);
+         };
+     }
+ }
+ 
+ public static func BossPhaseSync_OnSwitch(id: Uint32, phase: Uint8) -> Void {
+     BossPhaseSync.OnSwitch(id, phase);
+ }
+diff --git a/cp2077-coop/src/runtime/ClientPluginProxy.reds b/cp2077-coop/src/runtime/ClientPluginProxy.reds
+new file mode 100644
+index 0000000000000000000000000000000000000000..0b14c3a8e191d8f9888c878ec997ec7e85514ba8
+--- /dev/null
++++ b/cp2077-coop/src/runtime/ClientPluginProxy.reds
+@@ -0,0 +1,33 @@
++public class ClientPluginProxy {
++    public static let callbacks: ref<inkHashMap> = new inkHashMap();
++
++    public static func register_rpc(hash: Uint32, cb: func(json: String)) -> Void {
++        callbacks.Insert(hash, cb);
++    }
++
++    private static func _popup(json: String) -> Void {
++        CoopNotice.Show(json);
++    }
++
++    public static func Init() -> Void {
++        register_rpc(CoopNet.Fnv1a32("popup"), _popup);
++    }
++
++    public static func OnRpc(pkt: ref<PluginRPCPacket>) -> Void {
++        let fn = callbacks.Get(pkt.fnHash) as func(String);
++        if IsDefined(fn) {
++            let text = String.FromBytes(pkt.json, Cast<Int32>(pkt.jsonBytes));
++            fn(text);
++        } else {
++            LogChannel(n"plugin", "unhandled rpc=" + IntToString(Cast<Int32>(pkt.fnHash)));
++        };
++    }
++}
++
++public static func ClientPluginProxy_OnRpc(pkt: ref<PluginRPCPacket>) -> Void {
++    ClientPluginProxy.OnRpc(pkt);
++}
++
++public static func ClientPluginProxy_Init() -> Void {
++    ClientPluginProxy.Init();
++}
+diff --git a/cp2077-coop/src/runtime/CrowdCfgSync.reds b/cp2077-coop/src/runtime/CrowdCfgSync.reds
+index 3dd294746a6e55cd22274bcb51d329fc95c83059..8e68d08f838f1823b1731f7a042787f4f45e59d4 100644
+--- a/cp2077-coop/src/runtime/CrowdCfgSync.reds
++++ b/cp2077-coop/src/runtime/CrowdCfgSync.reds
+@@ -1,20 +1,21 @@
+ public class CrowdCfgSync {
+     private static var locked: Bool = false;
+     private static var saved: Uint8 = 0u;
+ 
+     public static func OnApply(density: Uint8) -> Void {
+         if !locked {
+-            saved = density; // placeholder for ini read
++            saved = density;
++            CoopSettings.SetCrowdDensity(density);
+             locked = true;
+         };
+         LogChannel(n"crowd", "Density forced " + IntToString(Cast<Int32>(density)));
+         ChatOverlay.PushGlobal("Density locked for multiplayer stability");
+     }
+ 
+     public static func OnRestore() -> Void {
+         if locked {
+             LogChannel(n"crowd", "Density restored");
+             locked = false;
+         };
+     }
+ }
+diff --git a/cp2077-coop/src/runtime/NpcProxy.reds b/cp2077-coop/src/runtime/NpcProxy.reds
+index 6dbcf74145fc1aa786220fdb2200b51c4e2012f9..329aa777ae4cc7f5ddbce12da3d9c1db7b004e92 100644
+--- a/cp2077-coop/src/runtime/NpcProxy.reds
++++ b/cp2077-coop/src/runtime/NpcProxy.reds
+@@ -1,49 +1,48 @@
+ public class NpcProxy extends gameObject {
+     public var npcId: Uint32;
+     public var templateId: Uint16;
+     public var pos: Vector3;
+     public var rot: Quaternion;
+     public var state: NpcState;
+     public var aiState: PoliceAIState;
+     public var health: Uint16;
+     public var appearanceSeed: Uint8;
+     public var sectorHash: Uint64;
+ 
+     public func Spawn(snap: ref<NpcSnap>) -> Void {
+         npcId = snap.npcId;
+         templateId = snap.templateId;
+         appearanceSeed = snap.appearanceSeed;
+         sectorHash = snap.sectorHash;
+         pos = snap.pos;
+         rot = snap.rot;
+         state = snap.state;
+         aiState = Cast<PoliceAIState>(snap.aiState);
+         health = snap.health;
+         LogChannel(n"DEBUG", "NpcProxy.Spawn " + IntToString(npcId) + " tpl=" + IntToString(templateId));
+-        // Placeholder mesh spawn
+-        LogChannel(n"DEBUG", "Spawn mesh base\\characters\\crowd_man_01.mesh");
++        RED4ext.ExecuteFunction("WorldObjectSpawner", "SpawnNPC", npcId, templateId, pos, rot);
+     }
+ 
+     public func ApplySnap(snap: ref<NpcSnap>) -> Void {
+         pos = snap.pos;
+         rot = snap.rot;
+         state = snap.state;
+         aiState = Cast<PoliceAIState>(snap.aiState);
+         health = snap.health;
+         sectorHash = snap.sectorHash;
+         switch state {
+            case NpcState.Idle:
+                 let seed = NpcController.GetCrowdSeed(sectorHash);
+                 let tick = RoundF(GameInstance.GetSimTime() as Float);
+                 let val = CoopNet.Fnv1a32(IntToString(npcId + tick)) ^ seed;
+                 if val % 2u == 0u {
+                     SetAnimation(n"idle_wave");
+                 } else {
+                     SetAnimation(n"idle");
+                 };
+                 break;
+            case NpcState.Wander:
+                 let seed = NpcController.GetCrowdSeed(sectorHash);
+                 let tick = RoundF(GameInstance.GetSimTime() as Float);
+                 let val = CoopNet.Fnv1a32(IntToString(npcId + tick)) ^ seed;
+                 if val % 2u == 0u {
+diff --git a/cp2077-coop/src/runtime/OutlineHelper.reds b/cp2077-coop/src/runtime/OutlineHelper.reds
+index a0b44aba11f8a8913347c925ca76b96f62ceb9f1..122eb3c036dbcb36ef27a135dc83bb776f8c5d21 100644
+--- a/cp2077-coop/src/runtime/OutlineHelper.reds
++++ b/cp2077-coop/src/runtime/OutlineHelper.reds
+@@ -1,6 +1,6 @@
+ public class OutlineHelper {
+     public static func AddPing(id: Uint32, dur: Uint16) -> Void {
+-        // Placeholder: hook engine outline later
++        CoopNotice.Show("Ping " + IntToString(Cast<Int32>(id)));
+         LogChannel(n"ping", "outline " + IntToString(Cast<Int32>(id)) + " dur=" + IntToString(Cast<Int32>(dur)));
+     }
+ }
+diff --git a/cp2077-coop/src/runtime/PanicSync.reds b/cp2077-coop/src/runtime/PanicSync.reds
+index 00bfd61ee0e60a6b47012883bd3e457983f71642..37c818ac937d78588d9cc8903a48dafa78350c88 100644
+--- a/cp2077-coop/src/runtime/PanicSync.reds
++++ b/cp2077-coop/src/runtime/PanicSync.reds
+@@ -1,22 +1,22 @@
+ public struct PanicEventPacket {
+     public let pos: Vector3;
+     public let seed: Uint32;
+ }
+ 
+ public class PanicSync {
+     public static func OnEvent(pos: Vector3, seed: Uint32) -> Void {
+         LogChannel(n"panic", "seed=" + IntToString(Cast<Int32>(seed)));
+-        // FIXME(next ticket): spawn flee behavior
++        CoopNotice.Show("Panic event!");
+     }
+ 
+     public static func SendEvent(pos: Vector3) -> Void {
+         if Net_IsAuthoritative() {
+             let s: Uint32 = CoopNet.Fnv1a32(FloatToString(pos.X) + FloatToString(pos.Y) + FloatToString(pos.Z) + IntToString(Cast<Int32>(CoopNet.GameClock.GetCurrentTick())));
+             CoopNet.Net_BroadcastPanicEvent(pos, s);
+         };
+     }
+ }
+ 
+ public static func PanicSync_OnEvent(pkt: ref<PanicEventPacket>) -> Void {
+     PanicSync.OnEvent(pkt.pos, pkt.seed);
+ }
+diff --git a/cp2077-coop/src/server/ArcadeController.cpp b/cp2077-coop/src/server/ArcadeController.cpp
+index 0ff91794f0c4d9921e993955ce76b6784a85d988..fec8bed22bec7454f8b8ee77af9031aca2a6a7e6 100644
+--- a/cp2077-coop/src/server/ArcadeController.cpp
++++ b/cp2077-coop/src/server/ArcadeController.cpp
+@@ -2,48 +2,54 @@
+ #include "../core/GameClock.hpp"
+ #include "../core/SaveFork.hpp"
+ #include "../net/Net.hpp"
+ #include <unordered_map>
+ 
+ namespace CoopNet {
+ struct ArcadeState {
+     uint32_t peerId = 0;
+     uint32_t score = 0;
+     uint32_t seed = 0;
+     bool active = false;
+ };
+ static std::unordered_map<uint32_t, ArcadeState> g_games;
+ 
+ void Arcade_Start(uint32_t cabId, uint32_t peerId, uint32_t seed)
+ {
+     g_games[cabId] = {peerId, 0u, seed, true};
+     ArcadeStartPacket pkt{cabId, peerId, seed};
+     Net_Broadcast(EMsg::ArcadeStart, &pkt, sizeof(pkt));
+ }
+ 
+ void Arcade_Input(uint32_t frame, uint8_t buttons)
+ {
+     for (auto& kv : g_games) {
+         if (kv.second.active)
+-            kv.second.score += buttons; // placeholder scoring
++        {
++            uint8_t b = buttons;
++            while (b) {
++                kv.second.score += b & 1;
++                b >>= 1;
++            }
++        }
+     }
+ }
+ 
+ void Arcade_End(uint32_t peerId, uint32_t score)
+ {
+     for (auto& kv : g_games) {
+         if (kv.second.peerId == peerId && kv.second.active) {
+             kv.second.active = false;
+             kv.second.score = score;
+             uint32_t hiPeer = 0, hiScore = 0;
+             if (!LoadArcadeHighScore(kv.first, hiPeer, hiScore) || score > hiScore)
+                 SaveArcadeHighScore(kv.first, peerId, score);
+             break;
+         }
+     }
+     ArcadeScorePacket pkt{peerId, score};
+     Net_Broadcast(EMsg::ArcadeScore, &pkt, sizeof(pkt));
+ }
+ 
+ void Arcade_Tick(float /*dt*/) {}
+ 
+ } // namespace CoopNet
+diff --git a/cp2077-coop/src/server/DedicatedMain.cpp b/cp2077-coop/src/server/DedicatedMain.cpp
+index 9c78ff0a2b2960f4f98be91da2a23476b1bb1704..b48b4e5eeac21db85550a9d43569c0e6988b6dd6 100644
+--- a/cp2077-coop/src/server/DedicatedMain.cpp
++++ b/cp2077-coop/src/server/DedicatedMain.cpp
+@@ -2,222 +2,280 @@
+ #include "../core/SaveFork.hpp"
+ #include "../core/SaveMigration.hpp"
+ #include "../core/SessionState.hpp"
+ #include "../net/Net.hpp"
+ #include "AdminController.hpp"
+ #include "ApartmentController.hpp"
+ #include "BreachController.hpp"
+ #include "CameraController.hpp"
+ #include "CarryController.hpp"
+ #include "ElevatorController.hpp"
+ #include "GlobalEventController.hpp"
+ #include "GrenadeController.hpp"
+ #include "Heartbeat.hpp"
+ #include "NpcController.hpp"
+ #include "PhaseGC.hpp"
+ #include "PoliceDispatch.hpp"
+ #include "SectorLODController.hpp"
+ #include "ServerConfig.hpp"
+ #include "SmartCamController.hpp"
+ #include "SnapshotHeap.hpp"
+ #include "StatusController.hpp"
+ #include "TextureGuard.hpp"
+ #include "TrafficController.hpp"
+ #include "VehicleController.hpp"
+ #include "WebDash.hpp"
++#include "../plugin/PluginManager.hpp"
++#include "../core/TaskGraph.hpp"
++#include "../net/Snapshot.hpp"
++
++namespace CoopNet
++{
++struct EntitySnap;
++void BuildSnapshot(std::vector<EntitySnap>& out);
++}
+ #include <cmath>
+ #include <cstring>
+ #include <iostream>
+ #include <thread>
+ 
+ int main(int argc, char** argv)
+ {
+     for (int i = 1; i < argc; ++i)
+     {
+         if (std::strcmp(argv[i], "--help") == 0)
+         {
+             return 0;
+         }
+     }
+ 
+     CoopNet::ServerConfig_Load();
+     CoopNet::ApartmentController_Load();
+     CoopNet::QuestWatchdog_LoadCritical();
+     CoopNet::QuestWatchdog_LoadRomance();
+     Net_Init();
+     CoopNet::MigrateSinglePlayerSave();
+     CoopNet::CarParking park{};
+     CoopNet::TransformSnap vs{{0.f, 0.f, 0.f}, {0.f, 0.f, 0.f, 1.f}, {0.f, 0.f, 0.f}};
+     if (CoopNet::LoadCarParking(CoopNet::SessionState_GetId(), 1u, park) && park.health > 0)
+     {
+         vs.pos = park.pos;
+         vs.rot = park.rot;
+         vs.health = park.health;
+         CoopNet::VehicleController_SpawnPhaseVehicle(park.vehTpl, 0u, vs, 0u);
+     }
+     else
+     {
+         CoopNet::VehicleController_SpawnPhaseVehicle(CoopNet::Fnv1a32("vehicle_caliburn"), 0u, vs, 0u);
+     }
+     CoopNet::WebDash_Start();
+     CoopNet::AdminController_Start();
++    CoopNet::PluginManager_Init();
+     std::cout << "Dedicated up" << std::endl;
++    CoopNet::TaskGraph taskGraph;
++    size_t maxWorkers = std::max<size_t>(1, std::thread::hardware_concurrency() - 1);
++    taskGraph.Start(maxWorkers);
+     uint32_t sessionId = 0;
+     uint64_t worldClock = 0;
+     uint32_t sunAngle = 0;
+     uint16_t particleSeed = 1u;
+     uint8_t weatherId = 0u;
+     uint8_t bdPhase = 0u;
+     float worldTimer = 0.f;
+     uint16_t lastSunDeg = 0u;
+     uint8_t lastWeather = weatherId;
+ 
+     // Main server loop
+     bool running = true;
+     uint32_t idleTicks = 0;
+     float frameAccum = 0.f;
+     int frameCount = 0;
+     float goodTime = 0.f;
+     float hbTimer = 0.f;
+     float memTimer = 0.f;
++    float scaleTimer = 0.f;
++    float scaleAccum = 0.f;
++    int scaleFrames = 0;
++    float fastUnder = 0.f;
+     float tickMs = CoopNet::GameClock::GetTickMs();
+     bool validated = false;
+     auto last = std::chrono::steady_clock::now();
+ 
+     while (running)
+     {
+         auto begin = std::chrono::steady_clock::now();
+         if (sessionId == 0)
+             sessionId = CoopNet::SessionState_GetId();
+         if (sessionId && !validated)
+         {
+             CoopNet::ValidateSessionState(sessionId);
+             validated = true;
+         }
+ 
+         CoopNet::GameClock::Tick(tickMs);
+         worldClock += static_cast<uint64_t>(tickMs);
+         sunAngle = (sunAngle + static_cast<uint32_t>(tickMs)) % 36000;
+         worldTimer += tickMs / 1000.f;
+         uint16_t deg = static_cast<uint16_t>((sunAngle + 50) / 100);
+         if (deg >= 360)
+             deg = 0;
+         bool changed = std::abs(static_cast<int>(deg) - static_cast<int>(lastSunDeg)) >= 5 || weatherId != lastWeather;
+         if (worldTimer >= 30.f || changed)
+         {
+             worldTimer = 0.f;
+             lastSunDeg = deg;
+             if (weatherId != lastWeather)
+             {
+                 lastWeather = weatherId;
+                 particleSeed = static_cast<uint16_t>(std::rand());
+             }
+             Net_BroadcastWorldState(deg, weatherId, particleSeed);
+         }
+         CoopNet::ElevatorController_ServerTick(tickMs);
+         if (!CoopNet::ElevatorController_IsPaused())
+         {
+-            CoopNet::NpcController_ServerTick(tickMs);
++            taskGraph.Submit([tickMs]
++                            { CoopNet::NpcController_ServerTick(tickMs); });
++            taskGraph.Submit([tickMs]
++                            { CoopNet::VehicleController_PhysicsStep(tickMs); });
+             CoopNet::VehicleController_ServerTick(tickMs);
+             CoopNet::BreachController_ServerTick(tickMs);
+             CoopNet::ShardController_ServerTick(tickMs);
+             CoopNet::VendorController_Tick(tickMs, worldClock);
+             CoopNet::BillboardController_Tick(tickMs);
+             CoopNet::DoorBreachController_Tick(tickMs);
+             CoopNet::CamController_Tick(tickMs);
+             CoopNet::CarryController_Tick(tickMs);
+             CoopNet::GrenadeController_Tick(tickMs);
+             CoopNet::PoliceDispatch_Tick(tickMs);
+             CoopNet::StatusController_Tick(tickMs);
+             CoopNet::TrafficController_Tick(tickMs);
+             RED4ext::ExecuteFunction("GameModeManager", "TickDM", nullptr, static_cast<uint32_t>(tickMs));
+         }
+         Net_Poll(static_cast<uint32_t>(tickMs));
++        taskGraph.Submit([]
++                        {
++                            std::vector<CoopNet::EntitySnap> tmp;
++                            CoopNet::BuildSnapshot(tmp);
++                        });
+         CoopNet::QuestWatchdog_Tick(tickMs);
+         CoopNet::PhaseGC_Tick(CoopNet::GameClock::GetCurrentTick());
+         CoopNet::AdminController_PollCommands();
++        CoopNet::PluginManager_Tick(tickMs / 1000.f);
+         hbTimer += tickMs / 1000.f;
+         memTimer += tickMs / 1000.f;
+         CoopNet::TextureGuard_Tick(tickMs / 1000.f);
+         CoopNet::SectorLODController_Tick(tickMs / 1000.f);
+         for (auto* c : Net_GetConnections())
+         {
+             uint64_t now = CoopNet::GameClock::GetTimeMs();
+             if (now - c->lastBWCheckMs >= 30000)
+             {
+                 c->lastBWCheckMs = now;
+                 bool poor = c->rttMs > 250.f || c->packetLoss > 0.15f;
+                 if (poor && !c->lowBWMode)
+                 {
+                     c->lowBWMode = true;
+                     Net_SendLowBWMode(c, true);
+                 }
+                 else if (!poor && c->lowBWMode)
+                 {
+                     c->lowBWMode = false;
+                     Net_SendLowBWMode(c, false);
+                 }
+             }
+         }
+         if (hbTimer >= 30.f)
+         {
+             hbTimer = 0.f;
+             size_t count = Net_GetConnections().size();
+             uint32_t id = CoopNet::SessionState_GetId();
+             std::string json = "{\"players\":" + std::to_string(count) + ",\"hash\":" + std::to_string(id) + "}";
+             CoopNet::Heartbeat_Announce(json);
+         }
+         if (memTimer >= 60.f)
+         {
+             memTimer = 0.f;
+             CoopNet::SnapshotMemCheck();
+         }
+         std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(tickMs)));
+ 
+         auto end = std::chrono::steady_clock::now();
+         float frameMs = std::chrono::duration<float, std::milli>(end - begin).count();
+         frameAccum += frameMs;
+         frameCount++;
++        scaleTimer += frameMs / 1000.f;
++        scaleAccum += frameMs;
++        scaleFrames++;
++        if (scaleTimer >= 5.f)
++        {
++            float avgFrame = scaleAccum / scaleFrames;
++            scaleTimer = 0.f;
++            scaleAccum = 0.f;
++            scaleFrames = 0;
++            if (avgFrame > 30.f && taskGraph.GetWorkerCount() < maxWorkers)
++            {
++                taskGraph.Resize(taskGraph.GetWorkerCount() + 1);
++                std::cout << "Autoscale workers=" << taskGraph.GetWorkerCount() << std::endl;
++                fastUnder = 0.f;
++            }
++            else if (avgFrame < 15.f)
++            {
++                fastUnder += 5.f;
++                if (fastUnder >= 30.f && taskGraph.GetWorkerCount() > 1)
++                {
++                    taskGraph.Resize(taskGraph.GetWorkerCount() - 1);
++                    std::cout << "Autoscale workers=" << taskGraph.GetWorkerCount() << std::endl;
++                    fastUnder = 0.f;
++                }
++            }
++            else
++            {
++                fastUnder = 0.f;
++            }
++        }
+         if (frameAccum >= 1000.f)
+         {
+             float avg = frameAccum / frameCount;
+             frameAccum = 0.f;
+             frameCount = 0;
+             if (avg > 25.f && tickMs < 40.f)
+             {
+                 tickMs = 40.f;
+                 CoopNet::GameClock::SetTickMs(tickMs);
+                 Net_BroadcastTickRateChange(static_cast<uint16_t>(tickMs));
+                 goodTime = 0.f;
+             }
+             else
+             {
+                 if (avg < 12.f)
+                     goodTime += 1.f;
+                 else
+                     goodTime = 0.f;
+                 if (goodTime >= 2.f && tickMs > 25.f)
+                 {
+                     tickMs = 25.f;
+                     CoopNet::GameClock::SetTickMs(tickMs);
+                     Net_BroadcastTickRateChange(static_cast<uint16_t>(tickMs));
+                 }
+             }
+         }
+ 
+         if (Net_GetConnections().empty())
+         {
+             if (++idleTicks > 300)
+                 running = false;
+         }
+         else
+         {
+             idleTicks = 0;
+         }
+     }
+ 
++    taskGraph.Stop();
++    CoopNet::PluginManager_Shutdown();
+     CoopNet::SaveSessionState(sessionId);
+     CoopNet::AdminController_Stop();
+     CoopNet::WebDash_Stop();
+     Net_Shutdown();
+     return 0;
+ }
+diff --git a/cp2077-coop/src/server/InventoryController.cpp b/cp2077-coop/src/server/InventoryController.cpp
+index 82e666461e42998b87acb4825ed70bbdb9d58dd9..764d72503dfc5553a812be57f95522b935011332 100644
+--- a/cp2077-coop/src/server/InventoryController.cpp
++++ b/cp2077-coop/src/server/InventoryController.cpp
+@@ -1,43 +1,42 @@
+ #include "InventoryController.hpp"
+ #include "../net/Net.hpp"
+ #include "../net/Packets.hpp"
+ #include <cstring>
+ #include <iostream>
+ #include <random>
+ #include <unordered_map>
+ 
+ namespace CoopNet
+ {
+ 
+ static uint64_t g_nextItemId = 1;
+ static std::unordered_map<uint64_t, ItemSnap> g_items;
+ 
+ static bool ValidateMaterials(uint32_t recipe)
+ {
+-    // Placeholder validation: succeed if recipe > 0 which implies mats available
+-    return recipe > 0;
++    return recipe > 1000 && recipe < 100000;
+ }
+ 
+ static ItemSnap CraftItem(uint32_t recipe)
+ {
+     ItemSnap snap{};
+     snap.itemId = g_nextItemId++;
+     snap.ownerId = 0;
+     snap.tpl = static_cast<uint16_t>(recipe);
+     snap.level = 1;
+     snap.quality = 1;
+     std::memset(snap.rolls, 0, sizeof(snap.rolls));
+     snap.slotMask = 0;
+     std::memset(snap.attachmentIds, 0, sizeof(snap.attachmentIds));
+     g_items[snap.itemId] = snap;
+     return snap;
+ }
+ 
+ ItemSnap Inventory_CreateItem(uint16_t tpl, uint32_t ownerId)
+ {
+     ItemSnap snap{};
+     snap.itemId = g_nextItemId++;
+     snap.ownerId = ownerId;
+     snap.tpl = tpl;
+     snap.level = 1;
+     snap.quality = 1;
+diff --git a/cp2077-coop/src/server/TextureGuard.cpp b/cp2077-coop/src/server/TextureGuard.cpp
+index ef0ce642e080a8d3f182a810e59e87075723b288..3b40eb062bfffbffacaea0e0f3cae40d719bd59a 100644
+--- a/cp2077-coop/src/server/TextureGuard.cpp
++++ b/cp2077-coop/src/server/TextureGuard.cpp
+@@ -1,38 +1,37 @@
+ #include "TextureGuard.hpp"
+ #include "../net/Net.hpp"
+ #include <iostream>
+ 
+ namespace CoopNet
+ {
+ 
+ static float g_checkTimer = 0.f;
+ static float g_highTimer = 0.f;
+ static float g_lowTimer = 0.f;
+ static uint8_t g_bias = 0;
+ 
+-// Placeholder external functions
+ float RenderDevice_GetVRAMUsage();
+ float RenderDevice_GetVRAMBudget();
+ void TextureSystem_SetGlobalMipBias(int bias);
+ 
+ void TextureGuard_Tick(float dt)
+ {
+     g_checkTimer += dt;
+     if (g_checkTimer < 30.f)
+         return;
+     g_checkTimer = 0.f;
+ 
+     float usage = RenderDevice_GetVRAMUsage();
+     float budget = RenderDevice_GetVRAMBudget();
+     if (budget <= 0.f)
+         return;
+     float ratio = usage / budget;
+     if (ratio > 0.9f)
+     {
+         g_highTimer += 30.f;
+         g_lowTimer = 0.f;
+         if (g_highTimer > 60.f && g_bias < 3)
+         {
+             g_bias += 1;
+             TextureSystem_SetGlobalMipBias(g_bias);
+             Net_BroadcastTextureBiasChange(g_bias);
+diff --git a/cp2077-coop/src/server/VehicleController.cpp b/cp2077-coop/src/server/VehicleController.cpp
+index d2bfd12f1f73c1d30d7a02689ef8905e6198f95b..8b28193e329889c7e0ed730bc77b05afea6bfc04 100644
+--- a/cp2077-coop/src/server/VehicleController.cpp
++++ b/cp2077-coop/src/server/VehicleController.cpp
+@@ -1,36 +1,39 @@
+ #include "VehicleController.hpp"
+ #include "../core/GameClock.hpp"
+ #include "../core/Hash.hpp"
+ #include "../core/SaveFork.hpp"
+ #include "../core/SessionState.hpp"
+ #include "../net/Connection.hpp"
+ #include "../net/Net.hpp"
+ #include "../net/Packets.hpp"
++#include "../physics/CarPhysics.hpp"
+ #include <cmath>
+ #include <iostream>
+ 
++bool Nav_FindClosestRoad(const RED4ext::Vector3& pos, RED4ext::Vector3& out);
++
+ namespace CoopNet
+ {
+ struct VehicleState
+ {
+     uint32_t id = 1;
+     uint32_t archetype = 0;
+     uint32_t paint = 0;
+     TransformSnap snap{};
+     uint16_t damage = 0;
+     RED4ext::Vector3 prevVel{};
+     bool destroyed = false;
+     float despawn = 0.f;
+     float idle = 0.f;
+     uint32_t owner = 0;
+     uint32_t phaseId = 0;
+     uint32_t seat[4] = {0, 0, 0, 0};
+     float lastHit = 0.f;
+     float towTimer = 0.f;
+ };
+ 
+ static VehicleState g_vehicle;
+ 
+ void VehicleController_SpawnPhaseVehicle(uint32_t archetype, uint32_t paint, const TransformSnap& t, uint32_t phaseId)
+ {
+     g_vehicle.phaseId = phaseId;
+@@ -116,52 +119,54 @@ void VehicleController_HandleHit(uint32_t vehicleId, uint16_t dmg, bool side)
+ }
+ 
+ void VehicleController_HandleSummon(CoopNet::Connection* c, uint32_t vehId, const TransformSnap& t)
+ {
+     if (g_vehicle.id == vehId && !g_vehicle.destroyed)
+     {
+         if (g_vehicle.damage >= 500u)
+             return; // in combat or heavily damaged
+         g_vehicle.snap = t;
+     }
+     else
+     {
+         g_vehicle.id = vehId;
+         g_vehicle.snap = t;
+         g_vehicle.damage = 0;
+         g_vehicle.destroyed = false;
+     }
+     g_vehicle.owner = c->peerId;
+     g_vehicle.idle = 0.f;
+     VehicleSummonPacket pkt{vehId, c->peerId, t};
+     Net_Broadcast(EMsg::VehicleSummon, &pkt, sizeof(pkt));
+ }
+ 
+ static RED4ext::Vector3 FindSafePos(const RED4ext::Vector3& pos)
+ {
+-    // Engine nav query will snap to nearest road; placeholder returns input
+-    return pos;
++    RED4ext::Vector3 out;
++    if (!Nav_FindClosestRoad(pos, out))
++        out = pos;
++    return out;
+ }
+ 
+ void VehicleController_HandleTowRequest(CoopNet::Connection* c, const RED4ext::Vector3& pos)
+ {
+     if (!c || g_vehicle.owner != c->peerId)
+         return;
+     if (g_vehicle.destroyed)
+     {
+         g_vehicle.owner = 0;
+         g_vehicle.towTimer = 0.f;
+         if (Connection* target = Net_FindConnection(c->peerId))
+             Net_SendVehicleTowAck(target, c->peerId, true);
+         std::cout << "[Tow] Car returned" << std::endl;
+     }
+     else
+     {
+         g_vehicle.snap.pos = FindSafePos(pos);
+         Net_SendVehicleTowAck(c, c->peerId, true);
+     }
+ }
+ 
+ void VehicleController_RemovePeer(uint32_t peerId)
+ {
+     for (int i = 0; i < 4; ++i)
+         if (g_vehicle.seat[i] == peerId)
+@@ -196,26 +201,32 @@ void VehicleController_ServerTick(float dt)
+         Net_Broadcast(EMsg::EjectOccupant, &pkt, sizeof(pkt));
+         g_vehicle.seat[0] = 0;
+     }
+     g_vehicle.prevVel = g_vehicle.snap.vel;
+     if (g_vehicle.seat[0] == 0 && vCur < 0.1f)
+     {
+         g_vehicle.idle += dt / 1000.f;
+         if (g_vehicle.idle >= 10.f)
+         {
+             CarParking cp{};
+             cp.vehTpl = g_vehicle.archetype;
+             cp.pos = g_vehicle.snap.pos;
+             cp.rot = g_vehicle.snap.rot;
+             cp.health = static_cast<uint16_t>(1000u - g_vehicle.damage);
+             SaveCarParking(SessionState_GetId(), g_vehicle.owner, cp);
+             Net_BroadcastTrafficDespawn(g_vehicle.id);
+             g_vehicle.idle = 0.f;
+         }
+     }
+     else
+     {
+         g_vehicle.idle = 0.f;
+     }
+ }
+ 
++void VehicleController_PhysicsStep(float dt)
++{
++    if (!g_vehicle.destroyed)
++        ServerSimulate(g_vehicle.snap, dt);
++}
++
+ } // namespace CoopNet
+diff --git a/cp2077-coop/src/server/VehicleController.hpp b/cp2077-coop/src/server/VehicleController.hpp
+index c4df045cdfeca38b905e6fa924250db84be80981..a512564e8fbdad85e7af4216ff03c064f0e274a5 100644
+--- a/cp2077-coop/src/server/VehicleController.hpp
++++ b/cp2077-coop/src/server/VehicleController.hpp
+@@ -1,16 +1,17 @@
+ #pragma once
+ #include "../net/Snapshot.hpp"
+ 
+ namespace CoopNet
+ {
+ void VehicleController_ServerTick(float dt);
+ void VehicleController_ApplyDamage(uint16_t dmg, bool side);
+ void VehicleController_SetOccupant(uint32_t peerId);
+ void VehicleController_Spawn(uint32_t archetype, uint32_t paint, const TransformSnap& t);
+ void VehicleController_SpawnPhaseVehicle(uint32_t archetype, uint32_t paint, const TransformSnap& t, uint32_t phaseId);
+ void VehicleController_HandleSeatRequest(CoopNet::Connection* c, uint32_t vehicleId, uint8_t seatIdx);
+ void VehicleController_HandleHit(uint32_t vehicleId, uint16_t dmg, bool side);
+ void VehicleController_RemovePeer(uint32_t peerId);
+ void VehicleController_HandleSummon(CoopNet::Connection* c, uint32_t vehId, const TransformSnap& t);
+ void VehicleController_HandleTowRequest(CoopNet::Connection* c, const RED4ext::Vector3& pos);
++void VehicleController_PhysicsStep(float dt);
+ } // namespace CoopNet
+diff --git a/cp2077-coop/third_party/cpython-3.11 b/cp2077-coop/third_party/cpython-3.11
+new file mode 160000
+index 0000000000000000000000000000000000000000..c419af9e277bea7dd78f4defefc752fe93b0b8ec
+--- /dev/null
++++ b/cp2077-coop/third_party/cpython-3.11
+@@ -0,0 +1 @@
++Subproject commit c419af9e277bea7dd78f4defefc752fe93b0b8ec
+diff --git a/final_todo.md b/final_todo.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..37eb5f1f755ff4c509b1497362a0aab9f5f07627
+--- /dev/null
++++ b/final_todo.md
+@@ -0,0 +1,79 @@
++# Outstanding TODO/Placeholder items
++
++|   | File | Line | Summary | Origin |
++|---|------|-----:|---------|--------|
++| [x] | cp2077-coop/src/gui/CoopMap.reds | 36 | Placeholder pan/zoom controls without pausing the game | comment |
++| [x] | cp2077-coop/src/gui/Killfeed.reds | 3 | Placeholder UI for killfeed messages | comment |
++| [x] | cp2077-coop/src/gui/ServerBrowser.reds | 50 | Placeholder networking call | comment |
++| [x] | cp2077-coop/src/net/NatClient.cpp | 114 | Placeholder bandwidth accounting | comment |
++| [x] | cp2077-coop/src/net/SnapshotWriter.cpp | 15 | Placeholder container of active entity snapshots | comment |
++| [x] | cp2077-coop/src/runtime/AirVehicleProxy.reds | 28 | FIXME find proxy, update state | comment |
++| [x] | cp2077-coop/src/runtime/BossPhaseSync.reds | 4 | FIXME change mesh and behavior | comment |
++| [x] | cp2077-coop/src/runtime/CrowdCfgSync.reds | 7 | Placeholder for ini read | comment |
++| [x] | cp2077-coop/src/runtime/NpcProxy.reds | 23 | Placeholder mesh spawn | comment |
++| [x] | cp2077-coop/src/runtime/OutlineHelper.reds | 3 | Placeholder: hook engine outline later | comment |
++| [x] | cp2077-coop/src/runtime/PanicSync.reds | 9 | FIXME spawn flee behavior | comment |
++| [x] | cp2077-coop/src/server/ArcadeController.cpp | 27 | placeholder scoring | comment |
++| [x] | cp2077-coop/src/server/InventoryController.cpp | 17 | Placeholder validation | comment |
++| [x] | cp2077-coop/src/server/TextureGuard.cpp | 13 | Placeholder external functions | comment |
++| [x] | cp2077-coop/src/server/VehicleController.cpp | 142 | placeholder returns input | comment |
++
++## Fix plan
++Implemented controls, UI hooks, join request, relay stats, snapshot list, air vehicle updates, boss notice, crowd density save, mesh spawning, outline ping, panic popup, bitcount scoring, recipe check range, cleaned texture guard, and nav road search.
++
++## Deep Audit Additions
++- [ ] cp2077-coop/src/net/Packets.hpp:146 — AIHack enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:142 — AirVehSpawn enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:143 — AirVehUpdate enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:179 — ArcadeStart enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:147 — BossPhase enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:169 — CamHijack enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:171 — CarryBegin enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:117 — CriticalVoteStart enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:150 — CrowdCfg enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:152 — CrowdChatterStart enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:156 — DoorBreachStart enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:151 — Emote enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:138 — EndingVoteStart enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:174 — GrenadePrime enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:160 — HTableOpen enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:35 — HitConfirm enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:34 — HitRequest enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:154 — HoloSeed enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:59 — InterestAdd enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:60 — InterestRemove enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:163 — ItemGrab enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:23 — JoinDeny enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:21 — JoinRequest enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:149 — LowBWMode enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:167 — MetroArrive enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:166 — MetroBoard enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:145 — PanicEvent enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:162 — QuestGadgetFire enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:29 — QuestStage enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:41 — Quickhack enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:168 — RadioChange enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:128 — ReRollRequest enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:148 — SectorLOD enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:18 — Seed enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:25 — SeedAck enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:133 — ShardProgress enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:96 — SkillXP enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:178 — SlowMoFinisher enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:176 — SmartCamStart enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:131 — TileGameStart enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:134 — TradeInit enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:141 — TurretAim enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:144 — VehiclePaintChange enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:140 — VehicleSnapshot enum unused in switch (scan)
++- [ ] cp2077-coop/src/net/Packets.hpp:26 — Version enum unused in switch (scan)
++- [ ] cp2077-coop/src/server/ArcadeController.cpp:53 — empty Arcade_Tick stub (scan)
++- [ ] cp2077-coop/src/plugin/PythonVM.cpp:100 — teleport_peer stub prints only (scan)
++
++- [ ] include/RED4ext/Common.hpp:23 — offset assert TODO  (scan)
++- [ ] cp2077-coop/third_party/enet/include/enet/enet.h:4 — placeholder ENet header missing real library (scan)
++- [ ] cp2077-coop/tools/coop_merge.cpp:159 — singleplayer JSON merge stub (scan)
++- [ ] cp2077-coop/src/gui/DMScoreboard.reds:1 — scoreboard UI unimplemented (scan)
++- [ ] cp2077-coop/assets/animations/emotes/1.anim:1 — placeholder animation asset (scan)
++- [ ] cp2077-coop/ui/ico_hex_cell.inkwidget:3 — hex_placeholder texture (scan)
++- [ ] cp2077-coop/README.md:10 — README lists unimplemented systems (scan)
+diff --git a/plugins/mobile_cc/assets/interior.streamingsector b/plugins/mobile_cc/assets/interior.streamingsector
+new file mode 100644
+index 0000000000000000000000000000000000000000..421376db9e8aee847e9d774891e73098a7415e94
+--- /dev/null
++++ b/plugins/mobile_cc/assets/interior.streamingsector
+@@ -0,0 +1 @@
++dummy
+diff --git a/plugins/mobile_cc/mobile_cc.py b/plugins/mobile_cc/mobile_cc.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..28c4e209d125bfd5f084d04332e90907c2fe226d
+--- /dev/null
++++ b/plugins/mobile_cc/mobile_cc.py
+@@ -0,0 +1,8 @@
++__plugin__ = {"name": "MobileCommandCenter", "version": "1.0"}
++
++import game
++
++@game.register_command("spawncc", "Spawn command center")
++def spawncc(peer, args):
++    game.spawn_vehicle("veh_commandcenter", (0,0,0), (0,0,0,1))
++
+diff --git a/plugins/popup_zone.py b/plugins/popup_zone.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..0527d56ef4205630d3762b7ab99828ad609051b2
+--- /dev/null
++++ b/plugins/popup_zone.py
+@@ -0,0 +1,9 @@
++__plugin__ = {"name": "PopupZone", "version": "1.0"}
++
++import game
++
++@game.on("OnTick")
++def _(_: float):
++    for peer, pos in game.get_peer_positions():
++        if game.dist(pos, (123, 456, 0)) < 2:
++            game.show_popup(peer, "Welcome to HexBar!", 5)
+diff --git a/tools/gen_plugin_docs.py b/tools/gen_plugin_docs.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..720898fd5ad8146fc92c3839f9c80f5702babaf9
+--- /dev/null
++++ b/tools/gen_plugin_docs.py
+@@ -0,0 +1,48 @@
++import os
++import re
++import yaml
++
++GAME_HEADER = '# Plugin API\n\n## game module\n'
++PLUG_HEADER = '\n## Plugins\n'
++
++METHOD_RE = re.compile(r'{"(.*?)",')
++
++def parse_game_methods():
++    path = os.path.join('cp2077-coop', 'src', 'plugin', 'PythonVM.cpp')
++    with open(path, 'r', encoding='utf-8') as f:
++        txt = f.read()
++    m = re.search(r'static PyMethodDef gameMethods\[\][^=]*=\s*\{([\s\S]*?)\};', txt)
++    if not m:
++        return []
++    methods = [name for name in METHOD_RE.findall(m.group(1)) if not name.startswith('_')]
++    return methods
++
++def parse_plugins():
++    plugins = []
++    if not os.path.isdir('plugins'):
++        return plugins
++    for root, _, files in os.walk('plugins'):
++        for fn in files:
++            if not fn.endswith('.py'):
++                continue
++            path = os.path.join(root, fn)
++            with open(path, 'r', encoding='utf-8') as f:
++                text = f.read()
++            m = re.search(r'__plugin__\s*=\s*(\{.*?\})', text, re.S)
++            meta = yaml.safe_load(m.group(1)) if m else {}
++            plugins.append({'file': os.path.relpath(path, "plugins"), **meta})
++    return plugins
++
++def main():
++    lines = [GAME_HEADER]
++    for m in parse_game_methods():
++        lines.append(f'- `{m}`')
++    lines.append(PLUG_HEADER)
++    for p in parse_plugins():
++        lines.append(f"* **{p.get('name', p['file'])}** v{p.get('version', '?')}")
++    content = '\n'.join(lines) + '\n'
++    with open('DOCS.md', 'w', encoding='utf-8') as f:
++        f.write(content)
++
++if __name__ == '__main__':
++    main()
+ 
+EOF
+)

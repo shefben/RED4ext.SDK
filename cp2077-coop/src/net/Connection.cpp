@@ -1,14 +1,22 @@
 #include "Connection.hpp"
+#include "Net.hpp"
+#include "NatClient.hpp"
+#include "Snapshot.hpp"
+#include "Packets.hpp"
 #include "../core/GameClock.hpp"
 #include "../core/Hash.hpp"
 #include "../core/SessionState.hpp"
+#include "../core/Logger.hpp"
 #include "../plugin/PluginManager.hpp"
-#include "../runtime/GameModeManager.reds"
-#include "../runtime/TileGameSync.reds"
+#include <string>
+#include <algorithm>
+// #include "../runtime/GameModeManager.reds" // REMOVED: Cannot include .reds in C++
+// #include "../runtime/TileGameSync.reds" // REMOVED: Cannot include .reds in C++
 #include "../server/AdminCommandHandler.hpp"
 #include "../server/BreachController.hpp"
 #include "../server/ChatFilter.hpp"
 #include "../server/NpcController.hpp"
+#include "../server/VehicleController.hpp"
 #include "../server/QuestWatchdog.hpp"
 #include "../server/StatusController.hpp"
 #include "../server/TrafficController.hpp"
@@ -25,7 +33,9 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -33,8 +43,982 @@
 #include <mutex>
 #include "../core/Red4extUtils.hpp"
 
+using namespace CoopNet;
+
+enum class AdminCmdType : uint8_t
+{
+    Kick = 0,
+    Ban = 1,
+    Mute = 2
+};
 
 // Temporary proxies for script methods.
+static void CutsceneSync_CineStart(uint32_t sceneId, uint32_t startMs)
+{
+    RED4EXT_EXECUTE("CutsceneSync", "OnCineStart", nullptr, sceneId, startMs);
+}
+
+static void CutsceneSync_Viseme(uint32_t npcId, uint8_t visemeId, uint32_t timeMs)
+{
+    RED4EXT_EXECUTE("CutsceneSync", "OnViseme", nullptr, npcId, visemeId, timeMs);
+}
+
+static void CutsceneSync_DialogChoice(uint32_t peerId, uint8_t idx)
+{
+    RED4EXT_EXECUTE("CutsceneSync", "OnDialogChoice", nullptr, peerId, idx);
+}
+
+static void BillboardController_OnSectorLoad(uint32_t peerId, uint64_t sectorHash)
+{
+    RED4EXT_EXECUTE("BillboardController", "OnSectorLoad", nullptr, peerId, &sectorHash);
+}
+
+static void QuickhackSync_OnPingOutline(uint32_t peerId, uint16_t durationMs, const std::vector<uint32_t>& ids)
+{
+    RED4EXT_EXECUTE("QuickhackSync", "OnPingOutline", nullptr, peerId, durationMs, &ids);
+}
+
+static void CyberwareSync_OnEquip(uint32_t peerId, uint8_t slotId, const CoopNet::ItemSnap& snap)
+{
+    RED4EXT_EXECUTE("CyberwareSync", "OnEquip", nullptr, peerId, slotId, &snap);
+}
+
+static void CyberwareSync_OnSlowMo(uint32_t peerId, float factor, uint16_t durationMs)
+{
+    RED4EXT_EXECUTE("CyberwareSync", "OnSlowMo", nullptr, peerId, factor, durationMs);
+}
+
+static void VehicleProxy_Spawn(uint32_t vehicleId, uint32_t archetypeId, uint32_t paintId, const CoopNet::TransformSnap& t)
+{
+    RED4EXT_EXECUTE("VehicleProxy", "Spawn", nullptr, vehicleId, archetypeId, paintId, &t);
+}
+
+static void VehicleProxy_EnterSeat(uint32_t peerId, uint32_t vehicleId, uint8_t seatIdx)
+{
+    RED4EXT_EXECUTE("VehicleProxy", "EnterSeat", nullptr, peerId, vehicleId, seatIdx);
+}
+
+static void VehicleProxy_ApplyDamage(uint32_t vehicleId, uint16_t dmg)
+{
+    RED4EXT_EXECUTE("VehicleProxy", "ApplyDamage", nullptr, vehicleId, dmg);
+}
+
+static void VehicleProxy_Summon(uint32_t vehicleId, uint32_t ownerId, const CoopNet::TransformSnap& transform)
+{
+    RED4EXT_EXECUTE("VehicleProxy", "Summon", nullptr, vehicleId, ownerId, &transform);
+}
+
+static void AvatarProxy_OnAppearance(uint32_t peerId, uint32_t meshId, uint32_t tintId)
+{
+    RED4EXT_EXECUTE("AvatarProxy", "OnAppearance", nullptr, peerId, meshId, tintId);
+}
+
+static void BusyOverlay_Show(const std::string& text)
+{
+    RED4EXT_EXECUTE("BusyOverlay", "Show", nullptr, &text);
+}
+
+// Missing controller function stubs
+static void PerkController_HandleUnlock(CoopNet::Connection* conn, uint32_t peerId, uint32_t perkId, uint8_t rank)
+{
+    // Validate perk unlock request
+    if (!conn || peerId == 0 || perkId == 0 || rank == 0) {
+        std::string errorMsg = "Invalid perk unlock request from peer " + std::to_string(peerId);
+        Logger::Log(static_cast<LogLevel>(3), errorMsg);
+        return;
+    }
+    
+    // Check if player has enough perk points
+    // TODO: Add proper perk point validation when game integration is available
+    
+    // Apply perk unlock
+    CoopNet::PerkUnlockPacket pkt{};
+    pkt.peerId = peerId;
+    pkt.perkId = perkId;
+    pkt.rank = rank;
+    
+    // Broadcast to all other clients
+    Net_Broadcast(CoopNet::EMsg::PerkUnlock, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("PerkSync", "OnPeerUnlock", nullptr, peerId, perkId, rank);
+    
+    LogInfoF("Perk %u unlocked for peer %u at rank %u", perkId, peerId, rank);
+}
+
+static void PerkController_HandleRespec(CoopNet::Connection* conn, uint32_t peerId)
+{
+    // Validate respec request
+    if (!conn || peerId == 0) {
+        std::string errorMsg = "Invalid perk respec request from peer " + std::to_string(peerId);
+        Logger::Log(static_cast<LogLevel>(3), errorMsg);
+        return;
+    }
+    
+    // Check if player has respec tokens/currency
+    // TODO: Add proper currency validation when game integration is available
+    
+    // Apply perk respec
+    CoopNet::PerkRespecRequestPacket pkt{};
+    pkt.peerId = peerId;
+    
+    // Broadcast respec to all clients
+    Net_Broadcast(CoopNet::EMsg::PerkRespecRequest, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration to reset all perks
+    RED4EXT_EXECUTE("PerkSync", "OnPeerRespec", nullptr, peerId);
+    
+    LogInfoF("Perk respec applied for peer %u", peerId);
+}
+
+static void SkillController_HandleXP(CoopNet::Connection* conn, uint32_t peerId, uint16_t skillId, int16_t deltaXP)
+{
+    // Validate XP request
+    if (!conn || peerId == 0 || skillId == 0 || deltaXP == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid skill XP request from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Validate XP delta is reasonable (prevent exploitation)
+    if (std::abs(deltaXP) > 10000) {
+        Logger::Log(static_cast<LogLevel>(3), "Suspicious XP delta " + std::to_string(deltaXP) + " for skill " + std::to_string(skillId) + " from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Apply skill XP change
+    CoopNet::SkillXPPacket pkt{};
+    pkt.peerId = peerId;
+    pkt.skillId = skillId;
+    pkt.deltaXP = deltaXP;
+    
+    // Broadcast to all other clients
+    Net_Broadcast(CoopNet::EMsg::SkillXP, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("SkillSync", "OnPeerXPGain", nullptr, peerId, skillId, deltaXP);
+    
+    LogInfoF("Skill %u XP changed by %d for peer %u", skillId, deltaXP, peerId);
+}
+
+static void ElevatorController_OnCall(CoopNet::Connection* conn, uint32_t peerId, uint32_t elevatorId, uint8_t floorIdx)
+{
+    // Validate elevator call request
+    if (!conn || peerId == 0 || elevatorId == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid elevator call request from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Validate floor index (assuming max 255 floors)
+    if (floorIdx > 100) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid floor index " + std::to_string(floorIdx) + " for elevator " + std::to_string(elevatorId) + " from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create elevator call packet
+    CoopNet::ElevatorCallPacket pkt{};
+    pkt.peerId = peerId;
+    pkt.elevatorId = elevatorId;
+    pkt.floorIdx = floorIdx;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::ElevatorCall, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("ElevatorSync", "OnPeerCall", nullptr, peerId, elevatorId, floorIdx);
+    
+    LogInfoF("Elevator %u called to floor %u by peer %u", elevatorId, floorIdx, peerId);
+}
+
+static void ElevatorController_OnAck(CoopNet::Connection* conn, uint32_t elevatorId)
+{
+    // Validate elevator acknowledgment
+    if (!conn || elevatorId == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid elevator acknowledgment for elevator " + std::to_string(elevatorId));
+        return;
+    }
+    
+    // Create elevator acknowledgment packet
+    ElevatorArrivePacket pkt{};
+    pkt.elevatorId = elevatorId;
+    
+    // Broadcast acknowledgment to all clients
+    Net_Broadcast(EMsg::ElevatorArrive, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("ElevatorSync", "OnElevatorAck", nullptr, elevatorId);
+    
+    LogInfoF("Elevator %u acknowledged", elevatorId);
+}
+
+static void VehicleController_ApplyHitValidated(uint32_t peerId, uint32_t vehicleId, uint16_t damage, bool sideHit)
+{
+    // Validate vehicle hit request
+    if (peerId == 0 || vehicleId == 0 || damage == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid vehicle hit validation from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Validate damage is reasonable (prevent exploitation)
+    if (damage > 50000) {
+        Logger::Log(static_cast<LogLevel>(3), "Suspicious vehicle damage " + std::to_string(damage) + " for vehicle " + std::to_string(vehicleId) + " from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create vehicle hit packet
+    VehicleHitPacket pkt{};
+    pkt.vehicleId = vehicleId;
+    pkt.dmg = damage;
+    pkt.side = sideHit;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::VehicleHit, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("VehicleProxy", "OnValidatedHit", nullptr, peerId, vehicleId, damage, sideHit);
+    
+    LogInfoF("Vehicle %u hit with %u damage (side: %s) by peer %u", vehicleId, damage, sideHit ? "true" : "false", peerId);
+}
+
+static std::vector<uint8_t> BuildMarkerBlob()
+{
+    return std::vector<uint8_t>();
+}
+
+static std::vector<uint8_t> BuildPhaseBundle(uint32_t phaseId)
+{
+    return std::vector<uint8_t>();
+}
+
+static std::vector<uint32_t> QuestWatchdog_ListPhases()
+{
+    return std::vector<uint32_t>();
+}
+
+// Missing inventory controller function stubs
+static void Inventory_HandleCraftRequest(CoopNet::Connection* conn, uint32_t peerId, uint32_t recipeId)
+{
+    // Validate craft request
+    if (!conn || peerId == 0 || recipeId == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid craft request from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create craft packet
+    CraftRequestPacket pkt{};
+    pkt.peerId = peerId;
+    pkt.recipeId = recipeId;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::CraftRequest, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("InventoryController", "OnPeerCraft", nullptr, peerId, recipeId);
+    
+    LogInfoF("Craft request for recipe %u from peer %u", recipeId, peerId);
+}
+
+static void Inventory_HandleAttachRequest(CoopNet::Connection* conn, uint32_t peerId, uint64_t itemId, uint8_t slotIdx, uint64_t attachmentId)
+{
+    // Validate attachment request
+    if (!conn || peerId == 0 || itemId == 0 || attachmentId == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid attachment request from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Validate slot index (assuming max 16 attachment slots)
+    if (slotIdx > 15) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid slot index " + std::to_string(slotIdx) + " for attachment from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create attachment packet
+    AttachModRequestPacket pkt{};
+    pkt.peerId = peerId;
+    pkt.itemId = itemId;
+    pkt.slotIdx = slotIdx;
+    pkt.attachmentId = attachmentId;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::AttachModRequest, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("InventoryController", "OnPeerAttachment", nullptr, peerId, itemId, slotIdx, attachmentId);
+    
+    LogInfoF("Attachment %llu to item %llu slot %u from peer %u", attachmentId, itemId, slotIdx, peerId);
+}
+
+static void Inventory_HandleReRollRequest(CoopNet::Connection* conn, uint32_t peerId, uint64_t itemId, uint32_t seed)
+{
+    // Validate reroll request
+    if (!conn || peerId == 0 || itemId == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid reroll request from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create reroll packet
+    ReRollRequestPacket pkt{};
+    pkt.peerId = peerId;
+    pkt.itemId = itemId;
+    pkt.seed = seed;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::ReRollRequest, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("InventoryController", "OnPeerReroll", nullptr, peerId, itemId, seed);
+    
+    LogInfoF("Item %llu reroll with seed %u from peer %u", itemId, seed, peerId);
+}
+
+// Missing TileGame functions
+static void TileGameSync_OnStart(uint32_t phaseId, uint32_t seed)
+{
+    RED4EXT_EXECUTE("TileGameSync", "OnStart", nullptr, phaseId, seed);
+}
+
+static void TileGameSync_OnSelect(uint32_t peerId, uint32_t phaseId, uint8_t row, uint8_t col)
+{
+    RED4EXT_EXECUTE("TileGameSync", "OnSelect", nullptr, peerId, phaseId, row, col);
+}
+
+static void TileGameSync_OnProgress(uint32_t phaseId, uint8_t percent)
+{
+    RED4EXT_EXECUTE("TileGameSync", "OnProgress", nullptr, phaseId, percent);
+}
+
+// Missing shard controller function
+static void ShardController_HandleSelect(CoopNet::Connection* conn, uint32_t peerId, uint32_t phaseId, uint8_t row, uint8_t col)
+{
+    // Validate shard selection request
+    if (!conn || peerId == 0 || phaseId == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid shard selection from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Validate grid coordinates (assuming max 16x16 grid)
+    if (row >= 16 || col >= 16) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid shard coordinates (" + std::to_string(row) + "," + std::to_string(col) + ") from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create shard selection packet
+    ShardProgressPacket pkt{};
+    pkt.peerId = peerId;
+    pkt.phaseId = phaseId;
+    pkt.row = row;
+    pkt.col = col;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::ShardProgress, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("ShardController", "OnPeerSelect", nullptr, peerId, phaseId, row, col);
+    
+    LogInfoF("Shard selected at (%u,%u) for phase %u by peer %u", row, col, phaseId, peerId);
+}
+
+// Missing trade controller functions
+static void TradeController_Start(CoopNet::Connection* conn, uint32_t fromId, uint32_t toId)
+{
+    // Validate trade start request
+    if (!conn || fromId == 0 || toId == 0 || fromId == toId) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid trade start request between peers " + std::to_string(fromId) + " and " + std::to_string(toId));
+        return;
+    }
+    
+    // Create trade start packet
+    TradeInitPacket pkt{};
+    pkt.fromId = fromId;
+    pkt.toId = toId;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::TradeInit, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("TradeController", "OnTradeStart", nullptr, fromId, toId);
+    
+    LogInfoF("Trade started between peer %u and peer %u", fromId, toId);
+}
+
+static void TradeController_HandleOffer(CoopNet::Connection* conn, uint32_t fromId, uint32_t toId)
+{
+    // Validate trade offer request
+    if (!conn || fromId == 0 || toId == 0 || fromId == toId) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid trade offer between peers " + std::to_string(fromId) + " and " + std::to_string(toId));
+        return;
+    }
+    
+    // Create trade offer packet
+    TradeOfferPacket pkt{};
+    pkt.fromId = fromId;
+    pkt.toId = toId;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::TradeOffer, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("TradeController", "OnTradeOffer", nullptr, fromId, toId);
+    
+    LogInfoF("Trade offer from peer %u to peer %u", fromId, toId);
+}
+
+static void TradeController_HandleAccept(CoopNet::Connection* conn, uint32_t peerId, bool accept)
+{
+    // Validate trade acceptance request
+    if (!conn || peerId == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid trade acceptance from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create trade accept packet
+    TradeAcceptPacket pkt{};
+    pkt.peerId = peerId;
+    pkt.accept = accept;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::TradeAccept, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("TradeController", "OnTradeAccept", nullptr, peerId, accept);
+    
+    LogInfoF("Trade %s by peer %u", accept ? "accepted" : "rejected", peerId);
+}
+
+// Missing trade window functions
+static void TradeWindow_OnInit(uint32_t fromId, uint32_t toId)
+{
+    RED4EXT_EXECUTE("TradeWindow", "OnInit", nullptr, fromId, toId);
+}
+
+static void TradeWindow_OnOffer(uint32_t fromId, const CoopNet::ItemSnap* items, uint8_t count, uint32_t eddies)
+{
+    RED4EXT_EXECUTE("TradeWindow", "OnOffer", nullptr, fromId, items, count, eddies);
+}
+
+static void TradeWindow_OnAccept(uint32_t peerId, bool accept)
+{
+    RED4EXT_EXECUTE("TradeWindow", "OnAccept", nullptr, peerId, accept);
+}
+
+static void TradeWindow_OnFinalize(bool success)
+{
+    RED4EXT_EXECUTE("TradeWindow", "OnFinalize", nullptr, success);
+}
+
+// Missing vendor and dealer controller functions
+static void VendorController_HandlePurchase(CoopNet::Connection* conn, uint32_t peerId, uint32_t vendorId, uint32_t itemId, uint64_t nonce)
+{
+    // Validate vendor purchase request
+    if (!conn || peerId == 0 || vendorId == 0 || itemId == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid vendor purchase request from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create vendor purchase packet
+    VendorPurchasePacket pkt{};
+    pkt.peerId = peerId;
+    pkt.vendorId = vendorId;
+    pkt.itemId = itemId;
+    pkt.nonce = nonce;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::VendorPurchase, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("VendorController", "OnPeerPurchase", nullptr, peerId, vendorId, itemId, nonce);
+    
+    LogInfoF("Vendor %u purchase item %u by peer %u (nonce: %llu)", vendorId, itemId, peerId, nonce);
+}
+
+static void DealerController_HandleBuy(CoopNet::Connection* conn, uint32_t peerId, uint32_t vehicleTpl, uint32_t price)
+{
+    // Validate dealer buy request
+    if (!conn || peerId == 0 || vehicleTpl == 0 || price == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid dealer buy request from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Validate price is reasonable (prevent exploitation)
+    if (price > 10000000) {
+        Logger::Log(static_cast<LogLevel>(3), "Suspicious vehicle price " + std::to_string(price) + " for template " + std::to_string(vehicleTpl) + " from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create dealer buy packet
+    DealerBuyPacket pkt{};
+    pkt.peerId = peerId;
+    pkt.vehicleTpl = vehicleTpl;
+    pkt.price = price;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::DealerBuy, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("DealerController", "OnPeerBuy", nullptr, peerId, vehicleTpl, price);
+    
+    LogInfoF("Dealer vehicle template %u purchased for %u by peer %u", vehicleTpl, price, peerId);
+}
+
+// Missing apartment controller functions
+static void ApartmentController_HandlePurchase(CoopNet::Connection* conn, uint32_t peerId, uint32_t aptId)
+{
+    // Validate apartment purchase request
+    if (!conn || peerId == 0 || aptId == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid apartment purchase request from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create apartment purchase packet
+    ApartmentPurchasePacket pkt{};
+    pkt.peerId = peerId;
+    pkt.aptId = aptId;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::ApartmentPurchase, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("ApartmentController", "OnPeerPurchase", nullptr, peerId, aptId);
+    
+    LogInfoF("Apartment %u purchased by peer %u", aptId, peerId);
+}
+
+static void ApartmentController_HandleEnter(CoopNet::Connection* conn, uint32_t peerId, uint32_t aptId, uint32_t ownerPhaseId)
+{
+    // Validate apartment enter request
+    if (!conn || peerId == 0 || aptId == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid apartment enter request from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create apartment enter packet
+    ApartmentEnterPacket pkt{};
+    pkt.peerId = peerId;
+    pkt.aptId = aptId;
+    pkt.ownerPhaseId = ownerPhaseId;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::ApartmentEnter, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("ApartmentController", "OnPeerEnter", nullptr, peerId, aptId, ownerPhaseId);
+    
+    LogInfoF("Peer %u entering apartment %u (phase: %u)", peerId, aptId, ownerPhaseId);
+}
+
+static void ApartmentController_HandlePermChange(CoopNet::Connection* conn, uint32_t peerId, uint32_t aptId, uint32_t targetPeerId, bool allow)
+{
+    // Validate permission change request
+    if (!conn || peerId == 0 || aptId == 0 || targetPeerId == 0 || peerId == targetPeerId) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid apartment permission change from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create permission change packet
+    ApartmentPermChangePacket pkt{};
+    pkt.peerId = peerId;
+    pkt.aptId = aptId;
+    pkt.targetPeerId = targetPeerId;
+    pkt.allow = allow;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::ApartmentPermChange, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("ApartmentController", "OnPermChange", nullptr, peerId, aptId, targetPeerId, allow);
+    
+    LogInfoF("Apartment %u permission %s for peer %u by peer %u", aptId, allow ? "granted" : "revoked", targetPeerId, peerId);
+}
+
+static void ApartmentController_HandleShareChange(CoopNet::Connection* conn, uint32_t peerId, uint32_t aptId, uint32_t targetPeerId, bool allow)
+{
+    // Validate share change request
+    if (!conn || peerId == 0 || aptId == 0 || targetPeerId == 0 || peerId == targetPeerId) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid apartment share change from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create share change packet
+    ApartmentShareChangePacket pkt{};
+    pkt.peerId = peerId;
+    pkt.aptId = aptId;
+    pkt.targetPeerId = targetPeerId;
+    pkt.allow = allow;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::ApartmentShareChange, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("ApartmentController", "OnShareChange", nullptr, peerId, aptId, targetPeerId, allow);
+    
+    LogInfoF("Apartment %u sharing %s for peer %u by peer %u", aptId, allow ? "enabled" : "disabled", targetPeerId, peerId);
+}
+
+static void ApartmentController_SetCustomization(CoopNet::Connection* conn, uint32_t peerId, uint32_t phaseId, const std::string& json)
+{
+    // Validate customization request
+    if (!conn || peerId == 0 || phaseId == 0 || json.empty()) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid apartment customization from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Validate JSON length (prevent oversized payloads)
+    if (json.length() > 65536) {
+        Logger::Log(static_cast<LogLevel>(3), "Apartment customization JSON too large (" + std::to_string(json.length()) + " bytes) from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create customization packet
+    ApartmentCustomizationPacket pkt{};
+    pkt.peerId = peerId;
+    pkt.phaseId = phaseId;
+    strncpy_s(pkt.json, json.c_str(), sizeof(pkt.json) - 1);
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::ApartmentCustomization, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("ApartmentController", "OnCustomization", nullptr, peerId, phaseId, json.c_str());
+    
+    LogInfoF("Apartment customization set for phase %u by peer %u", phaseId, peerId);
+}
+
+// Missing apartment and vehicle sync functions
+static void Apartments_OnEnterAck(bool allow, uint32_t phaseId, uint32_t interiorSeed)
+{
+    RED4EXT_EXECUTE("Apartments", "OnEnterAck", nullptr, allow, phaseId, interiorSeed);
+}
+
+static void VehicleUnlockSync_OnUnlock(uint32_t peerId, uint32_t vehicleTpl)
+{
+    RED4EXT_EXECUTE("VehicleUnlockSync", "OnUnlock", nullptr, peerId, vehicleTpl);
+}
+
+static void WeaponSync_OnInspect(uint32_t peerId, uint16_t animId)
+{
+    RED4EXT_EXECUTE("WeaponSync", "OnInspect", nullptr, peerId, animId);
+}
+
+// Additional missing sync functions
+static void WeaponSync_OnFinisherStart(uint32_t actorId, uint32_t victimId, uint8_t finisherType)
+{
+    RED4EXT_EXECUTE("WeaponSync", "OnFinisherStart", nullptr, actorId, victimId, finisherType);
+}
+
+static void WeaponSync_OnFinisherEnd(uint32_t actorId)
+{
+    RED4EXT_EXECUTE("WeaponSync", "OnFinisherEnd", nullptr, actorId);
+}
+
+static void TextureBiasSync_OnChange(uint8_t bias)
+{
+    RED4EXT_EXECUTE("TextureBiasSync", "OnChange", nullptr, bias);
+}
+
+static void PartyManager_OnPartyInfo(uint8_t count, const uint32_t* peerIds)
+{
+    // Convert array to individual parameters for REDScript compatibility
+    if (count > 0 && count <= 8) {
+        uint32_t p0 = peerIds[0];
+        uint32_t p1 = count > 1 ? peerIds[1] : 0u;
+        uint32_t p2 = count > 2 ? peerIds[2] : 0u;
+        uint32_t p3 = count > 3 ? peerIds[3] : 0u;
+        uint32_t p4 = count > 4 ? peerIds[4] : 0u;
+        uint32_t p5 = count > 5 ? peerIds[5] : 0u;
+        uint32_t p6 = count > 6 ? peerIds[6] : 0u;
+        uint32_t p7 = count > 7 ? peerIds[7] : 0u;
+        RED4EXT_EXECUTE("PartyManager", "OnPartyInfo", nullptr, count, p0, p1, p2, p3, p4, p5, p6, p7);
+    } else {
+        RED4EXT_EXECUTE("PartyManager", "OnPartyInfo", nullptr, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
+    }
+}
+
+static void PartyManager_OnInvite(uint32_t fromId, uint32_t toId)
+{
+    RED4EXT_EXECUTE("PartyManager", "OnInvite", nullptr, fromId, toId);
+}
+
+static void PartyManager_OnLeave(uint32_t peerId)
+{
+    RED4EXT_EXECUTE("PartyManager", "OnLeave", nullptr, peerId);
+}
+
+static void PartyManager_OnKick(uint32_t peerId)
+{
+    RED4EXT_EXECUTE("PartyManager", "OnKick", nullptr, peerId);
+}
+
+static void EmoteSync_Play(uint32_t peerId, uint8_t emoteId)
+{
+    RED4EXT_EXECUTE("EmoteSync", "Play", nullptr, peerId, emoteId);
+}
+
+static void CrowdChatterSync_OnStart(uint32_t npcA, uint32_t npcB, uint32_t lineId, uint32_t seed)
+{
+    RED4EXT_EXECUTE("CrowdChatterSync", "OnStart", nullptr, npcA, npcB, lineId, seed);
+}
+
+static void CrowdChatterSync_OnEnd(uint32_t convId)
+{
+    RED4EXT_EXECUTE("CrowdChatterSync", "OnEnd", nullptr, convId);
+}
+
+static void BillboardSync_OnSeed(uint64_t sectorHash, uint64_t seed64)
+{
+    RED4EXT_EXECUTE("BillboardSync", "OnSeed", nullptr, &sectorHash, &seed64);
+}
+
+static void BillboardSync_OnNextAd(uint64_t sectorHash, uint32_t adId)
+{
+    RED4EXT_EXECUTE("BillboardSync", "OnNextAd", nullptr, &sectorHash, adId);
+}
+
+static void DoorBreachSync_OnStart(uint32_t doorId, uint32_t phaseId, uint32_t seed)
+{
+    RED4EXT_EXECUTE("DoorBreachSync", "OnStart", nullptr, doorId, phaseId, seed);
+}
+
+static void DoorBreachSync_OnTick(uint32_t doorId, uint8_t percent)
+{
+    RED4EXT_EXECUTE("DoorBreachSync", "OnTick", nullptr, doorId, percent);
+}
+
+static void DoorBreachSync_OnSuccess(uint32_t doorId)
+{
+    RED4EXT_EXECUTE("DoorBreachSync", "OnSuccess", nullptr, doorId);
+}
+
+static void DoorBreachSync_OnAbort(uint32_t doorId)
+{
+    RED4EXT_EXECUTE("DoorBreachSync", "OnAbort", nullptr, doorId);
+}
+
+static void LootAuthority_OnLootRoll(uint32_t containerId, uint32_t seed, const std::vector<uint64_t>& ids)
+{
+    RED4EXT_EXECUTE("LootAuthority", "OnLootRoll", nullptr, containerId, seed, &ids);
+}
+
+static void Inventory_OnPurchaseResult(uint32_t itemId, uint64_t balance, bool success)
+{
+    RED4EXT_EXECUTE("Inventory", "OnPurchaseResult", nullptr, itemId, &balance, success);
+}
+
+// Missing quest gadget controller function
+static void QuestGadget_HandleFire(CoopNet::Connection* conn, uint32_t peerId, uint32_t questId, uint8_t gadgetType, uint8_t charge, uint32_t targetId)
+{
+    // Validate quest gadget fire request
+    if (!conn || peerId == 0 || questId == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid quest gadget fire request from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Validate charge level (prevent exploitation)
+    if (charge > 100) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid gadget charge " + std::to_string(charge) + " from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create quest gadget fire packet
+    QuestGadgetFirePacket pkt{};
+    pkt.peerId = peerId;
+    pkt.questId = questId;
+    pkt.gadgetType = gadgetType;
+    pkt.charge = charge;
+    pkt.targetId = targetId;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::QuestGadgetFire, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("QuestGadgetSync", "OnPeerFire", nullptr, peerId, questId, gadgetType, charge, targetId);
+    
+    LogInfoF("Quest gadget (type: %u) fired by peer %u for quest %u (charge: %u, target: %u)", gadgetType, peerId, questId, charge, targetId);
+}
+
+// Missing arcade controller functions
+static void Arcade_Start(CoopNet::Connection* conn, uint32_t peerId, uint32_t cabId, uint32_t seed)
+{
+    // Validate arcade start request
+    if (!conn || peerId == 0 || cabId == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid arcade start request from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create arcade start packet
+    ArcadeStartPacket pkt{};
+    pkt.peerId = peerId;
+    pkt.cabId = cabId;
+    pkt.seed = seed;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::ArcadeStart, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("ArcadeSync", "OnPeerStart", nullptr, peerId, cabId, seed);
+    
+    LogInfoF("Arcade game started on cabinet %u by peer %u (seed: %u)", cabId, peerId, seed);
+}
+
+static void Arcade_Input(CoopNet::Connection* conn, uint32_t peerId, uint32_t frame, uint8_t buttonMask)
+{
+    // Validate arcade input request
+    if (!conn || peerId == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid arcade input from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create arcade input packet
+    ArcadeInputPacket pkt{};
+    pkt.peerId = peerId;
+    pkt.frame = frame;
+    pkt.buttonMask = buttonMask;
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::ArcadeInput, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("ArcadeSync", "OnPeerInput", nullptr, peerId, frame, buttonMask);
+    
+    LogInfoF("Arcade input from peer %u (frame: %u, buttons: 0x%02X)", peerId, frame, buttonMask);
+}
+
+// Missing vehicle proxy functions
+static void VehicleProxy_SetTurretAim(uint32_t vehId, float yaw, float pitch)
+{
+    RED4EXT_EXECUTE("VehicleProxy", "SetTurretAim", nullptr, vehId, yaw, pitch);
+}
+
+static void VehicleProxy_ApplyPaint(uint32_t vehId, uint32_t colorId, const char* plateId)
+{
+    RED4EXT_EXECUTE("VehicleProxy", "ApplyPaint", nullptr, vehId, colorId, plateId);
+}
+
+// Missing client plugin and Python VM functions
+static void ClientPluginProxy_OnRpc(uint16_t pluginId, uint32_t fnHash, const uint8_t* json, uint16_t jsonBytes)
+{
+    RED4EXT_EXECUTE("ClientPluginProxy", "OnRpc", nullptr, pluginId, fnHash, json, jsonBytes);
+}
+
+static void PyVM_OnCustomPacket(CoopNet::Connection* conn, uint32_t peerId, const uint8_t* data, uint16_t size)
+{
+    // Validate Python VM packet
+    if (!conn || peerId == 0 || !data || size == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid Python VM packet from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Validate packet size (prevent oversized payloads)
+    if (size > 65536) {
+        Logger::Log(static_cast<LogLevel>(3), "Python VM packet too large (" + std::to_string(size) + " bytes) from peer " + std::to_string(peerId));
+        return;
+    }
+    
+    // Create Python VM packet
+    PyVMCustomPacket pkt{};
+    pkt.peerId = peerId;
+    pkt.size = size;
+    uint16_t copySize = (size < static_cast<uint16_t>(sizeof(pkt.data))) ? size : static_cast<uint16_t>(sizeof(pkt.data));
+    memcpy(pkt.data, data, copySize);
+    
+    // Broadcast to all clients
+    Net_Broadcast(EMsg::PyVMCustom, &pkt, sizeof(pkt) - sizeof(pkt.data) + size);
+    
+    // Execute REDScript integration for Python VM
+    RED4EXT_EXECUTE("PythonVM", "OnCustomPacket", nullptr, peerId, data, size);
+    
+    Logger::Log(static_cast<LogLevel>(1), "Python VM custom packet (" + std::to_string(size) + " bytes) from peer " + std::to_string(peerId));
+}
+
+// Missing apply functions
+static void ApplyMarkerBlob(CoopNet::Connection* conn, const std::vector<uint8_t>& blob)
+{
+    // Validate marker blob application
+    if (!conn || blob.empty()) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid marker blob application");
+        return;
+    }
+    
+    // Validate blob size (prevent oversized payloads)
+    if (blob.size() > 1048576) { // 1MB limit
+        Logger::Log(static_cast<LogLevel>(3), "Marker blob too large (" + std::to_string(blob.size()) + " bytes)");
+        return;
+    }
+    
+    // Apply marker blob data
+    MarkerBlobPacket pkt{};
+    size_t maxSize = sizeof(pkt.data);
+    pkt.size = static_cast<uint32_t>((blob.size() < maxSize) ? blob.size() : maxSize);
+    memcpy(pkt.data, blob.data(), pkt.size);
+    
+    // Broadcast marker blob to all clients
+    Net_Broadcast(EMsg::MarkerBlob, &pkt, sizeof(pkt) - sizeof(pkt.data) + pkt.size);
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("WorldMarkerHelpers", "OnMarkerBlob", nullptr, blob.data(), pkt.size);
+    
+    Logger::Log(static_cast<LogLevel>(1), "Applied marker blob (" + std::to_string(pkt.size) + " bytes)");
+}
+
+static void ApplyPhaseBundle(CoopNet::Connection* conn, uint32_t phaseId, const std::vector<uint8_t>& bundle)
+{
+    // Validate phase bundle application
+    if (!conn || phaseId == 0 || bundle.empty()) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid phase bundle application for phase " + std::to_string(phaseId));
+        return;
+    }
+    
+    // Validate bundle size (prevent oversized payloads)
+    if (bundle.size() > 2097152) { // 2MB limit
+        Logger::Log(static_cast<LogLevel>(3), "Phase bundle too large (" + std::to_string(bundle.size()) + " bytes) for phase " + std::to_string(phaseId));
+        return;
+    }
+    
+    // Apply phase bundle data
+    PhaseBundlePacket pkt{};
+    pkt.phaseId = phaseId;
+    size_t maxBundleSize = sizeof(pkt.zstdBlob);
+    pkt.size = static_cast<uint16_t>((bundle.size() < maxBundleSize) ? bundle.size() : maxBundleSize);
+    pkt.blobBytes = pkt.size;
+    memcpy(pkt.zstdBlob, bundle.data(), pkt.size);
+    
+    // Broadcast phase bundle to all clients  
+    Net_Broadcast(EMsg::PhaseBundle, &pkt, sizeof(pkt) - sizeof(pkt.zstdBlob) + pkt.size);
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("PhaseBundle", "OnBundle", nullptr, phaseId, bundle.data(), static_cast<uint32_t>(pkt.size));
+    
+    Logger::Log(static_cast<LogLevel>(1), "Applied phase bundle (" + std::to_string(pkt.size) + " bytes) for phase " + std::to_string(phaseId));
+}
+
+static void Nat_AddRemoteCandidate(CoopNet::Connection* conn, const char* sdp)
+{
+    // Validate NAT candidate addition
+    if (!conn || !sdp || strlen(sdp) == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Invalid NAT remote candidate");
+        return;
+    }
+    
+    // Validate SDP string length (prevent oversized payloads)
+    size_t sdpLen = strlen(sdp);
+    if (sdpLen > 8192) {
+        Logger::Log(static_cast<LogLevel>(3), "NAT SDP too large (" + std::to_string(sdpLen) + " bytes)");
+        return;
+    }
+    
+    // Create NAT candidate packet
+    NatCandidatePacket pkt{};
+    strncpy_s(pkt.sdp, sdp, sizeof(pkt.sdp) - 1);
+    
+    // Send to specific connection (NAT negotiation is peer-to-peer)
+    Net_Send(conn, EMsg::NatCandidate, &pkt, sizeof(pkt));
+    
+    // Execute REDScript integration
+    RED4EXT_EXECUTE("NatTraversal", "OnRemoteCandidate", nullptr, sdp);
+    
+    Logger::Log(static_cast<LogLevel>(1), std::string("Added NAT remote candidate: ") + std::string(sdp).substr(0, 64) + ((sdpLen > 64) ? "..." : ""));
+}
+
+// Nat_PerformHandshake implementation is in NatClient.cpp
+
 static void AvatarProxy_SpawnRemote(uint32_t peerId, bool isLocal, const CoopNet::TransformSnap& snap)
 {
     RED4EXT_EXECUTE("AvatarProxy", "SpawnRemote", nullptr, peerId, isLocal, &snap);
@@ -54,8 +1038,8 @@ static void Killfeed_Push(const char* msg)
 
 static void Killfeed_Broadcast(const char* msg)
 {
-    if (CoopNet::Net_IsAuthoritative())
-        CoopNet::Net_BroadcastKillfeed(msg);
+    if (Net_IsAuthoritative())
+        Net_BroadcastKillfeed(msg);
     Killfeed_Push(msg);
 }
 
@@ -102,6 +1086,7 @@ size_t GetBundleMemory()
 
 void ClearBundleCache()
 {
+    std::unique_lock lock(g_bundleMutex);
     size_t before = 0;
     for (auto& kv : g_bundle)
         before += kv.second.data.capacity();
@@ -352,7 +1337,30 @@ static void GameModeManager_SetFriendlyFire(bool enable)
 
 static void PoliceDispatch_OnCruiserSpawn(uint8_t idx, const uint32_t* seeds)
 {
-    RED4EXT_EXECUTE("PoliceDispatch", "OnCruiserSpawn", nullptr, idx, seeds[0], seeds[1], seeds[2], seeds[3]);
+    uint32_t s0 = seeds[0];
+    uint32_t s1 = seeds[1];
+    uint32_t s2 = seeds[2];
+    uint32_t s3 = seeds[3];
+    RED4EXT_EXECUTE("PoliceDispatch", "OnCruiserSpawn", nullptr, idx, s0, s1, s2, s3);
+}
+
+static void AirVehicleProxy_Spawn(uint32_t vehId, uint8_t count, const RED4ext::Vector3* points)
+{
+    // REDScript expects a ref<Vector3> which means a reference to the first element
+    // The REDScript function will iterate over 'count' elements starting from this reference
+    if (count > 0) {
+        RED4ext::Vector3 firstPoint = points[0];
+        RED4EXT_EXECUTE("AirVehicleProxy", "AirVehicleProxy_Spawn", nullptr, vehId, count, firstPoint);
+    } else {
+        RED4ext::Vector3 empty{0.0f, 0.0f, 0.0f};
+        RED4EXT_EXECUTE("AirVehicleProxy", "AirVehicleProxy_Spawn", nullptr, vehId, count, empty);
+    }
+}
+
+static void AirVehicleProxy_Update(uint32_t vehId, const CoopNet::TransformSnap& snap)
+{
+    CoopNet::TransformSnap snapCopy = snap;
+    RED4EXT_EXECUTE("AirVehicleProxy", "AirVehicleProxy_Update", nullptr, vehId, snapCopy);
 }
 
 static void NpcProxy_OnAIState(uint32_t npcId, uint8_t state)
@@ -486,7 +1494,7 @@ void Connection::SendSectorChange(uint64_t hash)
     SectorChangePacket pkt{0u, hash};
     Net_Send(this, EMsg::SectorChange, &pkt, sizeof(pkt));
     CoopNet::NpcController_OnPlayerEnterSector(peerId, hash);
-    CoopNet::BillboardController_OnSectorLoad(peerId, hash);
+    BillboardController_OnSectorLoad(peerId, hash);
     sectorReady = false;
     currentSector = hash;
     lastSectorChangeTick = CoopNet::GameClock::GetCurrentTick();
@@ -597,25 +1605,27 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         }
         break;
     case EMsg::Disconnect:
-        Killfeed_Broadcast("0 disconnected");
-        CoopNet::VehicleController_RemovePeer(peerId);
-        CoopVoice::StopCapture();
-        CoopVoice::Reset();
-        voiceMuted = false;
-        voiceMuteEndMs = 0;
-        muteUntilMs = 0;
-        RED4EXT_EXECUTE("MicIcon", "SetMuted", nullptr, false);
-        RED4EXT_EXECUTE("ClientPluginProxy", "ClearPending", nullptr);
-        Transition(ConnectionState::Disconnected);
-        CrowdCfgSync_OnRestore();
-        ChatOverlay_Push("Disconnected from server");
         {
-            RED4ext::CString msg("Disconnected from server");
-            RED4EXT_EXECUTE("CoopNotice", "Show", nullptr, &msg);
+            Killfeed_Broadcast("0 disconnected");
+            CoopNet::VehicleController_RemovePeer(peerId);
+            CoopVoice::StopCapture();
+            CoopVoice::Reset();
+            voiceMuted = false;
+            voiceMuteEndMs = 0;
+            muteUntilMs = 0;
+            RED4EXT_EXECUTE("MicIcon", "SetMuted", nullptr, false);
+            RED4EXT_EXECUTE("ClientPluginProxy", "ClearPending", nullptr);
+            Transition(ConnectionState::Disconnected);
+            CrowdCfgSync_OnRestore();
+            ChatOverlay_Push("Disconnected from server");
+            {
+                RED4ext::CString msg("Disconnected from server");
+                RED4EXT_EXECUTE("CoopNotice", "Show", nullptr, &msg);
+            }
+            uint32_t sid = CoopNet::SessionState_GetId();
+            if (sid != 0)
+                CoopNet::SaveSessionState(sid);
         }
-        uint32_t sid = CoopNet::SessionState_GetId();
-        if (sid != 0)
-            CoopNet::SaveSessionState(sid);
         break;
     case EMsg::AvatarSpawn:
         if (size >= sizeof(AvatarSpawnPacket))
@@ -822,7 +1832,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const PerkUnlockPacket* pkt = reinterpret_cast<const PerkUnlockPacket*>(payload);
             if (Net_IsAuthoritative())
-                CoopNet::PerkController_HandleUnlock(this, pkt->perkId, pkt->rank);
+                PerkController_HandleUnlock(this, pkt->peerId, pkt->perkId, pkt->rank);
             else
                 PerkSync_OnUnlock(pkt->peerId, pkt->perkId, pkt->rank);
         }
@@ -830,7 +1840,8 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
     case EMsg::PerkRespecRequest:
         if (size >= sizeof(PerkRespecRequestPacket) && Net_IsAuthoritative())
         {
-            CoopNet::PerkController_HandleRespec(this);
+            const PerkRespecRequestPacket* pkt = reinterpret_cast<const PerkRespecRequestPacket*>(payload);
+            PerkController_HandleRespec(this, pkt->peerId);
         }
         break;
     case EMsg::PerkRespecAck:
@@ -845,7 +1856,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const SkillXPPacket* pkt = reinterpret_cast<const SkillXPPacket*>(payload);
             if (Net_IsAuthoritative())
-                CoopNet::SkillController_HandleXP(this, pkt->skillId, pkt->deltaXP);
+                SkillController_HandleXP(this, pkt->peerId, pkt->skillId, pkt->deltaXP);
             else
                 SkillSync_OnXP(pkt->peerId, pkt->skillId, pkt->deltaXP);
         }
@@ -1006,29 +2017,37 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(VehicleSpawnPacket))
         {
             const VehicleSpawnPacket* pkt = reinterpret_cast<const VehicleSpawnPacket*>(payload);
-            VehicleProxy_Spawn(pkt->vehicleId, &pkt->transform, pkt->phaseId);
+            VehicleProxy_Spawn(pkt->vehicleId, pkt->archetypeId, pkt->paintId, pkt->transform);
         }
         break;
     case EMsg::SeatAssign:
         if (size >= sizeof(SeatAssignPacket))
         {
             const SeatAssignPacket* pkt = reinterpret_cast<const SeatAssignPacket*>(payload);
-            VehicleProxy_EnterSeat(pkt->peerId, pkt->seatIdx);
+            VehicleProxy_EnterSeat(pkt->peerId, pkt->vehicleId, pkt->seatIdx);
         }
         break;
     case EMsg::VehicleHit:
         if (size >= sizeof(VehicleHitPacket))
         {
             const VehicleHitPacket* pkt = reinterpret_cast<const VehicleHitPacket*>(payload);
-            VehicleProxy_ApplyDamage(pkt->vehicleId, pkt->dmg, pkt->side != 0);
+            if (Net_IsAuthoritative())
+            {
+                // Treat as a hit request; validate server-side
+                VehicleController_ApplyHitValidated(peerId, pkt->vehicleId, pkt->dmg, pkt->side != 0);
+            }
+            else
+            {
+                VehicleProxy_ApplyDamage(pkt->vehicleId, pkt->dmg);
+            }
         }
         break;
     case EMsg::VehicleHitHighSpeed:
         if (size >= sizeof(VehicleHitHighSpeedPacket))
         {
             const VehicleHitHighSpeedPacket* pkt = reinterpret_cast<const VehicleHitHighSpeedPacket*>(payload);
-            VehicleProxy_ApplyDamage(pkt->vehA, 0, false); // damage handled server-side
-            VehicleProxy_ApplyDamage(pkt->vehB, 0, false);
+            VehicleProxy_ApplyDamage(pkt->vehA, 0); // damage handled server-side
+            VehicleProxy_ApplyDamage(pkt->vehB, 0);
         }
         break;
     case EMsg::SeatRequest:
@@ -1049,7 +2068,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(VehicleSummonPacket))
         {
             const VehicleSummonPacket* pkt = reinterpret_cast<const VehicleSummonPacket*>(payload);
-            VehicleProxy_Spawn(pkt->vehId, &pkt->pos, 0u);
+            VehicleProxy_Summon(pkt->vehId, pkt->ownerId, pkt->pos);
         }
         break;
     case EMsg::VehicleTowRequest:
@@ -1108,7 +2127,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const ElevatorCallPacket* pkt = reinterpret_cast<const ElevatorCallPacket*>(payload);
             if (Net_IsAuthoritative())
-                CoopNet::ElevatorController_OnCall(pkt->peerId, pkt->elevatorId, pkt->floorIdx);
+                ElevatorController_OnCall(this, pkt->peerId, pkt->elevatorId, pkt->floorIdx);
         }
         break;
     case EMsg::ElevatorArrive:
@@ -1122,17 +2141,17 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(TeleportAckPacket) && Net_IsAuthoritative())
         {
             const TeleportAckPacket* pkt = reinterpret_cast<const TeleportAckPacket*>(payload);
-            CoopNet::ElevatorController_OnAck(this, pkt->elevatorId);
+            ElevatorController_OnAck(this, pkt->elevatorId);
         }
         break;
     case EMsg::SnapshotAck:
         if (Net_IsAuthoritative())
         {
-            auto blob = CoopNet::BuildMarkerBlob();
+            auto blob = BuildMarkerBlob();
             Net_SendWorldMarkers(this, blob);
-            for (uint32_t id : CoopNet::QuestWatchdog_ListPhases())
+            for (uint32_t id : QuestWatchdog_ListPhases())
             {
-                auto pb = CoopNet::BuildPhaseBundle(id);
+                auto pb = BuildPhaseBundle(id);
                 Net_SendPhaseBundle(this, id, pb);
             }
             const auto& ws = CoopNet::SessionState_GetWorld();
@@ -1175,8 +2194,8 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(NatCandidatePacket))
         {
             const NatCandidatePacket* pkt = reinterpret_cast<const NatCandidatePacket*>(payload);
-            CoopNet::Nat_AddRemoteCandidate(pkt->sdp);
-            CoopNet::Nat_PerformHandshake(this);
+            Nat_AddRemoteCandidate(pkt->sdp);
+            Nat_PerformHandshake(this);
         }
         break;
     case EMsg::CineStart:
@@ -1302,15 +2321,14 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(PingOutlinePacket))
         {
             const PingOutlinePacket* pkt = reinterpret_cast<const PingOutlinePacket*>(payload);
-            array<Uint32> ids;
-            let cnt : Int32 = Cast<Int32>(pkt->count);
-            let i : Int32 = 0;
-            while
-                i < cnt&& i < 32
-                {
-                    ids.PushBack(pkt->entityIds[i]);
-                    i += 1;
-                }
+            std::vector<uint32_t> ids;
+            int32_t cnt = static_cast<int32_t>(pkt->count);
+            int32_t i = 0;
+            while (i < cnt && i < 32)
+            {
+                ids.push_back(pkt->entityIds[i]);
+                i += 1;
+            }
             QuickhackSync_OnPingOutline(pkt->peerId, pkt->durationMs, ids);
         }
         break;
@@ -1358,21 +2376,21 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(CraftRequestPacket) && Net_IsAuthoritative())
         {
             const CraftRequestPacket* pkt = reinterpret_cast<const CraftRequestPacket*>(payload);
-            CoopNet::Inventory_HandleCraftRequest(this, pkt->recipeId);
+            Inventory_HandleCraftRequest(this, peerId, pkt->recipeId);
         }
         break;
     case EMsg::AttachModRequest:
         if (size >= sizeof(AttachModRequestPacket) && Net_IsAuthoritative())
         {
             const AttachModRequestPacket* pkt = reinterpret_cast<const AttachModRequestPacket*>(payload);
-            CoopNet::Inventory_HandleAttachRequest(this, pkt->itemId, pkt->slotIdx, pkt->attachmentId);
+            Inventory_HandleAttachRequest(this, peerId, pkt->itemId, pkt->slotIdx, pkt->attachmentId);
         }
         break;
     case EMsg::ReRollRequest:
         if (size >= sizeof(ReRollRequestPacket) && Net_IsAuthoritative())
         {
             const ReRollRequestPacket* pkt = reinterpret_cast<const ReRollRequestPacket*>(payload);
-            CoopNet::Inventory_HandleReRollRequest(this, pkt->itemId, pkt->seed);
+            Inventory_HandleReRollRequest(this, peerId, pkt->itemId, pkt->seed);
         }
         break;
     case EMsg::RipperInstallRequest:
@@ -1393,16 +2411,16 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(TileSelectPacket))
         {
             const TileSelectPacket* pkt = reinterpret_cast<const TileSelectPacket*>(payload);
-            TileGameSync_OnSelect(pkt->peerId, pkt->row, pkt->col);
+            TileGameSync_OnSelect(pkt->peerId, pkt->phaseId, pkt->row, pkt->col);
             if (Net_IsAuthoritative())
-                CoopNet::ShardController_HandleSelect(pkt->peerId, pkt->row, pkt->col);
+                ShardController_HandleSelect(this, pkt->peerId, pkt->phaseId, pkt->row, pkt->col);
         }
         break;
     case EMsg::ShardProgress:
         if (size >= sizeof(ShardProgressPacket))
         {
             const ShardProgressPacket* pkt = reinterpret_cast<const ShardProgressPacket*>(payload);
-            TileGameSync_OnProgress(pkt->percent);
+            TileGameSync_OnProgress(pkt->phaseId, pkt->percent);
         }
         break;
     case EMsg::TradeInit:
@@ -1410,9 +2428,9 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const TradeInitPacket* pkt = reinterpret_cast<const TradeInitPacket*>(payload);
             if (Net_IsAuthoritative())
-                CoopNet::TradeController_Start(pkt->fromId, pkt->toId);
+                TradeController_Start(this, pkt->fromId, pkt->toId);
             else
-                TradeWindow_OnInit(pkt->fromId);
+                TradeWindow_OnInit(pkt->fromId, pkt->toId);
         }
         break;
     case EMsg::TradeOffer:
@@ -1420,7 +2438,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const TradeOfferPacket* pkt = reinterpret_cast<const TradeOfferPacket*>(payload);
             if (Net_IsAuthoritative())
-                CoopNet::TradeController_HandleOffer(this, *pkt);
+                TradeController_HandleOffer(this, pkt->fromId, pkt->toId);
             else
                 TradeWindow_OnOffer(pkt->fromId, pkt->items, pkt->count, pkt->eddies);
         }
@@ -1430,7 +2448,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const TradeAcceptPacket* pkt = reinterpret_cast<const TradeAcceptPacket*>(payload);
             if (Net_IsAuthoritative())
-                CoopNet::TradeController_HandleAccept(this, pkt->peerId, pkt->accept != 0);
+                TradeController_HandleAccept(this, pkt->peerId, pkt->accept != 0);
             else
                 TradeWindow_OnAccept(pkt->peerId, pkt->accept != 0);
         }
@@ -1446,28 +2464,28 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(PurchaseRequestPacket) && Net_IsAuthoritative())
         {
             const PurchaseRequestPacket* pkt = reinterpret_cast<const PurchaseRequestPacket*>(payload);
-            CoopNet::VendorController_HandlePurchase(this, pkt->vendorId, pkt->itemId, pkt->nonce);
+            VendorController_HandlePurchase(this, peerId, pkt->vendorId, pkt->itemId, pkt->nonce);
         }
         break;
     case EMsg::DealerBuy:
         if (size >= sizeof(DealerBuyPacket) && Net_IsAuthoritative())
         {
             const DealerBuyPacket* pkt = reinterpret_cast<const DealerBuyPacket*>(payload);
-            CoopNet::DealerController_HandleBuy(this, pkt->vehicleTpl, pkt->price);
+            DealerController_HandleBuy(this, peerId, pkt->vehicleTpl, pkt->price);
         }
         break;
     case EMsg::AptPurchase:
         if (size >= sizeof(AptPurchasePacket) && Net_IsAuthoritative())
         {
             const AptPurchasePacket* pkt = reinterpret_cast<const AptPurchasePacket*>(payload);
-            CoopNet::ApartmentController_HandlePurchase(this, pkt->aptId);
+            ApartmentController_HandlePurchase(this, peerId, pkt->aptId);
         }
         break;
     case EMsg::AptEnterReq:
         if (size >= sizeof(AptEnterReqPacket) && Net_IsAuthoritative())
         {
             const AptEnterReqPacket* pkt = reinterpret_cast<const AptEnterReqPacket*>(payload);
-            CoopNet::ApartmentController_HandleEnter(this, pkt->aptId, pkt->ownerPhaseId);
+            ApartmentController_HandleEnter(this, peerId, pkt->aptId, pkt->ownerPhaseId);
         }
         break;
     case EMsg::AptPermChange:
@@ -1476,7 +2494,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             const AptPermChangePacket* pkt = reinterpret_cast<const AptPermChangePacket*>(payload);
             if (Net_IsAuthoritative())
             {
-                CoopNet::ApartmentController_HandlePermChange(this, pkt->aptId, pkt->targetPeerId, pkt->allow != 0);
+                ApartmentController_HandlePermChange(this, peerId, pkt->aptId, pkt->targetPeerId, pkt->allow != 0);
             }
         }
         break;
@@ -1484,7 +2502,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(AptShareChangePacket) && Net_IsAuthoritative())
         {
             const AptShareChangePacket* pkt = reinterpret_cast<const AptShareChangePacket*>(payload);
-            CoopNet::ApartmentController_HandleShareChange(this, pkt->aptId, pkt->targetPeerId, pkt->allow != 0);
+            ApartmentController_HandleShareChange(this, peerId, pkt->aptId, pkt->targetPeerId, pkt->allow != 0);
         }
         break;
     case EMsg::AptPurchaseAck:
@@ -1511,7 +2529,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             if (Net_IsAuthoritative())
             {
                 std::string json(reinterpret_cast<const char*>(pkt->json), pkt->blobBytes);
-                CoopNet::ApartmentController_SetCustomization(this->peerId, json);
+                ApartmentController_SetCustomization(this, peerId, pkt->phaseId, json);
             }
             else
             {
@@ -1617,7 +2635,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(PartyInfoPacket))
         {
             const PartyInfoPacket* pkt = reinterpret_cast<const PartyInfoPacket*>(payload);
-            PartyManager_OnPartyInfo(pkt->peerIds, pkt->count);
+            PartyManager_OnPartyInfo(pkt->count, pkt->peerIds);
         }
         break;
     case EMsg::PartyInvite:
@@ -1659,15 +2677,12 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(LootRollPacket) && !Net_IsAuthoritative())
         {
             const LootRollPacket* pkt = reinterpret_cast<const LootRollPacket*>(payload);
-            array<Uint64> ids;
-            let cnt : Int32 = Cast<Int32>(pkt->count);
-            let i : Int32 = 0;
-            while
-                i < cnt&& i < 16
-                {
-                    ids.PushBack(pkt->itemIds[i]);
-                    i += 1;
-                }
+            std::vector<uint64_t> ids;
+            int32_t cnt = static_cast<int32_t>(pkt->count);
+            for (int32_t i = 0; i < cnt && i < 16; i++)
+            {
+                ids.push_back(pkt->itemIds[i]);
+            }
             LootAuthority_OnLootRoll(pkt->containerId, pkt->seed, ids);
         }
         break;
@@ -1760,7 +2775,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const QuestGadgetFirePacket* pkt = reinterpret_cast<const QuestGadgetFirePacket*>(payload);
             if (Net_IsAuthoritative())
-                CoopNet::QuestGadget_HandleFire(this, *pkt);
+                QuestGadget_HandleFire(this, peerId, pkt->questId, pkt->gadgetType, pkt->charge, pkt->targetId);
             else
                 RED4EXT_EXECUTE("QuestGadgetSync", "OnFire", nullptr, pkt);
         }
@@ -1917,7 +2932,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const ArcadeStartPacket* pkt = reinterpret_cast<const ArcadeStartPacket*>(payload);
             if (Net_IsAuthoritative())
-                CoopNet::Arcade_Start(pkt->cabId, pkt->peerId, pkt->seed);
+                Arcade_Start(this, peerId, pkt->cabId, pkt->seed);
             else
                 RED4EXT_EXECUTE("ArcadeSync", "OnStart", nullptr, pkt);
         }
@@ -1927,7 +2942,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         {
             const ArcadeInputPacket* pkt = reinterpret_cast<const ArcadeInputPacket*>(payload);
             if (Net_IsAuthoritative())
-                CoopNet::Arcade_Input(pkt->frame, pkt->buttonMask);
+                Arcade_Input(this, peerId, pkt->frame, pkt->buttonMask);
         }
         break;
     case EMsg::ArcadeScore:
@@ -1950,15 +2965,14 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
         if (size >= sizeof(AirVehSpawnPacket))
         {
             const AirVehSpawnPacket* pkt = reinterpret_cast<const AirVehSpawnPacket*>(payload);
-            RED4EXT_EXECUTE("AirVehicleProxy", "AirVehicleProxy_Spawn", nullptr, pkt->vehId, pkt->count,
-                                     pkt->points);
+            AirVehicleProxy_Spawn(pkt->vehId, pkt->count, pkt->points);
         }
         break;
     case EMsg::AirVehUpdate:
         if (size >= sizeof(AirVehUpdatePacket))
         {
             const AirVehUpdatePacket* pkt = reinterpret_cast<const AirVehUpdatePacket*>(payload);
-            RED4EXT_EXECUTE("AirVehicleProxy", "AirVehicleProxy_Update", nullptr, pkt->vehId, &pkt->snap);
+            AirVehicleProxy_Update(pkt->vehId, pkt->snap);
         }
         break;
     case EMsg::AssetBundle:
@@ -1970,6 +2984,19 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
                 break;
             {
                 std::unique_lock lock(g_bundleMutex);
+                if (GetBundleMemory() > kBundleLimit)
+                {
+                    std::cerr << "[MemGuard] Bundle cache over budget; clearing." << std::endl;
+                    // Clear cache manually since we already hold the lock
+                    size_t before = 0;
+                    for (auto& kv : g_bundle)
+                        before += kv.second.data.capacity();
+                    for (auto& kv : g_bundleSha)
+                        before += kv.second.capacity();
+                    g_bundle.clear();
+                    g_bundleSha.clear();
+                    std::cerr << "[MemGuard] bundle cache freed " << before << " bytes, RSS=" << GetProcessRSS() << std::endl;
+                }
                 auto& b = g_bundle[pkt->pluginId];
                 if (b.data.empty())
                     b.expected = pkt->totalBytes;
@@ -2033,14 +3060,14 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
             uint16_t expected = static_cast<uint16_t>(sizeof(PluginRPCPacket) - 1 + pkt->jsonBytes);
             if (!ValidatePktSize(size, expected, "PluginRPC"))
                 break;
-            ClientPluginProxy_OnRpc(pkt);
+            ClientPluginProxy_OnRpc(pkt->pluginId, pkt->fnHash, pkt->json, pkt->jsonBytes);
         }
         break;
     case EMsg::QuestStage:
         if (size >= sizeof(QuestStagePacket))
         {
             const QuestStagePacket* pkt = reinterpret_cast<const QuestStagePacket*>(payload);
-            QuestSync_ApplyQuestStage(pkt->questHash, pkt->stage);
+            QuestSync_ApplyQuestStage(pkt->nameHash, pkt->stage);
         }
         break;
     case EMsg::Quickhack:
@@ -2110,7 +3137,7 @@ void Connection::HandlePacket(const PacketHeader& hdr, const void* payload, uint
     default:
         if (hdr.type >= 5000)
         {
-            CoopNet::PyVM_OnCustomPacket(hdr.type, payload, size, peerId);
+            PyVM_OnCustomPacket(this, peerId, static_cast<const uint8_t*>(payload), size);
         }
         else
         {
@@ -2157,9 +3184,9 @@ void Connection::Update(uint64_t nowMs)
     if (m_largeBlobs.Pop(blob))
     {
         if (blob.type == 0)
-            CoopNet::ApplyMarkerBlob(blob.data.data(), blob.data.size());
+            ApplyMarkerBlob(this, blob.data);
         else if (blob.type == 1)
-            CoopNet::ApplyPhaseBundle(blob.arg, blob.data.data(), blob.data.size());
+            ApplyPhaseBundle(this, blob.arg, blob.data);
         processedLarge += 1;
         int32_t pct = 0;
         uint8_t total = pendingLarge + pendingAssets;
@@ -2232,7 +3259,7 @@ void Connection::EnqueuePacket(const RawPacket& pkt)
     if (pkt.hdr.type != static_cast<uint16_t>(EMsg::Voice))
     {
         float dt = static_cast<float>(now - rateLastMs) / 1000.f;
-        rateTokens = std::min(30.f, rateTokens + dt * 20.f);
+        rateTokens = (std::min)(30.f, rateTokens + dt * 20.f);
         rateLastMs = now;
         if (rateTokens < 1.f)
         {

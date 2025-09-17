@@ -10,7 +10,11 @@
 #include "../core/Red4extUtils.hpp"
 #include <RED4ext/RED4ext.hpp>
 #include <filesystem>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
+#include <openssl/sha.h>
+#include <iomanip>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -20,6 +24,7 @@ namespace CoopNet
 {
 
 static std::unordered_set<uint32_t> g_banList;
+static std::mutex g_banMutex;
 static ThreadSafeQueue<std::string> g_cmdQueue;
 static std::thread g_consoleThread;
 static std::atomic<bool> g_consoleRunning{false};
@@ -73,9 +78,44 @@ static void DoKick(uint32_t peerId)
     }
 }
 
-static const char* GetBanPath()
+static std::string GetBanPath()
 {
+    // Use configurable ban file path with validation
+    const char* configPath = std::getenv("COOP_BAN_FILE");
+    if (configPath && strlen(configPath) > 0) {
+        // Validate path to prevent directory traversal
+        std::string path(configPath);
+        if (path.find("..") != std::string::npos || path.find("//") != std::string::npos) {
+            std::cerr << "Invalid ban file path detected, using default" << std::endl;
+            return "server/bans.json";
+        }
+        return path;
+    }
     return "server/bans.json";
+}
+
+static std::string GetBanSalt()
+{
+    const char* s = std::getenv("COOP_BAN_SALT");
+    return s ? std::string(s) : std::string("coop-ban-salt");
+}
+
+static std::string ComputeBanChecksum(const std::vector<uint32_t>& ids, const std::string& salt)
+{
+    std::ostringstream data;
+    for (size_t i = 0; i < ids.size(); ++i)
+    {
+        if (i) data << ',';
+        data << ids[i];
+    }
+    data << '|' << salt;
+    std::string s = data.str();
+    unsigned char sha[SHA256_DIGEST_LENGTH];
+    SHA256(reinterpret_cast<const unsigned char*>(s.data()), s.size(), sha);
+    std::ostringstream hex;
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i)
+        hex << std::hex << std::setw(2) << std::setfill('0') << (int)sha[i];
+    return hex.str();
 }
 
 static void LoadBans()
@@ -84,16 +124,43 @@ static void LoadBans()
     if (!in.is_open())
         return;
     std::string json((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    // Extract bans array
+    size_t a = json.find("\"bans\":[");
+    if (a == std::string::npos) return;
+    size_t b = json.find(']', a);
+    if (b == std::string::npos) return;
+    std::string bans = json.substr(a + 8, b - (a + 8));
+    std::vector<uint32_t> ids;
     size_t pos = 0;
     while (true)
     {
-        pos = json.find_first_of("0123456789", pos);
+        pos = bans.find_first_of("0123456789", pos);
         if (pos == std::string::npos)
             break;
-        size_t end = json.find_first_not_of("0123456789", pos);
-        g_banList.insert(std::stoul(json.substr(pos, end - pos)));
+        size_t end = bans.find_first_not_of("0123456789", pos);
+        try { ids.push_back(std::stoul(bans.substr(pos, end - pos))); } catch (...) {}
         pos = end;
     }
+    // Verify checksum if present
+    size_t cs = json.find("\"checksum\":\"");
+    bool ok = true;
+    if (cs != std::string::npos)
+    {
+        size_t cse = json.find('"', cs + 13);
+        if (cse != std::string::npos)
+        {
+            std::string sum = json.substr(cs + 12, cse - (cs + 12));
+            std::sort(ids.begin(), ids.end());
+            ok = (sum == ComputeBanChecksum(ids, GetBanSalt()));
+        }
+    }
+    if (!ok)
+    {
+        std::cerr << "[Admin] ban list checksum mismatch, ignoring file" << std::endl;
+        return;
+    }
+    for (uint32_t id : ids)
+        g_banList.insert(id);
 }
 
 static void SaveBans()
@@ -103,20 +170,23 @@ static void SaveBans()
     std::ofstream out(GetBanPath());
     if (!out.is_open())
         return;
-    out << "[";
-    bool first = true;
-    for (uint32_t id : g_banList)
+    std::vector<uint32_t> ids;
+    ids.reserve(g_banList.size());
+    for (uint32_t id : g_banList) ids.push_back(id);
+    std::sort(ids.begin(), ids.end());
+    std::string sum = ComputeBanChecksum(ids, GetBanSalt());
+    out << "{\"checksum\":\"" << sum << "\",\"bans\":[";
+    for (size_t i = 0; i < ids.size(); ++i)
     {
-        if (!first)
-            out << ",";
-        out << id;
-        first = false;
+        if (i) out << ',';
+        out << ids[i];
     }
-    out << "]";
+    out << "]}";
 }
 
 static void DoBan(uint32_t peerId)
 {
+    std::lock_guard lock(g_banMutex);
     g_banList.insert(peerId);
     SaveBans();
     DoKick(peerId);
@@ -282,6 +352,7 @@ void AdminController_PollCommands()
 
 bool AdminController_IsBanned(uint32_t peerId)
 {
+    std::lock_guard lock(g_banMutex);
     return g_banList.count(peerId) != 0;
 }
 

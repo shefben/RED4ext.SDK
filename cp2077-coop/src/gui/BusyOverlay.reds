@@ -7,8 +7,8 @@ public class BusyOverlay extends inkHUDLayer {
         let hud = GameInstance.GetHUDManager(GetGame());
         let o = new BusyOverlay();
         o.label = new inkText();
-        o.label.SetStyle(n"bold 40px");
         o.label.SetText(msg);
+        o.label.SetFontSize(40);
         o.label.SetAnchor(inkEAnchor.Centered);
         o.AddChild(o.label);
         hud.AddLayer(o);

@@ -4,13 +4,16 @@
 #include <cstring>
 #include <iostream>
 #include <random>
+#include <atomic>
+#include <mutex>
 #include <unordered_map>
 
 namespace CoopNet
 {
 
-static uint64_t g_nextItemId = 1;
+static std::atomic<uint64_t> g_nextItemId{1};
 static std::unordered_map<uint64_t, ItemSnap> g_items;
+static std::mutex g_itemsMutex;
 
 static bool ValidateMaterials(uint32_t recipe)
 {
@@ -28,7 +31,10 @@ static ItemSnap CraftItem(uint32_t recipe)
     std::memset(snap.rolls, 0, sizeof(snap.rolls));
     snap.slotMask = 0;
     std::memset(snap.attachmentIds, 0, sizeof(snap.attachmentIds));
-    g_items[snap.itemId] = snap;
+    {
+        std::lock_guard lock(g_itemsMutex);
+        g_items[snap.itemId] = snap;
+    }
     return snap;
 }
 
@@ -43,12 +49,16 @@ ItemSnap Inventory_CreateItem(uint16_t tpl, uint32_t ownerId)
     std::memset(snap.rolls, 0, sizeof(snap.rolls));
     snap.slotMask = 0;
     std::memset(snap.attachmentIds, 0, sizeof(snap.attachmentIds));
-    g_items[snap.itemId] = snap;
+    {
+        std::lock_guard lock(g_itemsMutex);
+        g_items[snap.itemId] = snap;
+    }
     return snap;
 }
 
 static bool AttachMod(uint64_t itemId, uint8_t slot, uint64_t attachId, ItemSnap& out)
 {
+    std::lock_guard lock(g_itemsMutex);
     auto it = g_items.find(itemId);
     if (it == g_items.end() || slot >= 4)
         return false;
@@ -91,6 +101,7 @@ void Inventory_HandleReRollRequest(Connection* conn, uint64_t itemId, uint32_t s
 {
     if (!conn)
         return;
+    std::lock_guard lock(g_itemsMutex);
     auto it = g_items.find(itemId);
     if (it == g_items.end() || !ValidateMaterials(it->second.tpl))
         return;
@@ -102,6 +113,34 @@ void Inventory_HandleReRollRequest(Connection* conn, uint64_t itemId, uint32_t s
     ItemSnapPacket snapPkt{it->second};
     Net_Broadcast(EMsg::ItemSnap, &snapPkt, sizeof(snapPkt));
     std::cout << "ReRollRequest item=" << itemId << " seed=" << seed << std::endl;
+}
+
+bool Inventory_TryGetItem(uint64_t itemId, ItemSnap& out)
+{
+    std::lock_guard lock(g_itemsMutex);
+    auto it = g_items.find(itemId);
+    if (it == g_items.end())
+        return false;
+    out = it->second;
+    return true;
+}
+
+bool Inventory_OwnerIs(uint64_t itemId, uint32_t ownerId)
+{
+    std::lock_guard lock(g_itemsMutex);
+    auto it = g_items.find(itemId);
+    return it != g_items.end() && it->second.ownerId == ownerId;
+}
+
+bool Inventory_SetOwner(uint64_t itemId, uint32_t newOwner, ItemSnap& out)
+{
+    std::lock_guard lock(g_itemsMutex);
+    auto it = g_items.find(itemId);
+    if (it == g_items.end())
+        return false;
+    it->second.ownerId = newOwner;
+    out = it->second;
+    return true;
 }
 
 } // namespace CoopNet

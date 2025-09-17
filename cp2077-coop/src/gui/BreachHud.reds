@@ -79,9 +79,17 @@ public class BreachHud extends inkGameController {
                 rng = rng * 1103515245u + 12345u;
                 let code = vals[rng % ArraySize(vals)];
                 codes.PushBack(code);
-                let cell = this.SpawnFromLocal(row, r"ico_hex_cell.inkwidget");
-                let txt = cell.GetWidget(n"code") as inkTextWidget;
+                // Create cell manually since custom resource may not exist
+                let cell = new inkButton();
+                cell.SetName(n"hex_cell");
+                cell.SetSize(80.0, 80.0);
+                row.AddChild(cell);
+                // Create text widget for the button
+                let txt = new inkText();
                 txt.SetText(code);
+                txt.SetFontSize(24);
+                txt.SetAnchor(inkEAnchor.Centered);
+                cell.AddChild(txt);
                 cell.RegisterToCallback(n"OnRelease", this, n"OnCellClick");
                 cell.RegisterToCallback(n"OnEnter", this, n"OnCellHover");
                 cell.RegisterToCallback(n"OnLeave", this, n"OnCellUnhover");

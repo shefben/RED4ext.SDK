@@ -110,5 +110,3 @@ void SpatialGrid::Subdivide(QuadNode* node, uint32_t depth)
 }
 
 } // namespace CoopNet
-
-} // namespace CoopNet

@@ -3,6 +3,7 @@
 #include "../core/SaveFork.hpp"
 #include "../net/Net.hpp"
 #include <unordered_map>
+#include <mutex>
 
 namespace CoopNet {
 struct ArcadeState {
@@ -12,9 +13,11 @@ struct ArcadeState {
     bool active = false;
 };
 static std::unordered_map<uint32_t, ArcadeState> g_games;
+static std::mutex g_arcadeMutex;
 
 void Arcade_Start(uint32_t cabId, uint32_t peerId, uint32_t seed)
 {
+    std::lock_guard lock(g_arcadeMutex);
     g_games[cabId] = {peerId, 0u, seed, true};
     ArcadeStartPacket pkt{cabId, peerId, seed};
     Net_Broadcast(EMsg::ArcadeStart, &pkt, sizeof(pkt));
@@ -23,6 +26,7 @@ void Arcade_Start(uint32_t cabId, uint32_t peerId, uint32_t seed)
 
 void Arcade_Input(uint32_t frame, uint8_t buttons)
 {
+    std::lock_guard lock(g_arcadeMutex);
     for (auto& kv : g_games) {
         if (kv.second.active)
         {
@@ -37,6 +41,7 @@ void Arcade_Input(uint32_t frame, uint8_t buttons)
 
 void Arcade_End(uint32_t peerId, uint32_t score)
 {
+    std::lock_guard lock(g_arcadeMutex);
     for (auto& kv : g_games) {
         if (kv.second.peerId == peerId && kv.second.active) {
             kv.second.active = false;
@@ -61,6 +66,7 @@ void Arcade_Tick(float dt)
     if (accum < 1.0f)
         return;
     accum = 0.f;
+    std::lock_guard lock(g_arcadeMutex);
     for (const auto& kv : g_games)
     {
         if (!kv.second.active)

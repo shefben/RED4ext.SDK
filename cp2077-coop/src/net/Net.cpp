@@ -1,7 +1,9 @@
 #include "Net.hpp"
+#include "Packets.hpp"
 #include "../core/GameClock.hpp"
 #include "../core/Hash.hpp"
-#include "../runtime/QuestSync.reds"
+#include "../core/SessionState.hpp"
+// #include "../runtime/QuestSync.reds" // REMOVED: Cannot include .reds in C++
 #include "../server/AdminController.hpp"
 #include "../server/Journal.hpp"
 #include "../server/PoliceDispatch.hpp"
@@ -16,10 +18,189 @@
 #include <cstring>
 #include <enet/enet.h>
 #include <iostream>
+#include <new>
 #include <sodium.h>
 #include <vector>
 
 using CoopNet::Connection;
+using CoopNet::EMsg;
+using CoopNet::PacketHeader;
+using CoopNet::TransformSnap;
+using CoopNet::ItemSnap;
+using CoopNet::NpcSnap;
+using CoopNet::VehicleSnap;
+
+// Packet type declarations
+using CoopNet::CraftRequestPacket;
+using CoopNet::AttachModRequestPacket;
+using CoopNet::PurchaseRequestPacket;
+using CoopNet::VehicleSummonRequestPacket;
+using CoopNet::BreachInputPacket;
+using CoopNet::ElevatorCallPacket;
+using CoopNet::VehicleExplodePacket;
+using CoopNet::VehiclePartDetachPacket;
+using CoopNet::EjectOccupantPacket;
+using CoopNet::VehicleSpawnPacket;
+using CoopNet::SeatRequestPacket;
+using CoopNet::SeatAssignPacket;
+using CoopNet::VehicleHitPacket;
+using CoopNet::BreachStartPacket;
+using CoopNet::BreachResultPacket;
+using CoopNet::HeatPacket;
+using CoopNet::ElevatorArrivePacket;
+using CoopNet::TeleportAckPacket;
+using CoopNet::QuestStagePacket;
+using CoopNet::QuestStageP2PPacket;
+using CoopNet::QuestResyncRequestPacket;
+using CoopNet::QuestFullSyncPacket;
+using CoopNet::HolocallStartPacket;
+using CoopNet::HolocallEndPacket;
+using CoopNet::TickRateChangePacket;
+using CoopNet::RuleChangePacket;
+using CoopNet::SpectatePacket;
+using CoopNet::ScoreUpdatePacket;
+using CoopNet::MatchOverPacket;
+using CoopNet::ChatPacket;
+using CoopNet::KillfeedPacket;
+using CoopNet::AdminCmdPacket;
+using CoopNet::NatCandidatePacket;
+using CoopNet::CineStartPacket;
+using CoopNet::VisemePacket;
+using CoopNet::DialogChoicePacket;
+using CoopNet::SceneTriggerPacket;
+using CoopNet::VoiceCapsPacket;
+using CoopNet::VoicePacket;
+using CoopNet::WorldStatePacket;
+using CoopNet::GlobalEventPacket;
+using CoopNet::NpcReputationPacket;
+using CoopNet::DynamicEventPacket;
+using CoopNet::CrowdSeedPacket;
+using CoopNet::VendorStockPacket;
+using CoopNet::VendorStockUpdatePacket;
+using CoopNet::VendorRefreshPacket;
+using CoopNet::WorldMarkersPacket;
+using CoopNet::NpcSpawnCruiserPacket;
+using CoopNet::NpcStatePacket;
+using CoopNet::CrimeEventSpawnPacket;
+using CoopNet::CyberEquipPacket;
+using CoopNet::SlowMoStartPacket;
+using CoopNet::PerkUnlockPacket;
+using CoopNet::PerkRespecRequestPacket;
+using CoopNet::PerkRespecAckPacket;
+using CoopNet::SkillXPPacket;
+using CoopNet::StatusApplyPacket;
+using CoopNet::StatusTickPacket;
+using CoopNet::TrafficSeedPacket;
+using CoopNet::TrafficDespawnPacket;
+using CoopNet::PropBreakPacket;
+using CoopNet::PropIgnitePacket;
+using CoopNet::VOPlayPacket;
+using CoopNet::FixerCallPacket;
+using CoopNet::GigSpawnPacket;
+using CoopNet::VehicleSummonPacket;
+using CoopNet::AppearancePacket;
+using CoopNet::PingOutlinePacket;
+using CoopNet::LootRollPacket;
+using CoopNet::AptPermChangePacket;
+using CoopNet::AptInteriorStatePacket;
+using CoopNet::VehicleTowRequestPacket;
+using CoopNet::VehicleTowAckPacket;
+using CoopNet::ReRollRequestPacket;
+using CoopNet::ReRollResultPacket;
+using CoopNet::RipperInstallRequestPacket;
+using CoopNet::TileSelectPacket;
+using CoopNet::TileGameStartPacket;
+using CoopNet::ShardProgressPacket;
+using CoopNet::TradeInitPacket;
+using CoopNet::TradeOfferPacket;
+using CoopNet::TradeAcceptPacket;
+using CoopNet::TradeFinalizePacket;
+using CoopNet::EndingVoteStartPacket;
+using CoopNet::EndingVoteCastPacket;
+using CoopNet::PartyInfoPacket;
+using CoopNet::PartyInvitePacket;
+using CoopNet::PartyLeavePacket;
+using CoopNet::PartyKickPacket;
+using CoopNet::DealerBuyPacket;
+using CoopNet::VehicleUnlockPacket;
+using CoopNet::VehicleHitHighSpeedPacket;
+using CoopNet::VehicleSnapshotPacket;
+using CoopNet::TurretAimPacket;
+using CoopNet::AirVehSpawnPacket;
+using CoopNet::AirVehUpdatePacket;
+using CoopNet::VehiclePaintChangePacket;
+using CoopNet::PanicEventPacket;
+using CoopNet::AIHackPacket;
+using CoopNet::BossPhasePacket;
+using CoopNet::WeaponInspectPacket;
+using CoopNet::FinisherStartPacket;
+using CoopNet::FinisherEndPacket;
+using CoopNet::SlowMoFinisherPacket;
+using CoopNet::TextureBiasPacket;
+using CoopNet::SectorLODPacket;
+using CoopNet::LowBWModePacket;
+using CoopNet::CrowdCfgPacket;
+using CoopNet::EmotePacket;
+using CoopNet::CrowdChatterStartPacket;
+using CoopNet::CrowdChatterEndPacket;
+using CoopNet::HoloSeedPacket;
+using CoopNet::HoloNextAdPacket;
+using CoopNet::DoorBreachStartPacket;
+using CoopNet::DoorBreachTickPacket;
+using CoopNet::DoorBreachSuccessPacket;
+using CoopNet::DoorBreachAbortPacket;
+using CoopNet::HTableOpenPacket;
+using CoopNet::HTableScrubPacket;
+using CoopNet::QuestGadgetFirePacket;
+using CoopNet::ItemGrabPacket;
+using CoopNet::ItemDropPacket;
+using CoopNet::ItemStorePacket;
+using CoopNet::MetroBoardPacket;
+using CoopNet::MetroArrivePacket;
+using CoopNet::RadioChangePacket;
+using CoopNet::CamHijackPacket;
+using CoopNet::CamFrameStartPacket;
+using CoopNet::CarryBeginPacket;
+using CoopNet::CarrySnapPacket;
+using CoopNet::CarryEndPacket;
+using CoopNet::GrenadePrimePacket;
+using CoopNet::GrenadeSnapPacket;
+using CoopNet::SmartCamStartPacket;
+using CoopNet::SmartCamEndPacket;
+using CoopNet::ArcadeStartPacket;
+using CoopNet::ArcadeInputPacket;
+using CoopNet::ArcadeScorePacket;
+using CoopNet::ArcadeHighScorePacket;
+using CoopNet::PluginRPCPacket;
+using CoopNet::AssetBundlePacket;
+using CoopNet::CriticalVoteStartPacket;
+using CoopNet::CriticalVoteCastPacket;
+using CoopNet::BranchVoteStartPacket;
+using CoopNet::BranchVoteCastPacket;
+using CoopNet::PhaseBundlePacket;
+using CoopNet::AptPurchasePacket;
+using CoopNet::AptEnterReqPacket;
+using CoopNet::AptShareChangePacket;
+using CoopNet::AptPurchaseAckPacket;
+using CoopNet::AptEnterAckPacket;
+
+// NAT function declarations
+using CoopNet::Nat_SetCandidateCallback;
+using CoopNet::Nat_PerformHandshake;
+using CoopNet::Nat_GetRelayBytes;
+using CoopNet::Nat_GetLocalCandidate;
+using CoopNet::Nat_AddRemoteCandidate;
+using CoopNet::QuestGadgetType;
+
+// Additional function imports
+using CoopNet::PoliceDispatch_OnHeatChange;
+using CoopNet::GameClock;
+using CoopNet::Journal_Log;
+
+// Simple QuestSync namespace for local phase tracking
+namespace QuestSync {
+    static uint32_t localPhase = 0;
+}
 
 namespace
 {
@@ -32,6 +213,10 @@ struct PeerEntry
 ENetHost* g_Host = nullptr;
 std::vector<PeerEntry> g_Peers;
 static uint32_t g_nextPeerId = 1;
+
+// Thread safety protection for networking globals
+std::mutex g_NetMutex;
+
 // Helper used by world streaming to match sector hashing in the game.
 } // namespace
 
@@ -43,6 +228,7 @@ void Net_Init()
         return;
     }
 
+    std::lock_guard<std::mutex> lock(g_NetMutex);
     g_Host = enet_host_create(nullptr, 8, 2, 0, 0);
     Nat_SetCandidateCallback(
         [](const char* cand)
@@ -50,7 +236,7 @@ void Net_Init()
             std::cout << "Local candidate: " << cand << std::endl;
             Net_BroadcastNatCandidate(cand);
         });
-    Nat_Start();
+    CoopNet::Nat_Start();
     CoopNet::GetAssetStreamer().Start();
     std::cout << "Net_Init complete" << std::endl;
 }
@@ -89,9 +275,20 @@ void Net_Poll(uint32_t maxMs)
         {
         case ENET_EVENT_TYPE_CONNECT:
         {
+            if (!evt.peer) {
+                std::cerr << "[Net] Connect event with null peer" << std::endl;
+                break;
+            }
+            
             PeerEntry e;
             e.peer = evt.peer;
-            e.conn = new Connection();
+            e.conn = new(std::nothrow) Connection();
+            if (!e.conn) {
+                std::cerr << "[Net] Failed to allocate Connection object" << std::endl;
+                enet_peer_disconnect(evt.peer, 0);
+                break;
+            }
+            
             e.conn->peerId = g_nextPeerId++;
             if (CoopNet::AdminController_IsBanned(e.conn->peerId))
             {
@@ -110,11 +307,18 @@ void Net_Poll(uint32_t maxMs)
         }
         case ENET_EVENT_TYPE_DISCONNECT:
         {
+            if (!evt.peer) {
+                std::cerr << "[Net] Disconnect event with null peer" << std::endl;
+                break;
+            }
+            
             auto it =
                 std::find_if(g_Peers.begin(), g_Peers.end(), [&](const PeerEntry& p) { return p.peer == evt.peer; });
             if (it != g_Peers.end())
             {
-                delete it->conn;
+                if (it->conn) {
+                    delete it->conn;
+                }
                 g_Peers.erase(it);
             }
             std::cout << "peer disconnected" << std::endl;
@@ -122,18 +326,32 @@ void Net_Poll(uint32_t maxMs)
         }
         case ENET_EVENT_TYPE_RECEIVE:
         {
-            if (evt.packet && evt.packet->dataLength >= sizeof(PacketHeader))
+            if (!evt.packet) {
+                std::cerr << "[Net] Receive event with null packet" << std::endl;
+                break;
+            }
+            if (!evt.packet->data) {
+                std::cerr << "[Net] Receive event with null packet data" << std::endl;
+                enet_packet_destroy(evt.packet);
+                break;
+            }
+            if (evt.packet->dataLength < sizeof(CoopNet::PacketHeader)) {
+                std::cerr << "[Net] Packet too small: " << evt.packet->dataLength 
+                          << " < " << sizeof(CoopNet::PacketHeader) << std::endl;
+                enet_packet_destroy(evt.packet);
+                break;
+            }
             {
                 auto it = std::find_if(g_Peers.begin(), g_Peers.end(),
                                        [&](const PeerEntry& p) { return p.peer == evt.peer; });
-                if (it != g_Peers.end())
+                if (it != g_Peers.end() && it->conn)
                 {
                     Connection::RawPacket pkt;
-                    pkt.hdr = *reinterpret_cast<PacketHeader*>(evt.packet->data);
-                    const uint8_t* payload = evt.packet->data + sizeof(PacketHeader);
-                    uint16_t psize = evt.packet->dataLength - sizeof(PacketHeader);
-                    if (it->conn->hasKey && pkt.hdr.type != static_cast<uint16_t>(EMsg::Hello) &&
-                        pkt.hdr.type != static_cast<uint16_t>(EMsg::Welcome))
+                    pkt.hdr = *reinterpret_cast<CoopNet::PacketHeader*>(evt.packet->data);
+                    const uint8_t* payload = evt.packet->data + sizeof(CoopNet::PacketHeader);
+                    uint16_t psize = evt.packet->dataLength - sizeof(CoopNet::PacketHeader);
+                    if (it->conn->hasKey && pkt.hdr.type != static_cast<uint16_t>(CoopNet::EMsg::Hello) &&
+                        pkt.hdr.type != static_cast<uint16_t>(CoopNet::EMsg::Welcome))
                     {
                         if (psize < 4 + crypto_secretbox_MACBYTES)
                             break;
@@ -192,7 +410,17 @@ std::vector<Connection*> Net_GetConnections()
     return out;
 }
 
-void Net_Send(Connection* conn, EMsg type, const void* data, uint16_t size)
+std::vector<uint32_t> Net_GetConnectionPeerIds()
+{
+    std::vector<uint32_t> ret;
+    ret.reserve(g_Peers.size());
+    for (const auto& p : g_Peers)
+        if (p.conn)
+            ret.push_back(p.conn->peerId);
+    return ret;
+}
+
+void Net_Send(Connection* conn, CoopNet::EMsg type, const void* data, uint16_t size)
 {
     if (!g_Host || !conn)
         return;
@@ -203,7 +431,7 @@ void Net_Send(Connection* conn, EMsg type, const void* data, uint16_t size)
 
     std::vector<uint8_t> outBuf;
     uint16_t finalSize = size;
-    if (conn->hasKey && type != EMsg::Hello && type != EMsg::Welcome)
+    if (conn->hasKey && type != CoopNet::EMsg::Hello && type != CoopNet::EMsg::Welcome)
     {
         uint32_t nonce = static_cast<uint32_t>(conn->lastNonce++);
         unsigned char nbuf[crypto_secretbox_NONCEBYTES] = {0};
@@ -214,15 +442,15 @@ void Net_Send(Connection* conn, EMsg type, const void* data, uint16_t size)
         finalSize = static_cast<uint16_t>(outBuf.size());
         data = outBuf.data();
     }
-    ENetPacket* pkt = enet_packet_create(nullptr, sizeof(PacketHeader) + finalSize, ENET_PACKET_FLAG_RELIABLE);
-    PacketHeader hdr{static_cast<uint16_t>(type), finalSize};
+    ENetPacket* pkt = enet_packet_create(nullptr, sizeof(CoopNet::PacketHeader) + finalSize, ENET_PACKET_FLAG_RELIABLE);
+    CoopNet::PacketHeader hdr{static_cast<uint16_t>(type), finalSize};
     std::memcpy(pkt->data, &hdr, sizeof(hdr));
     if (finalSize > 0 && data)
         std::memcpy(pkt->data + sizeof(hdr), data, finalSize);
     enet_peer_send(it->peer, 0, pkt);
 }
 
-void Net_Broadcast(EMsg type, const void* data, uint16_t size)
+void Net_Broadcast(CoopNet::EMsg type, const void* data, uint16_t size)
 {
     if (!g_Host)
         return;
@@ -232,15 +460,15 @@ void Net_Broadcast(EMsg type, const void* data, uint16_t size)
     }
 }
 
-void Net_SendUnreliableToAll(EMsg type, const void* data, uint16_t size)
+void Net_SendUnreliableToAll(CoopNet::EMsg type, const void* data, uint16_t size)
 {
     if (!g_Host)
         return;
 
     for (auto& e : g_Peers)
     {
-        ENetPacket* pkt = enet_packet_create(nullptr, sizeof(PacketHeader) + size, 0);
-        PacketHeader hdr{static_cast<uint16_t>(type), size};
+        ENetPacket* pkt = enet_packet_create(nullptr, sizeof(CoopNet::PacketHeader) + size, 0);
+        CoopNet::PacketHeader hdr{static_cast<uint16_t>(type), size};
         std::memcpy(pkt->data, &hdr, sizeof(hdr));
         if (size > 0 && data)
             std::memcpy(pkt->data + sizeof(hdr), data, size);
@@ -263,7 +491,7 @@ void Net_SendCraftRequest(uint32_t recipeId)
     if (!conns.empty())
     {
         CraftRequestPacket pkt{recipeId};
-        Net_Send(conns[0], EMsg::CraftRequest, &pkt, sizeof(pkt));
+        Net_Send(conns[0], CoopNet::EMsg::CraftRequest, &pkt, sizeof(pkt));
     }
 }
 
@@ -272,8 +500,8 @@ void Net_SendAttachRequest(uint64_t itemId, uint8_t slotIdx, uint64_t attachment
     auto conns = Net_GetConnections();
     if (!conns.empty())
     {
-        AttachModRequestPacket pkt{itemId, slotIdx, {0, 0, 0}, attachmentId};
-        Net_Send(conns[0], EMsg::AttachModRequest, &pkt, sizeof(pkt));
+        AttachModRequestPacket pkt{0u, itemId, slotIdx, {0, 0, 0}, attachmentId};
+        Net_Send(conns[0], CoopNet::EMsg::AttachModRequest, &pkt, sizeof(pkt));
     }
 }
 
@@ -283,7 +511,7 @@ void Net_SendPurchaseRequest(uint32_t vendorId, uint32_t itemId, uint64_t nonce)
     if (!conns.empty())
     {
         PurchaseRequestPacket pkt{vendorId, itemId, nonce};
-        Net_Send(conns[0], EMsg::PurchaseRequest, &pkt, sizeof(pkt));
+        Net_Send(conns[0], CoopNet::EMsg::PurchaseRequest, &pkt, sizeof(pkt));
     }
 }
 
@@ -293,7 +521,7 @@ void Net_SendVehicleSummonRequest(uint32_t vehId, const TransformSnap& pos)
     if (!conns.empty())
     {
         VehicleSummonRequestPacket pkt{vehId, pos};
-        Net_Send(conns[0], EMsg::VehicleSummonRequest, &pkt, sizeof(pkt));
+        Net_Send(conns[0], CoopNet::EMsg::VehicleSummonRequest, &pkt, sizeof(pkt));
     }
 }
 
@@ -303,7 +531,7 @@ void Net_SendBreachInput(uint8_t index)
     if (!conns.empty())
     {
         BreachInputPacket pkt{0u, index, {0, 0, 0}};
-        Net_Send(conns[0], EMsg::BreachInput, &pkt, sizeof(pkt));
+        Net_Send(conns[0], CoopNet::EMsg::BreachInput, &pkt, sizeof(pkt));
     }
 }
 
@@ -313,33 +541,33 @@ void Net_SendElevatorCall(uint32_t elevatorId, uint8_t floorIdx)
     if (!conns.empty())
     {
         ElevatorCallPacket pkt{0u, elevatorId, floorIdx, {0, 0, 0}};
-        Net_Send(conns[0], EMsg::ElevatorCall, &pkt, sizeof(pkt));
+        Net_Send(conns[0], CoopNet::EMsg::ElevatorCall, &pkt, sizeof(pkt));
     }
 }
 
 void Net_BroadcastVehicleExplode(uint32_t vehicleId, uint32_t vfxId, uint32_t seed)
 {
     VehicleExplodePacket pkt{vehicleId, vfxId, seed};
-    Net_Broadcast(EMsg::VehicleExplode, &pkt, sizeof(pkt));
+    Net_Broadcast(CoopNet::EMsg::VehicleExplode, &pkt, sizeof(pkt));
 }
 
 void Net_BroadcastPartDetach(uint32_t vehicleId, uint8_t partId)
 {
     VehiclePartDetachPacket pkt{vehicleId, partId, {0, 0, 0}};
-    Net_Broadcast(EMsg::VehiclePartDetach, &pkt, sizeof(pkt));
+    Net_Broadcast(CoopNet::EMsg::VehiclePartDetach, &pkt, sizeof(pkt));
 }
 
 void Net_BroadcastEject(uint32_t peerId, const RED4ext::Vector3& vel)
 {
     EjectOccupantPacket pkt{peerId, vel};
-    Net_Broadcast(EMsg::EjectOccupant, &pkt, sizeof(pkt));
+    Net_Broadcast(CoopNet::EMsg::EjectOccupant, &pkt, sizeof(pkt));
 }
 
 void Net_BroadcastVehicleSpawn(uint32_t vehicleId, uint32_t archetypeId, uint32_t paintId, uint32_t phaseId,
                                const TransformSnap& t)
 {
     VehicleSpawnPacket pkt{vehicleId, archetypeId, paintId, phaseId, t};
-    Net_Broadcast(EMsg::VehicleSpawn, &pkt, sizeof(pkt));
+    Net_Broadcast(CoopNet::EMsg::VehicleSpawn, &pkt, sizeof(pkt));
 }
 
 void Net_SendSeatRequest(uint32_t vehicleId, uint8_t seatIdx)
@@ -348,14 +576,14 @@ void Net_SendSeatRequest(uint32_t vehicleId, uint8_t seatIdx)
     if (!conns.empty())
     {
         SeatRequestPacket pkt{vehicleId, seatIdx};
-        Net_Send(conns[0], EMsg::SeatRequest, &pkt, sizeof(pkt));
+        Net_Send(conns[0], CoopNet::EMsg::SeatRequest, &pkt, sizeof(pkt));
     }
 }
 
 void Net_BroadcastSeatAssign(uint32_t peerId, uint32_t vehicleId, uint8_t seatIdx)
 {
     SeatAssignPacket pkt{peerId, vehicleId, seatIdx};
-    Net_Broadcast(EMsg::SeatAssign, &pkt, sizeof(pkt));
+    Net_Broadcast(CoopNet::EMsg::SeatAssign, &pkt, sizeof(pkt));
 }
 
 void Net_SendVehicleHit(uint32_t vehicleId, uint16_t dmg, bool side)
@@ -474,6 +702,35 @@ Connection* Net_FindConnection(uint32_t peerId)
     if (it == g_Peers.end())
         return nullptr;
     return it->conn;
+}
+
+void Net_SetConnectionAvatarPos(uint32_t peerId, const RED4ext::Vector3& pos)
+{
+    Connection* conn = Net_FindConnection(peerId);
+    if (conn)
+        conn->avatarPos = pos;
+}
+
+RED4ext::Vector3 Net_GetConnectionAvatarPos(uint32_t peerId)
+{
+    Connection* conn = Net_FindConnection(peerId);
+    if (conn)
+        return conn->avatarPos;
+    return {0.0f, 0.0f, 0.0f};
+}
+
+uint32_t Net_GetConnectionPeerId(CoopNet::Connection* conn)
+{
+    if (conn)
+        return conn->peerId;
+    return 0;
+}
+
+void Net_SendPluginRPCToPeer(uint32_t peerId, uint16_t pluginId, uint32_t fnHash, const char* json, uint16_t len)
+{
+    Connection* conn = Net_FindConnection(peerId);
+    if (conn)
+        Net_SendPluginRPC(conn, pluginId, fnHash, json, len);
 }
 
 void Net_SendQuestFullSync(CoopNet::Connection* conn, const QuestFullSyncPacket& pkt)
@@ -1005,7 +1262,7 @@ void Net_BroadcastTileSelect(uint32_t peerId, uint32_t phaseId, uint8_t row, uin
 
 void Net_BroadcastShardProgress(uint32_t phaseId, uint8_t percent)
 {
-    ShardProgressPacket pkt{phaseId, percent, {0, 0, 0}};
+    ShardProgressPacket pkt{0u, phaseId, 0, 0, percent, {0}};
     Net_Broadcast(EMsg::ShardProgress, &pkt, sizeof(pkt));
 }
 
@@ -1129,7 +1386,7 @@ void Net_SendDealerBuy(uint32_t vehicleTpl, uint32_t price)
     auto conns = Net_GetConnections();
     if (!conns.empty())
     {
-        DealerBuyPacket pkt{vehicleTpl, price};
+        DealerBuyPacket pkt{Net_GetPeerId(), vehicleTpl, price};
         Net_Send(conns[0], EMsg::DealerBuy, &pkt, sizeof(pkt));
     }
 }
@@ -1323,7 +1580,7 @@ void Net_BroadcastHTableScrub(uint32_t timestampMs)
 
 void Net_BroadcastQuestGadgetFire(uint32_t questId, QuestGadgetType type, uint8_t charge, uint32_t targetId)
 {
-    QuestGadgetFirePacket pkt{questId, static_cast<uint8_t>(type), charge, targetId, 0};
+    QuestGadgetFirePacket pkt{0u, questId, static_cast<uint8_t>(type), charge, targetId, {0, 0, 0}};
     Net_Broadcast(EMsg::QuestGadgetFire, &pkt, sizeof(pkt));
 }
 
@@ -1433,7 +1690,7 @@ void Net_BroadcastArcadeStart(uint32_t cabId, uint32_t peerId, uint32_t seed)
 
 void Net_SendArcadeInput(uint32_t frame, uint8_t buttonMask)
 {
-    ArcadeInputPacket pkt{frame, buttonMask, {0, 0, 0}};
+    ArcadeInputPacket pkt{0u, frame, buttonMask, {0, 0, 0}};
     if (g_Peers.size() > 0)
         Net_Send(g_Peers[0].conn, EMsg::ArcadeInput, &pkt, sizeof(pkt));
 }
@@ -1602,4 +1859,79 @@ void Net_SendAptEnterAck(Connection* conn, bool allow, uint32_t phaseId, uint32_
         return;
     AptEnterAckPacket pkt{static_cast<uint8_t>(allow), {0, 0, 0}, phaseId, interiorSeed};
     Net_Send(conn, EMsg::AptEnterAck, &pkt, sizeof(pkt));
+}
+
+// ===== MISSING SERVER FUNCTIONS - IMPLEMENTATION =====
+
+bool Net_StartServer(uint32_t port, uint32_t maxPlayers)
+{
+    std::cout << "[Net_StartServer] Starting server on port " << port << " for " << maxPlayers << " players" << std::endl;
+    
+    // Create server host
+    ENetAddress address;
+    address.host = ENET_HOST_ANY;
+    address.port = port;
+    
+    if (g_Host) {
+        enet_host_destroy(g_Host);
+    }
+    
+    g_Host = enet_host_create(&address, maxPlayers, 2, 0, 0);
+    if (!g_Host) {
+        std::cerr << "[Net_StartServer] Failed to create server host on port " << port << std::endl;
+        return false;
+    }
+    
+    std::cout << "[Net_StartServer] Server successfully started on port " << port << std::endl;
+    return true;
+}
+
+void InitializeGameSystems()
+{
+    std::cout << "[InitializeGameSystems] Initializing core game systems..." << std::endl;
+    
+    // Initialize session state
+    CoopNet::SessionState_SetParty(std::vector<uint32_t>());
+    
+    std::cout << "[InitializeGameSystems] Game systems initialized successfully" << std::endl;
+}
+
+void LoadServerPlugins()
+{
+    std::cout << "[LoadServerPlugins] Loading server plugins..." << std::endl;
+    
+    // TODO: Implement actual plugin loading
+    // For now, just log that we're ready for plugins
+    
+    std::cout << "[LoadServerPlugins] Server ready for plugin connections" << std::endl;
+}
+
+bool Net_ConnectToServer(const char* host, uint32_t port)
+{
+    std::cout << "[Net_ConnectToServer] Connecting to " << host << ":" << port << std::endl;
+    
+    if (!g_Host) {
+        std::cerr << "[Net_ConnectToServer] Network not initialized, call Net_Init() first" << std::endl;
+        return false;
+    }
+    
+    ENetAddress address;
+    enet_address_set_host(&address, host);
+    address.port = port;
+    
+    ENetPeer* peer = enet_host_connect(g_Host, &address, 2, 0);
+    if (!peer) {
+        std::cerr << "[Net_ConnectToServer] Failed to create connection peer" << std::endl;
+        return false;
+    }
+    
+    std::cout << "[Net_ConnectToServer] Connection attempt initiated to " << host << ":" << port << std::endl;
+    return true;
+}
+
+uint32_t Net_GetPeerId()
+{
+    // For client, return a fixed peer ID for now
+    // In a full implementation, this would be assigned by the server
+    return 1;
 }

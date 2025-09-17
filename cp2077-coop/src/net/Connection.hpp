@@ -1,9 +1,9 @@
 #pragma once
 
 #include "Packets.hpp"
-#include "core/ThreadSafeQueue.hpp"
+#include "../core/ThreadSafeQueue.hpp"
 #include "../voice/VoiceEncoder.hpp"
-#include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
+#include <RED4ext/Scripting/Natives/Vector3.hpp>
 #include <array>
 #include <cstdint>
 #include <deque>

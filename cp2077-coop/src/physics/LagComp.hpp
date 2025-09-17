@@ -3,7 +3,7 @@
 // Helper for lag compensation on the server.
 // Rewinds a target position based on client RTT.
 
-#include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
+#include <RED4ext/Scripting/Natives/Vector3.hpp>
 
 namespace CoopNet
 {

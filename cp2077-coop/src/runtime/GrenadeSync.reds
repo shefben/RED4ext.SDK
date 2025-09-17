@@ -3,11 +3,13 @@ public class GrenadeSync {
         LogChannel(n"grenade", "prime=" + IntToString(Cast<Int32>(pkt.entityId)));
     }
     public static func OnSnap(pkt: ref<GrenadeSnapPacket>) -> Void {
-        let obj = GameInstance.GetPlayerSystem(GetGame()).FindObject(pkt.entityId) as GameObject;
-        if IsDefined(obj) {
-            obj.SetWorldPosition(pkt.pos);
-            if HasMethod(obj, n"SetLinearVelocity") { obj.SetLinearVelocity(pkt.vel); };
-        };
+        // TODO: Implement safe object lookup and position/velocity sync
+        // let obj = GameInstance.GetPlayerSystem(GetGame()).FindObject(pkt.entityId) as GameObject;
+        // if IsDefined(obj) {
+        //     obj.SetWorldPosition(pkt.pos);
+        //     if HasMethod(obj, n"SetLinearVelocity") { obj.SetLinearVelocity(pkt.vel); };
+        // };
+        LogChannel(n"grenade", "Grenade snap pos=" + VectorToString(pkt.pos));
     }
 }
 

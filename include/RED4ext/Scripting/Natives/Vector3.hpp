@@ -3,6 +3,8 @@
 #include <RED4ext/Common.hpp>
 
 #include <cstdint>
+#include <cmath>
+#include <algorithm>
 
 namespace RED4ext
 {
@@ -74,7 +76,7 @@ struct Vector3
 
     inline float Magnitude() const
     {
-        return std::sqrtf(X * X + Y * Y + Z * Z);
+        return sqrtf(X * X + Y * Y + Z * Z);
     }
 
     inline void Normalize()

@@ -2,6 +2,7 @@
 #include "../core/GameClock.hpp"
 #include "../net/Net.hpp"
 #include <unordered_map>
+#include <mutex>
 
 namespace CoopNet
 {
@@ -13,9 +14,11 @@ struct GrenadeState
     float timer;
 };
 static std::unordered_map<uint32_t, GrenadeState> g_map;
+static std::mutex g_grenadeMutex;
 
 void GrenadeController_Prime(uint32_t entityId, uint32_t startTick)
 {
+    std::lock_guard lock(g_grenadeMutex);
     g_map[entityId] = {startTick, {}, {}, 0.f};
     GrenadePrimePacket pkt{entityId, startTick};
     Net_Broadcast(EMsg::GrenadePrime, &pkt, sizeof(pkt));
@@ -23,11 +26,13 @@ void GrenadeController_Prime(uint32_t entityId, uint32_t startTick)
 
 void GrenadeController_Remove(uint32_t entityId)
 {
+    std::lock_guard lock(g_grenadeMutex);
     g_map.erase(entityId);
 }
 
 void GrenadeController_Tick(float dt)
 {
+    std::lock_guard lock(g_grenadeMutex);
     for (auto it = g_map.begin(); it != g_map.end();)
     {
         it->second.timer += dt;

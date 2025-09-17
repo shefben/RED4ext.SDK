@@ -204,8 +204,18 @@ public static func VehicleProxy_Detach(id: Uint32, part: Uint8) -> Void {
 }
 
 public static func VehicleProxy_EnterSeat(peerId: Uint32, seat: Uint8) -> Void {
+    // Add bounds check before accessing array
+    if ArraySize(VehicleProxy.proxies) == 0 {
+        LogChannel(n"ERROR", "No vehicle proxies available for seat entry");
+        return;
+    }
+    
     let v = VehicleProxy.proxies[0]; // assume single vehicle
-    if IsDefined(v) { v.EnterSeat(peerId, seat); };
+    if IsDefined(v) { 
+        v.EnterSeat(peerId, seat); 
+    } else {
+        LogChannel(n"ERROR", "Vehicle proxy at index 0 is null");
+    }
 }
 
 public static func VehicleProxy_ApplyDamage(id: Uint32, d: Uint16, side: Bool) -> Void {

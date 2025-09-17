@@ -1,7 +1,6 @@
 #pragma once
 
-#include <RED4ext/Scripting/Natives/Generated/uint16.hpp>
-#include <RED4ext/Scripting/Natives/Generated/uint32.hpp>
+#include <cstdint>
 #include <vector>
 
 namespace CoopNet

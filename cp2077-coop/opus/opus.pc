@@ -1,0 +1,16 @@
+# Opus codec reference implementation pkg-config file
+
+prefix=C:/Program Files (x86)/cp2077-coop
+exec_prefix=C:/Program Files (x86)/cp2077-coop
+libdir=C:/Program Files (x86)/cp2077-coop/lib
+includedir=C:/Program Files (x86)/cp2077-coop/include
+
+Name: Opus
+Description: Opus IETF audio codec ( build)
+URL: https://opus-codec.org/
+Version: 1.5.2
+Requires:
+Conflicts:
+Libs: -LC:/Program Files (x86)/cp2077-coop/lib -lopus
+Libs.private: 
+Cflags: -IC:/Program Files (x86)/cp2077-coop/include/opus

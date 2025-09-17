@@ -19,6 +19,7 @@ public:
     static float GetTickAlpha(float nowMs);
     static float GetTickMs();
     static void SetTickMs(float ms);
+    static uint64_t GetTimeMs(); // Get current system time in milliseconds
     static float currentTickMs; // exposed for scripts
 
 private:

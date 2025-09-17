@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #if defined(__has_include)
 #  if __has_include(<Python.h>)
 #    include <Python.h>

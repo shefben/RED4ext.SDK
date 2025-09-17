@@ -17,8 +17,8 @@ public class GameModeManager {
     public static func SetFriendlyFire(enable: Bool) -> Void {
         if friendlyFire == enable { return; };
         friendlyFire = enable;
-        if CoopNet.IsAuthoritative() {
-            CoopNet.BroadcastRuleChange(enable);
+        if Net_IsAuthoritative() {
+            Net_BroadcastRuleChange(enable);
         };
     }
 
@@ -48,7 +48,7 @@ public class GameModeManager {
         if firstKillPeer == 0xFFFFFFFFu {
             firstKillPeer = peerId;
         };
-        CoopNet.AddStats(peerId, fragCounts[peerId], 0u, 0u, 0u, 0u);
+        Net_AddStats(peerId, fragCounts[peerId], 0u, 0u, 0u, 0u);
     }
 
     public static func TickDM(dtMs: Uint32) -> Void {
@@ -77,7 +77,7 @@ public class GameModeManager {
             if best > 0u && firstKillPeer != 0xFFFFFFFFu && fragCounts[firstKillPeer] == best {
                 winner = firstKillPeer;
             };
-            CoopNet.BroadcastMatchOver(winner);
+            Net_BroadcastMatchOver(winner);
             current = GameMode.Coop;
             return;
         }

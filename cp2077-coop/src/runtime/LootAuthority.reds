@@ -17,9 +17,9 @@ public class LootAuthority {
             owners[idx] = ownerId;
         };
         if ownerId != 0u && ownerId != Net_GetPeerId() {
-            LootMarkers.Push("Item " + Uint64ToString(itemId) + " claimed by " + IntToString(Cast<Int32>(ownerId)));
+            LootMarkers.Push("Item " + ToString(itemId) + " claimed by " + IntToString(Cast<Int32>(ownerId)));
         };
-        LogChannel(n"DEBUG", "Ownership " + Uint64ToString(itemId) + " -> " + IntToString(ownerId));
+        LogChannel(n"DEBUG", "Ownership " + ToString(itemId) + " -> " + IntToString(ownerId));
     }
 
     public static func CanPickup(itemId: Uint64, peerId: Uint32) -> Bool {

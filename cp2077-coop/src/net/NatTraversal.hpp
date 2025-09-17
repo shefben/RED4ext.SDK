@@ -28,6 +28,7 @@ public:
 
     const std::string& GetLocalCandidate() const;
     bool GetTurnCreds(TurnCreds& creds) const;
+    void ClearTurnCreds();
 
 private:
     juice_agent_t* m_agent = nullptr;

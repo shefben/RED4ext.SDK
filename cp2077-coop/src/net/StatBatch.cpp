@@ -28,7 +28,9 @@ static void FlushStats()
            << ",\"hs\":" << g_stats.hs[i] << '}';
     }
     ss << "]}";
-    httplib::SSLClient cli("coop-master", 443);
+    extern std::string g_cfgMasterHost;
+    extern int g_cfgMasterPort;
+    httplib::SSLClient cli(g_cfgMasterHost.c_str(), g_cfgMasterPort > 0 ? g_cfgMasterPort : 443);
     cli.Post("/api/stats", ss.str(), "application/json");
     g_stats = BatchedStats();
 }

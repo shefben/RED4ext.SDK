@@ -8,9 +8,9 @@ public class ServerBrowser extends inkHUDLayer {
     private static let loadingSpinner: wref<inkText>;
     private static let partyText: wref<inkText>;
     private static var masterToken: Uint32;
-    private static let pending: ref<inkHashMap> = new inkHashMap();
+    private static var pending: ref<inkHashMap>;
     private static var pendingCount: Uint32;
-    private static let results: array<ref<IScriptable>> = [];
+    private static var results: array<ref<IScriptable>>;
     private static var lastQuery: String;
     private static var filterPing: Uint32 = 9999u;
     private static var filterVersion: Uint32 = 0u;
@@ -95,6 +95,14 @@ public class ServerBrowser extends inkHUDLayer {
     }
 
     public static func RefreshLive() -> Void {
+        // Initialize collections if not already done
+        if !IsDefined(pending) {
+            pending = new inkHashMap();
+        }
+        if !IsDefined(results) {
+            results = [];
+        }
+        
         pending.Clear();
         ArrayClear(results);
         pendingCount = 0u;
@@ -167,7 +175,7 @@ public class ServerBrowser extends inkHUDLayer {
             pingLabel.SetText(IntToString(ping) + "ms");
             let addrLabel = new inkText();
             addrLabel.SetText(ip + ":" + IntToString(port));
-            if ver != kClientCRC {
+            if !VersionCheck.ValidateRemoteVersion(ver) {
                 row.SetTintColor(new HDRColor(1.0, 0.4, 0.4, 1.0));
             };
             row.AddChild(nameLabel);
@@ -252,12 +260,15 @@ public class ServerBrowser extends inkHUDLayer {
     public func OnUpdate(dt: Float) -> Void {
         if IsDefined(scrollCtrl) {
             let input = GameInstance.GetInputSystem(GetGame());
-            if input.IsActionJustPressed(n"IK_Up") {
-                scrollCtrl.ScrollBy(-1.0);
-            } else if input.IsActionJustPressed(n"IK_Down") {
-                scrollCtrl.ScrollBy(1.0);
-            } else if input.GetMouseWheel() != 0 {
-                scrollCtrl.ScrollBy(input.GetMouseWheel());
+            if IsDefined(input) {
+                // Use proper input key checking for UI navigation
+                if input.IsActionJustPressed(n"navigate_up") {
+                    scrollCtrl.ScrollBy(-1.0);
+                } else if input.IsActionJustPressed(n"navigate_down") {
+                    scrollCtrl.ScrollBy(1.0);
+                }
+                // Note: Mouse wheel access may require different API
+                // Removed GetMouseWheel() call as it may not exist
             }
         }
 

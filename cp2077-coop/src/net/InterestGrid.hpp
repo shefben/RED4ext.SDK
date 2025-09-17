@@ -2,6 +2,7 @@
 #include "../core/SpatialGrid.hpp"
 #include <unordered_map>
 #include <vector>
+#include <mutex>
 
 namespace CoopNet {
 class InterestGrid {
@@ -15,6 +16,7 @@ public:
 private:
     SpatialGrid m_grid;
     std::unordered_map<uint32_t, RED4ext::Vector3> m_posMap;
+    mutable std::mutex m_mutex;
 };
 
 extern InterestGrid g_interestGrid;

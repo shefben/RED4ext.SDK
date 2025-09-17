@@ -5,7 +5,11 @@
 #include "TextureGuard.hpp"
 #include "RenderDevice.hpp"
 #include <iostream>
+#ifdef __GLIBC__
 #include <sys/sysinfo.h>
+#elif defined(_WIN32)
+#include <windows.h>
+#endif
 
 namespace CoopNet
 {
@@ -18,13 +22,21 @@ void SectorLODController_Tick(float dt)
     if (g_timer < 30.f)
         return;
     g_timer = 0.f;
+    float memRatio = 0.f;
 #ifdef __GLIBC__
     struct sysinfo si;
-    if (sysinfo(&si) != 0)
-        return;
-    float memRatio = 1.f - (float)si.freeram / (float)si.totalram;
-#else
-    float memRatio = 0.f;
+    if (sysinfo(&si) == 0)
+        memRatio = 1.f - (float)si.freeram / (float)si.totalram;
+#elif defined(_WIN32)
+    MEMORYSTATUSEX st;
+    st.dwLength = sizeof(st);
+    if (GlobalMemoryStatusEx(&st))
+    {
+        unsigned long long total = st.ullTotalPhys;
+        unsigned long long avail = st.ullAvailPhys;
+        if (total > 0)
+            memRatio = 1.f - static_cast<float>(avail) / static_cast<float>(total);
+    }
 #endif
     float vramRatio = 0.f;
     float budget = RenderDevice_GetVRAMBudget();

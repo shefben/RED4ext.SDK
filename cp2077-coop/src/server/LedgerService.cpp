@@ -1,6 +1,7 @@
 #include "LedgerService.hpp"
 #include "../net/Connection.hpp"
 #include <unordered_map>
+#include <mutex>
 
 namespace CoopNet
 {
@@ -26,9 +27,13 @@ struct KeyEq
 };
 
 static std::unordered_set<LedgerKey, KeyHash, KeyEq> g_processed;
+static std::mutex g_ledgerMutex;
 
 bool Ledger_Transfer(Connection* conn, int64_t delta, uint64_t nonce, uint64_t& outBalance)
 {
+    if (!conn)
+        return false;
+    std::lock_guard lock(g_ledgerMutex);
     LedgerKey key{conn, nonce};
     if (g_processed.find(key) != g_processed.end())
         return false;

@@ -32,9 +32,7 @@ void TaskGraph::Start(size_t workers)
         return;
     m_running = true;
     for (size_t i = 0; i < workers; ++i)
-    {
         m_workers.emplace_back([this] { WorkerLoop(); });
-    }
 }
 
 void TaskGraph::Stop()
@@ -44,18 +42,27 @@ void TaskGraph::Stop()
         return;
     m_running = false;
     for (auto& t : m_workers)
-    {
         if (t.joinable())
             t.join();
-    }
     m_workers.clear();
 }
 
 void TaskGraph::Resize(size_t workers)
 {
     std::lock_guard<std::mutex> lock(m_resizeMutex);
-    Stop();
-    Start(workers);
+    // Inline stop
+    if (m_running)
+    {
+        m_running = false;
+        for (auto& t : m_workers)
+            if (t.joinable())
+                t.join();
+        m_workers.clear();
+    }
+    // Inline start
+    m_running = true;
+    for (size_t i = 0; i < workers; ++i)
+        m_workers.emplace_back([this] { WorkerLoop(); });
 }
 
 void TaskGraph::Submit(const std::function<void()>& task)

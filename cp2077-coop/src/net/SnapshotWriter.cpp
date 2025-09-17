@@ -1,17 +1,20 @@
-#include "../runtime/QuestSync.reds"
-#include "../runtime/SpectatorCam.reds"
+// #include "../runtime/QuestSync.reds" // REMOVED: Cannot include .reds in C++
+// #include "../runtime/SpectatorCam.reds" // REMOVED: Cannot include .reds in C++
 #include "Snapshot.hpp"
 #include <vector>
 #include <mutex>
 
+// Temporary namespaces for missing .reds includes
+namespace QuestSync {
+    static uint32_t localPhase = 0;
+}
+
+namespace SpectatorCam {
+    static uint32_t spectatePhase = 0;
+}
+
 namespace CoopNet
 {
-struct EntitySnap
-{
-    uint32_t id;
-    uint32_t phaseId;
-    TransformSnap snap;
-};
 
 std::vector<EntitySnap> g_entitySnaps;
 std::mutex g_entitySnapsMutex;

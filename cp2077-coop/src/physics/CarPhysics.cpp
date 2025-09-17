@@ -16,7 +16,7 @@ void ServerSimulate(TransformSnap& snap, float dtMs)
     uint64_t frame = GameClock::GetCurrentTick();
     float noise = std::sinf(static_cast<float>(frame) * 0.1f) * 0.01f;
     // Integrate linear velocity
-    snap.pos += snap.vel * dt;
+    snap.pos = snap.pos + snap.vel * dt;
     // Simple friction with deterministic noise
     snap.vel.X = (snap.vel.X + noise) * 0.98f;
     snap.vel.Y = (snap.vel.Y - noise) * 0.98f;
@@ -36,7 +36,7 @@ void ClientPredict(TransformSnap& snap, float dtMs)
     float dt = dtMs / 1000.f;
     uint64_t frame = GameClock::GetCurrentTick();
     float noise = std::sinf(static_cast<float>(frame) * 0.1f) * 0.01f;
-    snap.pos += snap.vel * dt;
+    snap.pos = snap.pos + snap.vel * dt;
     snap.vel.X = (snap.vel.X + noise) * 0.98f;
     snap.vel.Y = (snap.vel.Y - noise) * 0.98f;
     float speed2 = snap.vel.X * snap.vel.X + snap.vel.Y * snap.vel.Y;
@@ -76,8 +76,8 @@ void HandleHighSpeedCollision(uint32_t idA, TransformSnap& a, float latencyAms, 
         return;
 
     RED4ext::Vector3 delta = (b.vel - a.vel) * 0.5f;
-    a.vel += delta;
-    b.vel -= delta;
+    a.vel = a.vel + delta;
+    b.vel = b.vel - delta;
     Net_BroadcastVehicleHitHighSpeed(idA, idB, delta);
 }
 } // namespace CoopNet

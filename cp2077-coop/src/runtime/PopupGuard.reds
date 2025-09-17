@@ -29,7 +29,9 @@ public class PopupGuard {
 }
 
 // --- Hooks ---------------------------------------------------------------
+// TODO: Verify these controller class names exist in the game
 
+/*
 @wrapMethod(SleepPopupGameController)
 protected final func ShowPopup(id: CName) -> Void {
     if PopupGuard.HandlePopup(id) {
@@ -45,3 +47,4 @@ protected final func ShowPopup(id: CName) -> Void {
     };
     wrappedMethod(id);
 }
+*/

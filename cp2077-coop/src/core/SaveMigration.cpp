@@ -1,10 +1,14 @@
 #include "SaveMigration.hpp"
 #include "Hash.hpp"
 #include "SaveFork.hpp"
+#include "SessionState.hpp"
+#include "../net/Snapshot.hpp"
 #include "../third_party/zstd/zstd.h"
+#ifdef HAVE_RAPIDJSON
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
+#endif
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -129,9 +133,10 @@ struct SingleSave
 {
     uint32_t xp = 0;
     std::unordered_map<std::string, uint32_t> quests;
-    std::vector<ItemSnap> inventory;
+    std::vector<CoopNet::ItemSnap> inventory;
 };
 
+#ifdef HAVE_RAPIDJSON
 static bool LoadJsonFile(const fs::path& path, rapidjson::Document& doc)
 {
     std::ifstream in(path, std::ios::binary);
@@ -140,7 +145,14 @@ static bool LoadJsonFile(const fs::path& path, rapidjson::Document& doc)
     std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     if (path.extension() == ".zst")
     {
-        std::vector<char> buf(1 << 20);
+        size_t expected = ZSTD_getFrameContentSize(data.data(), data.size());
+        if (expected == ZSTD_CONTENTSIZE_ERROR)
+            return false;
+        if (expected == ZSTD_CONTENTSIZE_UNKNOWN)
+            expected = 1024 * 1024; // 1MB fallback
+        if (expected > 10 * 1024 * 1024)
+            return false;
+        std::vector<char> buf(expected);
         size_t out = ZSTD_decompress(buf.data(), buf.size(), data.data(), data.size());
         if (ZSTD_isError(out))
             return false;
@@ -302,5 +314,15 @@ bool MergeSinglePlayerData(uint32_t sessionId)
         return false;
     }
 }
+
+#else // !HAVE_RAPIDJSON
+
+bool MergeSinglePlayerData(uint32_t sessionId, const std::string& singlePlayerPath)
+{
+    std::cerr << "[SaveMigration] RapidJSON not available, save migration disabled" << std::endl;
+    return false;
+}
+
+#endif // HAVE_RAPIDJSON
 
 } // namespace CoopNet

@@ -6,8 +6,8 @@ public class GigSpawnVolume extends ScriptedTriggerBase {
         if triggered { return false; };
         if !Net_IsAuthoritative() { return false; };
         triggered = true;
-        let seed: Uint32 = CoopNet.Fnv1a32(IntToString(Cast<Int32>(questId)) + IntToString(Cast<Int32>(GameInstance.GetSimTime(GetGame()))));
-        CoopNet.Net_BroadcastGigSpawn(questId, seed);
+        let seed: Uint32 = Fnv1a32(IntToString(Cast<Int32>(questId)) + IntToString(Cast<Int32>(GameInstance.GetSimTime(GetGame()))));
+        Net_BroadcastGigSpawn(questId, seed);
         return true;
     }
 }

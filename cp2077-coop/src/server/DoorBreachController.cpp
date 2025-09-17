@@ -4,6 +4,7 @@
 #include "../core/Red4extUtils.hpp"
 #include <RED4ext/RED4ext.hpp>
 #include <unordered_map>
+#include <mutex>
 
 namespace CoopNet
 {
@@ -16,9 +17,11 @@ struct BreachState
     float duration;
 };
 static std::unordered_map<uint32_t, BreachState> g_map;
+static std::mutex g_dbMutex;
 
 void DoorBreachController_Start(uint32_t doorId, uint32_t phaseId)
 {
+    std::lock_guard lock(g_dbMutex);
     uint32_t seed = static_cast<uint32_t>(GameClock::GetCurrentTick());
     bool hasPerk = false;
     int perks = 0;
@@ -40,6 +43,7 @@ void DoorBreachController_Start(uint32_t doorId, uint32_t phaseId)
 
 void DoorBreachController_Tick(float dt)
 {
+    std::lock_guard lock(g_dbMutex);
     for (auto it = g_map.begin(); it != g_map.end();)
     {
         bool combat = false;
