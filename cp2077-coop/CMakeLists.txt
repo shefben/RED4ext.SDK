@@ -68,16 +68,22 @@ target_include_directories(cp2077-coop PRIVATE
     third_party/openssl/include
     third_party/rapidjson/include)
 
-# Define SODIUM_STATIC for proper static linking
-target_compile_definitions(cp2077-coop PRIVATE SODIUM_STATIC)
+# Define SODIUM_STATIC and CURL_STATICLIB for proper static linking
+target_compile_definitions(cp2077-coop PRIVATE SODIUM_STATIC CURL_STATICLIB)
 
-target_link_libraries(cp2077-coop PRIVATE enet zstd "${LIBSODIUM_LIBRARY}" juice opus AL::AL OpenSSL::SSL OpenSSL::Crypto 
+# Include HTTP/3 QUIC libraries to resolve linking errors
+target_link_libraries(cp2077-coop PRIVATE enet zstd "${LIBSODIUM_LIBRARY}" juice opus AL::AL 
+    "${PROJECT_SOURCE_DIR}/third_party/curl/lib/libssl.a"
+    "${PROJECT_SOURCE_DIR}/third_party/curl/lib/libcrypto.a"
     "${PROJECT_SOURCE_DIR}/third_party/curl/lib/libcurl.a"
     "${PROJECT_SOURCE_DIR}/third_party/curl/lib/libz.a"
     "${PROJECT_SOURCE_DIR}/third_party/curl/lib/libbrotlicommon.a"
     "${PROJECT_SOURCE_DIR}/third_party/curl/lib/libbrotlidec.a"
     "${PROJECT_SOURCE_DIR}/third_party/curl/lib/libnghttp2.a"
-    "${PROJECT_SOURCE_DIR}/third_party/curl/lib/libssh2.a")
+    "${PROJECT_SOURCE_DIR}/third_party/curl/lib/libssh2.a"
+    "${PROJECT_SOURCE_DIR}/third_party/curl/lib/libngtcp2.a"
+    "${PROJECT_SOURCE_DIR}/third_party/curl/lib/libnghttp3.a"
+    "${PROJECT_SOURCE_DIR}/third_party/curl/lib/libngtcp2_crypto_libressl.a")
 
 add_executable(coop_dedicated src/server/DedicatedMain.cpp)
 target_link_libraries(coop_dedicated PRIVATE cp2077-coop enet zstd libsodium juice)
@@ -90,8 +96,8 @@ if (WIN32)
     target_link_libraries(cp2077-coop PRIVATE winmm)  # For timeGetTime, timeBeginPeriod, timeEndPeriod
     target_link_libraries(coop_dedicated PRIVATE winmm)
     # Additional Windows libraries for curl, crypto, and certificates
-    target_link_libraries(cp2077-coop PRIVATE crypt32 wldap32 normaliz advapi32 winhttp)
-    target_link_libraries(coop_dedicated PRIVATE crypt32 wldap32 normaliz advapi32 winhttp)
+    target_link_libraries(cp2077-coop PRIVATE crypt32 wldap32 normaliz advapi32 winhttp bcrypt secur32 legacy_stdio_definitions)
+    target_link_libraries(coop_dedicated PRIVATE crypt32 wldap32 normaliz advapi32 winhttp bcrypt secur32)
     # ___chkstk_ms symbol is now provided by WindowsCompat.cpp
 endif()
 

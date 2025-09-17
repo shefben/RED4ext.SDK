@@ -317,7 +317,7 @@ bool MergeSinglePlayerData(uint32_t sessionId)
 
 #else // !HAVE_RAPIDJSON
 
-bool MergeSinglePlayerData(uint32_t sessionId, const std::string& singlePlayerPath)
+bool MergeSinglePlayerData(uint32_t sessionId)
 {
     std::cerr << "[SaveMigration] RapidJSON not available, save migration disabled" << std::endl;
     return false;
