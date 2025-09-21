@@ -13,7 +13,7 @@ namespace CoopNet
     
     // Build information
     constexpr const char* GIT_HASH = "unknown";
-    constexpr const char* BUILD_DATE = "2025-09-12 21:15:54 UTC";
+    constexpr const char* BUILD_DATE = "2025-09-21 04:54:34 UTC";
     
     // Generate CRC at compile time
     constexpr uint32_t FNV1A_OFFSET = 2166136261u;

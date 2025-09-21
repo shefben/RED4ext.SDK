@@ -1,36 +1,31 @@
-# RED4ext.SDK
+# RED4ext
 
-A library to create mods for REDengine 4 ([Cyberpunk 2077](https://www.cyberpunk.net)).
+A script extender for REDengine 4 ([Cyberpunk 2077](https://www.cyberpunk.net)).
 
-## What is this library?
+## About this library
 
-RED4ext.SDK is a library that extends REDengine 4. It will allow modders to add new features, modify the game behavior, add new
-scripting functions or call existing ones in your own mods.
+RED4ext is a library that extends REDengine 4. It will allow modders to add new features, modify the game behavior, add new
+scripting functions or call existing ones in your own plugins.
 
 This library is similar to:
 
 * [Script Hook V](http://dev-c.com/GTAV/scripthookv)
 * [Skyrim Script Extender](https://skse.silverlock.org/)
 
-## Usage
+This library is split into two parts:
 
-### Header only version
+* [RED4ext](https://github.com/WopsS/RED4ext) - This project which consist of the loader, it only takes care of managing plugins.
+* [RED4ext.SDK](https://github.com/WopsS/RED4ext.SDK) - This project contains the reversed types and helpers to extend the engine, it can be used independently of RED4ext.
 
-Include the [header files](/include) in your project and use a C++20 compiler.
+If you are developing a new plugin, add only [RED4ext.SDK](https://github.com/WopsS/RED4ext.SDK) in your project structure.
 
-### Static library version
+## How to install
 
-Add the [header files](/include) and the [source files](/src) to your project, define `RED4EXT_STATIC_LIB` and use a C++20 compiler.
+Instructions about how to install RED4ext can be found [here](https://docs.red4ext.com/).
 
-## Build instructions
+## Building from source
 
-1. Download and install [Visual Studio 2022 Community Edition](https://www.visualstudio.com/) or a newer version.
-2. Download and install [CMake 3.23](https://cmake.org/) or a newer version.
-3. Clone this repository.
-4. Clone the dependencies (`git submodule update --init --recursive`).
-5. Go to the `build` directory and run `cmake ..`.
-6. Open the solution (`RED4ext.sln`).
-7. Build the projects.
+Instructions about how to build RED4ext can be found in [BUILDING.md](/BUILDING.md).
 
 ## Contributing
 

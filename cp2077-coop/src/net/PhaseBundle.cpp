@@ -39,15 +39,8 @@ void ApplyPhaseBundle(uint32_t phaseId, const uint8_t* buf, size_t len)
         return;
     QuestFullSyncPacket pkt{};
     std::memcpy(&pkt, raw.data(), sizeof(QuestFullSyncPacket));
-    // TODO: Fix RED4ext API compatibility
-    // The Function type and GetFunction signature have changed in newer RED4ext versions
-    // This needs to be updated to use the correct CGlobalFunction* and CName-based API
-    /*
-    if (RED4ext::CGlobalFunction* fn = RED4ext::CRTTISystem::Get()->GetFunction(RED4ext::CName("ApplyFullSync")))
-    {
-        RED4EXT_EXECUTE("QuestSync", "ApplyFullSync", nullptr, &pkt);
-    }
-    */
+    // Dispatch to REDscript QuestSync.ApplyFullSync via helper macro
+    RED4EXT_EXECUTE("QuestSync", "ApplyFullSync", nullptr, &pkt);
 }
 
 } // namespace CoopNet

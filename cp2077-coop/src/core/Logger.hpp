@@ -95,23 +95,18 @@ namespace CoopNet {
         }
         
         template<typename... Args>
-        static void LogFormatted(LogLevel level, const std::string& format, Args... args) {
+        static void LogFormatted(LogLevel level, Args... args) {
             if (level < s_logLevel) return;
-            
-            // Simple string formatting - replace {} with arguments
-            std::string message = format;
-            
-            if constexpr (sizeof...(args) > 0) {
-                std::stringstream ss;
-                ((ss << args), ...);
-                std::string argsStr = ss.str();
-                
-                // For now, just append arguments (proper formatting can be added later)
-                if (!argsStr.empty()) {
-                    message += " " + argsStr;
-                }
+
+            std::stringstream ss;
+            ((ss << args << " "), ...);
+            std::string message = ss.str();
+
+            // Remove trailing space
+            if (!message.empty() && message.back() == ' ') {
+                message.pop_back();
             }
-            
+
             Log(level, message);
         }
     };
@@ -121,9 +116,9 @@ namespace CoopNet {
 
 // Convenience macros for easy logging
 #define LogDebug(msg) CoopNet::Logger::Log(CoopNet::LogLevel::DEBUG, msg)
-#define LogInfo(msg) CoopNet::Logger::Log(CoopNet::LogLevel::INFO, msg)
-#define LogWarning(msg) CoopNet::Logger::Log(CoopNet::LogLevel::WARNING, msg)
-#define LogError(msg) CoopNet::Logger::Log(CoopNet::LogLevel::ERROR, msg)
+#define LogInfo(...) CoopNet::Logger::LogFormatted(CoopNet::LogLevel::INFO, __VA_ARGS__)
+#define LogWarning(...) CoopNet::Logger::LogFormatted(CoopNet::LogLevel::WARNING, __VA_ARGS__)
+#define LogError(...) CoopNet::Logger::LogFormatted(CoopNet::LogLevel::ERROR, __VA_ARGS__)
 
 // Printf-style logging functions with proper variadic support
 inline void LogPrintfImpl(CoopNet::LogLevel level, const char* format, ...) {

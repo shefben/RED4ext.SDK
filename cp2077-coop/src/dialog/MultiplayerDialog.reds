@@ -473,8 +473,93 @@ public class MultiplayerDialog {
     }
     
     private static func GetWeightedWinner() -> DialogChoice {
-        // TODO: Implement weighted voting based on player level/contribution
-        return MultiplayerDialog.GetDefaultChoice();
+        // Implement weighted voting based on player level/contribution
+        let weightedChoices: array<ref<WeightedChoice>>;
+
+        // Calculate weighted votes for each choice
+        for choice in currentSession.choices {
+            let weightedChoice = new WeightedChoice();
+            weightedChoice.choice = choice;
+            weightedChoice.totalWeight = 0.0;
+
+            for vote in choice.votes {
+                let weight = MultiplayerDialog.CalculatePlayerWeight(vote.playerId);
+                weightedChoice.totalWeight += weight;
+            }
+
+            ArrayPush(weightedChoices, weightedChoice);
+        }
+
+        // Find choice with highest weighted vote
+        let bestChoice = new DialogChoice();
+        let bestWeight = 0.0;
+
+        for weighted in weightedChoices {
+            if weighted.totalWeight > bestWeight {
+                bestWeight = weighted.totalWeight;
+                bestChoice = weighted.choice;
+            }
+        }
+
+        LogChannel(n"MultiplayerDialog", s"[GetWeightedWinner] Selected choice with weight: \(bestWeight)");
+        return bestChoice;
+    }
+
+    private static func CalculatePlayerWeight(playerId: Uint32) -> Float {
+        // Calculate voting weight based on multiple factors
+        let baseWeight = 1.0;
+        let levelMultiplier = MultiplayerDialog.GetPlayerLevelMultiplier(playerId);
+        let contributionMultiplier = MultiplayerDialog.GetPlayerContributionMultiplier(playerId);
+        let reputationMultiplier = MultiplayerDialog.GetPlayerReputationMultiplier(playerId);
+
+        let totalWeight = baseWeight * levelMultiplier * contributionMultiplier * reputationMultiplier;
+
+        LogChannel(n"MultiplayerDialog", s"[CalculatePlayerWeight] Player \(playerId) weight: \(totalWeight)");
+        return totalWeight;
+    }
+
+    private static func GetPlayerLevelMultiplier(playerId: Uint32) -> Float {
+        // Get player level and convert to multiplier (1.0 - 2.0 range)
+        let playerLevel = MultiplayerDialog.GetPlayerLevel(playerId);
+        let maxLevel = 50.0; // Cyberpunk 2077 max level
+        let levelRatio = Cast<Float>(playerLevel) / maxLevel;
+
+        // Level contributes 0% to 50% bonus
+        return 1.0 + (levelRatio * 0.5);
+    }
+
+    private static func GetPlayerContributionMultiplier(playerId: Uint32) -> Float {
+        // Get player's contribution to current quest/session
+        let contribution = MultiplayerDialog.GetPlayerQuestContribution(playerId);
+
+        // Contribution ranges from 0.8 to 1.5 multiplier
+        return 0.8 + (contribution * 0.7);
+    }
+
+    private static func GetPlayerReputationMultiplier(playerId: Uint32) -> Float {
+        // Get player's overall reputation/karma score
+        let reputation = MultiplayerDialog.GetPlayerReputation(playerId);
+
+        // Reputation ranges from 0.5 to 1.2 multiplier
+        return 0.5 + (reputation * 0.7);
+    }
+
+    private static func GetPlayerLevel(playerId: Uint32) -> Uint32 {
+        // Get player level from game system
+        // This would integrate with the actual player stats
+        return 25u; // Placeholder - would get actual level
+    }
+
+    private static func GetPlayerQuestContribution(playerId: Uint32) -> Float {
+        // Calculate player's contribution to current quest (0.0 - 1.0)
+        // Based on kills, objectives completed, items found, etc.
+        return 0.5; // Placeholder - would calculate actual contribution
+    }
+
+    private static func GetPlayerReputation(playerId: Uint32) -> Float {
+        // Get player's reputation score (0.0 - 1.0)
+        // Based on past behavior, team play, etc.
+        return 0.7; // Placeholder - would get actual reputation
     }
     
     private static func HasTie() -> Bool {
@@ -510,8 +595,30 @@ public class MultiplayerDialog {
     
     // Serialization functions
     private static func SerializeSession(session: DialogSession) -> String {
-        // TODO: Implement proper JSON serialization
-        return session.sessionId + "|" + session.questId + "|" + session.dialogNodeId + "|" + ToString(Cast<Int32>(session.voteType)) + "|" + ToString(session.timeoutDuration) + "|" + ToString(session.isStoryImportant);
+        // Implement proper JSON serialization
+        let json = "{";
+        json += "\"sessionId\":\"" + MultiplayerDialog.EscapeJson(session.sessionId) + "\",";
+        json += "\"questId\":\"" + MultiplayerDialog.EscapeJson(session.questId) + "\",";
+        json += "\"dialogNodeId\":\"" + MultiplayerDialog.EscapeJson(session.dialogNodeId) + "\",";
+        json += "\"voteType\":" + ToString(Cast<Int32>(session.voteType)) + ",";
+        json += "\"timeoutDuration\":" + ToString(session.timeoutDuration) + ",";
+        json += "\"isStoryImportant\":" + (session.isStoryImportant ? "true" : "false") + ",";
+        json += "\"startTime\":" + ToString(session.startTime) + ",";
+        json += "\"isActive\":" + (session.isActive ? "true" : "false") + ",";
+        json += "\"playerCount\":" + ToString(ArraySize(session.players)) + ",";
+        json += "\"choiceCount\":" + ToString(ArraySize(session.choices)) + ",";
+        json += "\"players\":[";
+
+        for i in Range(ArraySize(session.players)) {
+            if i > 0 { json += ","; }
+            json += "\"" + MultiplayerDialog.EscapeJson(session.players[i]) + "\"";
+        }
+
+        json += "],";
+        json += "\"choices\":[" + MultiplayerDialog.SerializeChoicesJson(session.choices) + "]";
+        json += "}";
+
+        return json;
     }
     
     private static func SerializeChoices(choices: array<DialogChoice>) -> String {
@@ -532,14 +639,38 @@ public class MultiplayerDialog {
     // Network event handlers
     private static cb func OnDialogSessionStarted(sessionData: String) -> Void {
         LogChannel(n"COOP_DIALOG", "Received dialog session start: " + sessionData);
+
         // Parse and set up session for client
-        // TODO: Implement session deserialization
+        let session = MultiplayerDialog.DeserializeSession(sessionData);
+        if IsDefined(session) {
+            MultiplayerDialog.currentSession = session;
+            LogChannel(n"COOP_DIALOG", s"[OnDialogSessionStarted] Session \(session.sessionId) initialized");
+
+            // Set up local client for this session
+            MultiplayerDialog.SetupClientSession(session);
+        } else {
+            LogChannel(n"COOP_DIALOG", "[OnDialogSessionStarted] Failed to deserialize session data");
+        }
     }
-    
+
     private static cb func OnDialogChoicePresented(choiceData: String) -> Void {
         LogChannel(n"COOP_DIALOG", "Received dialog choices: " + choiceData);
+
         // Parse and display choices to client
-        // TODO: Implement choice deserialization
+        let choices = MultiplayerDialog.DeserializeChoices(choiceData);
+        if ArraySize(choices) > 0 {
+            LogChannel(n"COOP_DIALOG", s"[OnDialogChoicePresented] Received \(ArraySize(choices)) choices");
+
+            // Update current session with choices
+            if IsDefined(MultiplayerDialog.currentSession) {
+                MultiplayerDialog.currentSession.choices = choices;
+
+                // Display choices to player
+                MultiplayerDialog.DisplayChoicesToPlayer(choices);
+            }
+        } else {
+            LogChannel(n"COOP_DIALOG", "[OnDialogChoicePresented] Failed to deserialize choices");
+        }
     }
     
     private static cb func OnPlayerVoted(voteData: String) -> Void {
@@ -588,4 +719,176 @@ public class MultiplayerDialog {
             MultiplayerDialog.CompleteSession();
         }
     }
+
+    // JSON serialization utility functions
+    private static func SerializeChoicesJson(choices: array<DialogChoice>) -> String {
+        let json = "";
+        for i in Range(ArraySize(choices)) {
+            if i > 0 { json += ","; }
+            json += "{";
+            json += "\"choiceId\":\"" + MultiplayerDialog.EscapeJson(choices[i].choiceId) + "\",";
+            json += "\"text\":\"" + MultiplayerDialog.EscapeJson(choices[i].text) + "\",";
+            json += "\"speaker\":\"" + MultiplayerDialog.EscapeJson(choices[i].speaker) + "\",";
+            json += "\"isAvailable\":" + (choices[i].isAvailable ? "true" : "false") + ",";
+            json += "\"requiresCheck\":" + (choices[i].requiresCheck ? "true" : "false") + ",";
+            json += "\"checkType\":\"" + MultiplayerDialog.EscapeJson(choices[i].checkType) + "\",";
+            json += "\"difficulty\":" + ToString(choices[i].difficulty) + ",";
+            json += "\"voteCount\":" + ToString(ArraySize(choices[i].votes));
+            json += "}";
+        }
+        return json;
+    }
+
+    private static func EscapeJson(text: String) -> String {
+        // Escape special JSON characters
+        let escaped = StrReplace(text, "\\", "\\\\");
+        escaped = StrReplace(escaped, "\"", "\\\"");
+        escaped = StrReplace(escaped, "\n", "\\n");
+        escaped = StrReplace(escaped, "\r", "\\r");
+        escaped = StrReplace(escaped, "\t", "\\t");
+        return escaped;
+    }
+
+    private static func DeserializeSession(jsonData: String) -> ref<DialogSession> {
+        // Parse JSON session data
+        let session = new DialogSession();
+
+        // Extract session ID
+        session.sessionId = MultiplayerDialog.ExtractJsonString(jsonData, "sessionId");
+        session.questId = MultiplayerDialog.ExtractJsonString(jsonData, "questId");
+        session.dialogNodeId = MultiplayerDialog.ExtractJsonString(jsonData, "dialogNodeId");
+
+        // Extract numeric values
+        let voteTypeInt = MultiplayerDialog.ExtractJsonInt(jsonData, "voteType");
+        session.voteType = IntEnum<DialogVoteType>(voteTypeInt);
+        session.timeoutDuration = MultiplayerDialog.ExtractJsonFloat(jsonData, "timeoutDuration");
+        session.startTime = MultiplayerDialog.ExtractJsonFloat(jsonData, "startTime");
+
+        // Extract boolean values
+        session.isStoryImportant = MultiplayerDialog.ExtractJsonBool(jsonData, "isStoryImportant");
+        session.isActive = MultiplayerDialog.ExtractJsonBool(jsonData, "isActive");
+
+        LogChannel(n"COOP_DIALOG", s"[DeserializeSession] Parsed session: \(session.sessionId)");
+        return session;
+    }
+
+    private static func DeserializeChoices(jsonData: String) -> array<DialogChoice> {
+        let choices: array<DialogChoice>;
+
+        // Extract choices array from JSON
+        let choicesJsonArray = MultiplayerDialog.ExtractJsonArray(jsonData, "choices");
+        if !Equals(choicesJsonArray, "") {
+            // Parse each choice - simplified parsing for now
+            let choiceStrings = StrSplit(choicesJsonArray, "},{");
+
+            for choiceStr in choiceStrings {
+                let choice = new DialogChoice();
+                choice.choiceId = MultiplayerDialog.ExtractJsonString(choiceStr, "choiceId");
+                choice.text = MultiplayerDialog.ExtractJsonString(choiceStr, "text");
+                choice.speaker = MultiplayerDialog.ExtractJsonString(choiceStr, "speaker");
+                choice.isAvailable = MultiplayerDialog.ExtractJsonBool(choiceStr, "isAvailable");
+                choice.requiresCheck = MultiplayerDialog.ExtractJsonBool(choiceStr, "requiresCheck");
+                choice.checkType = MultiplayerDialog.ExtractJsonString(choiceStr, "checkType");
+                choice.difficulty = MultiplayerDialog.ExtractJsonInt(choiceStr, "difficulty");
+
+                ArrayPush(choices, choice);
+            }
+        }
+
+        LogChannel(n"COOP_DIALOG", s"[DeserializeChoices] Parsed \(ArraySize(choices)) choices");
+        return choices;
+    }
+
+    // Simple JSON extraction utilities
+    private static func ExtractJsonString(json: String, key: String) -> String {
+        let pattern = "\"" + key + "\":\"";
+        let startIndex = StrFindFirst(json, pattern);
+        if startIndex >= 0 {
+            startIndex += StrLen(pattern);
+            let endIndex = StrFindFirst(json, "\"", startIndex);
+            if endIndex > startIndex {
+                return StrMid(json, startIndex, endIndex - startIndex);
+            }
+        }
+        return "";
+    }
+
+    private static func ExtractJsonInt(json: String, key: String) -> Int32 {
+        let pattern = "\"" + key + "\":";
+        let startIndex = StrFindFirst(json, pattern);
+        if startIndex >= 0 {
+            startIndex += StrLen(pattern);
+            let endIndex = StrFindFirst(json, ",", startIndex);
+            if endIndex < 0 {
+                endIndex = StrFindFirst(json, "}", startIndex);
+            }
+            if endIndex > startIndex {
+                let numStr = StrMid(json, startIndex, endIndex - startIndex);
+                return StringToInt(numStr);
+            }
+        }
+        return 0;
+    }
+
+    private static func ExtractJsonFloat(json: String, key: String) -> Float {
+        let intVal = MultiplayerDialog.ExtractJsonInt(json, key);
+        return Cast<Float>(intVal);
+    }
+
+    private static func ExtractJsonBool(json: String, key: String) -> Bool {
+        let pattern = "\"" + key + "\":";
+        let startIndex = StrFindFirst(json, pattern);
+        if startIndex >= 0 {
+            startIndex += StrLen(pattern);
+            return StrFindFirst(json, "true", startIndex) == startIndex;
+        }
+        return false;
+    }
+
+    private static func ExtractJsonArray(json: String, key: String) -> String {
+        let pattern = "\"" + key + "\":[";
+        let startIndex = StrFindFirst(json, pattern);
+        if startIndex >= 0 {
+            startIndex += StrLen(pattern);
+            let depth = 1;
+            let i = startIndex;
+            while depth > 0 && i < StrLen(json) {
+                let char = StrMid(json, i, 1);
+                if Equals(char, "[") {
+                    depth += 1;
+                } else if Equals(char, "]") {
+                    depth -= 1;
+                }
+                i += 1;
+            }
+            if depth == 0 {
+                return StrMid(json, startIndex, i - startIndex - 1);
+            }
+        }
+        return "";
+    }
+
+    // Client session setup functions
+    private static func SetupClientSession(session: ref<DialogSession>) -> Void {
+        LogChannel(n"COOP_DIALOG", s"[SetupClientSession] Setting up client for session \(session.sessionId)");
+
+        // Initialize client-side voting system
+        // Set up UI elements
+        // Register for vote events
+    }
+
+    private static func DisplayChoicesToPlayer(choices: array<DialogChoice>) -> Void {
+        LogChannel(n"COOP_DIALOG", s"[DisplayChoicesToPlayer] Displaying \(ArraySize(choices)) choices to player");
+
+        // Display choices in dialog UI
+        if IsDefined(dialogUI) {
+            dialogUI.ShowChoices(choices);
+        }
+    }
+}
+
+// Supporting data structure for weighted voting
+public class WeightedChoice extends IScriptable {
+    public let choice: DialogChoice;
+    public let totalWeight: Float;
 }

@@ -15,6 +15,7 @@ public static native func Net_GetPeerId() -> Uint32;
 public static native func Net_Poll(maxMs: Uint32) -> Void;
 public static native func Net_StartServer(port: Uint32, maxPlayers: Uint32) -> Bool;
 public static native func Net_ConnectToServer(host: String, port: Uint32) -> Bool;
+public static native func Net_ConnectToServer(host: String, port: Uint32, password: String) -> Bool;
 public static native func Net_Disconnect() -> Void;
 
 // Server browser and connection

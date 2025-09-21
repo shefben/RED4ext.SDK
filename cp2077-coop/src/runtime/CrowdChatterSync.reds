@@ -6,6 +6,23 @@ public class CrowdChatterSync {
         RED4ext.ExecuteFunction("GestureRand", "Seed", null, seed);
     }
     public static func OnEnd(id: Uint32) -> Void {
+        LogChannel(n"CrowdChatter", s"[CrowdChatterSync] Ending conversation - ID: \(id)");
+
+        if currentConv == id {
+            // Clean up current conversation
+            currentConv = 0u;
+
+            // Reset random generators to default state
+            RED4ext.ExecuteFunction("LipSyncRand", "Reset", null);
+            RED4ext.ExecuteFunction("GestureRand", "Reset", null);
+
+            // Broadcast end to all players
+            Net_BroadcastCrowdChatterEnd(id);
+
+            LogChannel(n"CrowdChatter", s"[CrowdChatterSync] Conversation \(id) ended and synchronized");
+        } else {
+            LogChannel(n"CrowdChatter", s"[CrowdChatterSync] Warning: Trying to end conversation \(id) but current is \(currentConv)");
+        }
     }
 }
 

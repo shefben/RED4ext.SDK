@@ -3,7 +3,8 @@
 #pragma once
 
 #include "Snapshot.hpp"
-#include <RED4ext/Scripting/Natives/Vector3.hpp>
+#include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
+#include <RED4ext/Scripting/Natives/Generated/Quaternion.hpp>
 #include <cstdint>
 #include "../voice/VoiceEncoder.hpp"
 #include <sodium.h>

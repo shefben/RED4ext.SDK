@@ -3,6 +3,7 @@
 #include "../core/GameClock.hpp"
 #include "../core/Hash.hpp"
 #include "../core/SessionState.hpp"
+#include <memory>
 // #include "../runtime/QuestSync.reds" // REMOVED: Cannot include .reds in C++
 #include "../server/AdminController.hpp"
 #include "../server/Journal.hpp"
@@ -21,6 +22,8 @@
 #include <new>
 #include <sodium.h>
 #include <vector>
+#include <unordered_set>
+#include <mutex>
 
 using CoopNet::Connection;
 using CoopNet::EMsg;
@@ -207,12 +210,16 @@ namespace
 struct PeerEntry
 {
     ENetPeer* peer;
-    Connection* conn;
+    CoopNet::Connection* conn;
+    uint32_t peerId;
 };
 
 ENetHost* g_Host = nullptr;
 std::vector<PeerEntry> g_Peers;
 static uint32_t g_nextPeerId = 1;
+static uint32_t g_nextSnapshotId = 1;
+static uint32_t g_MaxPlayers = 0;
+static std::string g_ServerPassword;
 
 // Thread safety protection for networking globals
 std::mutex g_NetMutex;
@@ -243,6 +250,7 @@ void Net_Init()
 
 void Net_Shutdown()
 {
+    std::lock_guard<std::mutex> lock(g_NetMutex);
     for (auto& e : g_Peers)
     {
         delete e.conn;
@@ -288,20 +296,33 @@ void Net_Poll(uint32_t maxMs)
                 enet_peer_disconnect(evt.peer, 0);
                 break;
             }
-            
-            e.conn->peerId = g_nextPeerId++;
-            if (CoopNet::AdminController_IsBanned(e.conn->peerId))
             {
+                std::lock_guard<std::mutex> lock(g_NetMutex);
+                e.conn->peerId = g_nextPeerId++;
+            }
+            e.conn->peer = evt.peer;  // Link connection to ENet peer
+            e.conn->SetState(CoopNet::ConnectionState::Handshaking);
+
+            // Check if player is banned
+            if (Net_IsPlayerBanned(e.conn->peerId))
+            {
+                std::cout << "[Net] Rejected banned player ID " << e.conn->peerId << std::endl;
                 enet_peer_disconnect(evt.peer, 0);
                 delete e.conn;
             }
             else
             {
-                g_Peers.push_back(e);
-                std::cout << "peer connected id=" << e.conn->peerId << std::endl;
-                Nat_PerformHandshake(e.conn);
-                e.conn->SendSectorChange(CoopNet::Fnv1a64("start_sector"));
-                Net_SendCrowdCfg(e.conn, 2u);
+                {
+                    std::lock_guard<std::mutex> lock(g_NetMutex);
+                    g_Peers.push_back(e);
+                }
+                std::cout << "[Net] Peer connected ID=" << e.conn->peerId << std::endl;
+
+                // Set connection to connected state
+                e.conn->SetState(CoopNet::ConnectionState::Connected);
+
+                // Initialize player synchronization
+                Net_HandlePlayerJoin(e.conn->peerId, "Player_" + std::to_string(e.conn->peerId));
             }
             break;
         }
@@ -317,11 +338,23 @@ void Net_Poll(uint32_t maxMs)
             if (it != g_Peers.end())
             {
                 if (it->conn) {
+                    uint32_t peerId = it->conn->peerId;
+                    std::cout << "[Net] Peer disconnected ID=" << peerId << std::endl;
+
+                    // Handle player leave with synchronization
+                    Net_HandlePlayerLeave(peerId, "Connection lost");
+
                     delete it->conn;
                 }
-                g_Peers.erase(it);
+                {
+                    std::lock_guard<std::mutex> lock(g_NetMutex);
+                    g_Peers.erase(it);
+                }
             }
-            std::cout << "peer disconnected" << std::endl;
+            else
+            {
+                std::cout << "[Net] Unknown peer disconnected" << std::endl;
+            }
             break;
         }
         case ENET_EVENT_TYPE_RECEIVE:
@@ -398,33 +431,40 @@ bool Net_IsAuthoritative()
 
 bool Net_IsConnected()
 {
+    std::lock_guard<std::mutex> lock(g_NetMutex);
     return !g_Peers.empty();
 }
 
-std::vector<Connection*> Net_GetConnections()
+std::vector<CoopNet::Connection*> Net_GetConnections()
 {
-    std::vector<Connection*> out;
-    out.reserve(g_Peers.size());
-    for (auto& e : g_Peers)
-        out.push_back(e.conn);
+    std::vector<CoopNet::Connection*> out;
+    {
+        std::lock_guard<std::mutex> lock(g_NetMutex);
+        out.reserve(g_Peers.size());
+        for (auto& e : g_Peers)
+            if (e.conn) out.push_back(e.conn);
+    }
     return out;
 }
 
 std::vector<uint32_t> Net_GetConnectionPeerIds()
 {
     std::vector<uint32_t> ret;
-    ret.reserve(g_Peers.size());
-    for (const auto& p : g_Peers)
-        if (p.conn)
-            ret.push_back(p.conn->peerId);
+    {
+        std::lock_guard<std::mutex> lock(g_NetMutex);
+        ret.reserve(g_Peers.size());
+        for (const auto& p : g_Peers)
+            if (p.conn)
+                ret.push_back(p.peerId);
+    }
     return ret;
 }
 
-void Net_Send(Connection* conn, CoopNet::EMsg type, const void* data, uint16_t size)
+void Net_Send(CoopNet::Connection* conn, CoopNet::EMsg type, const void* data, uint16_t size)
 {
     if (!g_Host || !conn)
         return;
-
+    
     auto it = std::find_if(g_Peers.begin(), g_Peers.end(), [&](const PeerEntry& p) { return p.conn == conn; });
     if (it == g_Peers.end())
         return;
@@ -454,9 +494,12 @@ void Net_Broadcast(CoopNet::EMsg type, const void* data, uint16_t size)
 {
     if (!g_Host)
         return;
-    for (auto& e : g_Peers)
     {
-        Net_Send(e.conn, type, data, size);
+        std::lock_guard<std::mutex> lock(g_NetMutex);
+        for (auto& e : g_Peers)
+        {
+            Net_Send(e.conn, type, data, size);
+        }
     }
 }
 
@@ -464,15 +507,17 @@ void Net_SendUnreliableToAll(CoopNet::EMsg type, const void* data, uint16_t size
 {
     if (!g_Host)
         return;
-
-    for (auto& e : g_Peers)
     {
-        ENetPacket* pkt = enet_packet_create(nullptr, sizeof(CoopNet::PacketHeader) + size, 0);
-        CoopNet::PacketHeader hdr{static_cast<uint16_t>(type), size};
-        std::memcpy(pkt->data, &hdr, sizeof(hdr));
-        if (size > 0 && data)
-            std::memcpy(pkt->data + sizeof(hdr), data, size);
-        enet_peer_send(e.peer, 0, pkt);
+        std::lock_guard<std::mutex> lock(g_NetMutex);
+        for (auto& e : g_Peers)
+        {
+            ENetPacket* pkt = enet_packet_create(nullptr, sizeof(CoopNet::PacketHeader) + size, 0);
+            CoopNet::PacketHeader hdr{static_cast<uint16_t>(type), size};
+            std::memcpy(pkt->data, &hdr, sizeof(hdr));
+            if (size > 0 && data)
+                std::memcpy(pkt->data + sizeof(hdr), data, size);
+            enet_peer_send(e.peer, 0, pkt);
+        }
     }
 }
 
@@ -663,8 +708,11 @@ void Net_SendJoinRequest(uint32_t serverId)
 void Net_BroadcastQuestStage(uint32_t nameHash, uint16_t stage)
 {
     QuestStagePacket pkt{nameHash, stage, 0};
-    for (auto& e : g_Peers)
-        CoopNet::QuestWatchdog_Record(e.conn->peerId, nameHash, stage);
+    {
+        std::lock_guard<std::mutex> lock(g_NetMutex);
+        for (auto& e : g_Peers)
+            CoopNet::QuestWatchdog_Record(e.conn->peerId, nameHash, stage);
+    }
     Journal_Log(GameClock::GetCurrentTick(), 0, "questStage", nameHash, stage);
     Net_Broadcast(EMsg::QuestStage, &pkt, sizeof(pkt));
 }
@@ -672,8 +720,11 @@ void Net_BroadcastQuestStage(uint32_t nameHash, uint16_t stage)
 void Net_BroadcastQuestStageP2P(uint32_t phaseId, uint32_t questHash, uint16_t stage)
 {
     QuestStageP2PPacket pkt{phaseId, questHash, stage, 0};
-    for (auto& e : g_Peers)
-        CoopNet::QuestWatchdog_Record(phaseId, questHash, stage);
+    {
+        std::lock_guard<std::mutex> lock(g_NetMutex);
+        for (auto& e : g_Peers)
+            CoopNet::QuestWatchdog_Record(phaseId, questHash, stage);
+    }
     Net_Broadcast(EMsg::QuestStageP2P, &pkt, sizeof(pkt));
 }
 
@@ -695,25 +746,17 @@ void Net_SendQuestResyncRequestTo(Connection* conn)
     Net_Send(conn, EMsg::QuestResyncRequest, &pkt, sizeof(pkt));
 }
 
-Connection* Net_FindConnection(uint32_t peerId)
-{
-    auto it =
-        std::find_if(g_Peers.begin(), g_Peers.end(), [&](const PeerEntry& p) { return p.conn->peerId == peerId; });
-    if (it == g_Peers.end())
-        return nullptr;
-    return it->conn;
-}
 
 void Net_SetConnectionAvatarPos(uint32_t peerId, const RED4ext::Vector3& pos)
 {
-    Connection* conn = Net_FindConnection(peerId);
+    CoopNet::Connection* conn = Net_FindConnection(peerId);
     if (conn)
         conn->avatarPos = pos;
 }
 
 RED4ext::Vector3 Net_GetConnectionAvatarPos(uint32_t peerId)
 {
-    Connection* conn = Net_FindConnection(peerId);
+    CoopNet::Connection* conn = Net_FindConnection(peerId);
     if (conn)
         return conn->avatarPos;
     return {0.0f, 0.0f, 0.0f};
@@ -728,7 +771,7 @@ uint32_t Net_GetConnectionPeerId(CoopNet::Connection* conn)
 
 void Net_SendPluginRPCToPeer(uint32_t peerId, uint16_t pluginId, uint32_t fnHash, const char* json, uint16_t len)
 {
-    Connection* conn = Net_FindConnection(peerId);
+    CoopNet::Connection* conn = Net_FindConnection(peerId);
     if (conn)
         Net_SendPluginRPC(conn, pluginId, fnHash, json, len);
 }
@@ -813,7 +856,47 @@ void Net_BroadcastKillfeed(const std::string& msg)
     Net_Broadcast(EMsg::Killfeed, &pkt, sizeof(pkt));
 }
 
-void Net_SendAdminCmd(Connection* conn, uint8_t cmdType, uint64_t param)
+void Net_BroadcastAvatarSpawn(uint32_t peerId, const TransformSnap& snap)
+{
+    CoopNet::AvatarSpawnPacket pkt{peerId, snap, 0u};
+    Net_Broadcast(EMsg::AvatarSpawn, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastAvatarDespawn(uint32_t peerId)
+{
+    CoopNet::AvatarDespawnPacket pkt{peerId, 0u};
+    Net_Broadcast(EMsg::AvatarDespawn, &pkt, sizeof(pkt));
+}
+
+void Net_BroadcastPlayerUpdate(uint32_t peerId,
+                               const RED4ext::Vector3& pos,
+                               const RED4ext::Vector3& vel,
+                               const RED4ext::Quaternion& rot,
+                               uint16_t health,
+                               uint16_t armor)
+{
+    // Build a minimal transform snapshot using SnapshotWriter
+    CoopNet::SnapshotWriter writer;
+    CoopNet::SnapshotHeader hdr{g_nextSnapshotId++, (g_nextSnapshotId > 1) ? (g_nextSnapshotId - 1) : 0u};
+    writer.Begin(hdr);
+    writer.Write(0, pos);
+    writer.Write(1, vel);
+    writer.Write(2, rot);
+    writer.Write(3, health);
+    writer.Write(4, armor);
+    uint32_t owner = peerId;
+    writer.Write(5, owner);
+    uint16_t seq = static_cast<uint16_t>(hdr.id);
+    writer.Write(6, seq);
+
+    std::vector<uint8_t> buf(sizeof(CoopNet::SnapshotHeader) + sizeof(CoopNet::SnapshotFieldFlags) + sizeof(TransformSnap));
+    size_t bytes = writer.End(buf.data(), buf.size());
+    if (bytes == 0)
+        return;
+    Net_Broadcast(EMsg::Snapshot, buf.data(), static_cast<uint16_t>(bytes));
+}
+
+void Net_SendAdminCmd(CoopNet::Connection* conn, uint8_t cmdType, uint64_t param)
 {
     if (!conn)
         return;
@@ -920,7 +1003,7 @@ void Net_BroadcastWorldState(uint16_t sunAngleDeg, uint8_t weatherId, uint16_t p
     Net_SendUnreliableToAll(EMsg::WorldState, &pkt, sizeof(pkt));
 }
 
-void Net_SendWorldState(Connection* conn, uint16_t sunAngleDeg, uint8_t weatherId, uint16_t particleSeed)
+void Net_SendWorldState(CoopNet::Connection* conn, uint16_t sunAngleDeg, uint8_t weatherId, uint16_t particleSeed)
 {
     if (!conn)
         return;
@@ -928,7 +1011,7 @@ void Net_SendWorldState(Connection* conn, uint16_t sunAngleDeg, uint8_t weatherI
     Net_Send(conn, EMsg::WorldState, &pkt, sizeof(pkt));
 }
 
-void Net_SendGlobalEvent(Connection* conn, uint32_t eventId, uint8_t phase, bool start, uint32_t seed)
+void Net_SendGlobalEvent(CoopNet::Connection* conn, uint32_t eventId, uint8_t phase, bool start, uint32_t seed)
 {
     if (!conn)
         return;
@@ -936,7 +1019,7 @@ void Net_SendGlobalEvent(Connection* conn, uint32_t eventId, uint8_t phase, bool
     Net_Send(conn, EMsg::GlobalEvent, &pkt, sizeof(pkt));
 }
 
-void Net_SendNpcReputation(Connection* conn, uint32_t npcId, int16_t value)
+void Net_SendNpcReputation(CoopNet::Connection* conn, uint32_t npcId, int16_t value)
 {
     if (!conn)
         return;
@@ -983,7 +1066,7 @@ void Net_BroadcastVendorRefresh(const VendorRefreshPacket& pkt)
     Net_Broadcast(EMsg::VendorRefresh, &pkt, sizeof(VendorRefreshPacket));
 }
 
-void Net_SendWorldMarkers(Connection* conn, const std::vector<uint8_t>& blob)
+void Net_SendWorldMarkers(CoopNet::Connection* conn, const std::vector<uint8_t>& blob)
 {
     if (!conn || blob.size() > 10240)
         return;
@@ -1202,7 +1285,7 @@ void Net_SendVehicleTowRequest(const RED4ext::Vector3& pos)
     }
 }
 
-void Net_SendVehicleTowAck(Connection* conn, uint32_t ownerId, bool ok)
+void Net_SendVehicleTowAck(CoopNet::Connection* conn, uint32_t ownerId, bool ok)
 {
     if (!conn)
         return;
@@ -1220,7 +1303,7 @@ void Net_SendReRollRequest(uint64_t itemId, uint32_t seed)
     }
 }
 
-void Net_SendReRollResult(Connection* conn, const ItemSnap& snap)
+void Net_SendReRollResult(CoopNet::Connection* conn, const ItemSnap& snap)
 {
     if (!conn)
         return;
@@ -1665,20 +1748,26 @@ void Net_BroadcastGrenadeSnap(uint32_t entityId, const RED4ext::Vector3& pos, co
 void Net_BroadcastSmartCamStart(uint32_t projId)
 {
     SmartCamStartPacket pkt{projId};
-    for (auto& e : g_Peers)
     {
-        if (!e.conn->lowBWMode)
-            Net_Send(e.conn, EMsg::SmartCamStart, &pkt, sizeof(pkt));
+        std::lock_guard<std::mutex> lock(g_NetMutex);
+        for (auto& e : g_Peers)
+        {
+            if (!e.conn->lowBWMode)
+                Net_Send(e.conn, EMsg::SmartCamStart, &pkt, sizeof(pkt));
+        }
     }
 }
 
 void Net_BroadcastSmartCamEnd(uint32_t projId)
 {
     SmartCamEndPacket pkt{projId};
-    for (auto& e : g_Peers)
     {
-        if (!e.conn->lowBWMode)
-            Net_Send(e.conn, EMsg::SmartCamEnd, &pkt, sizeof(pkt));
+        std::lock_guard<std::mutex> lock(g_NetMutex);
+        for (auto& e : g_Peers)
+        {
+            if (!e.conn->lowBWMode)
+                Net_Send(e.conn, EMsg::SmartCamEnd, &pkt, sizeof(pkt));
+        }
     }
 }
 
@@ -1707,7 +1796,7 @@ void Net_BroadcastArcadeHighScore(uint32_t cabId, uint32_t peerId, uint32_t scor
     Net_Broadcast(EMsg::ArcadeHighScore, &pkt, sizeof(pkt));
 }
 
-void Net_SendPluginRPC(Connection* conn, uint16_t pluginId, uint32_t fnHash,
+void Net_SendPluginRPC(CoopNet::Connection* conn, uint16_t pluginId, uint32_t fnHash,
                        const char* json, uint16_t len)
 {
     std::vector<uint8_t> buf(sizeof(PluginRPCPacket) - 1 + len);
@@ -1779,7 +1868,7 @@ void Net_SendBranchVoteCast(bool yes)
         Net_Send(conns[0], EMsg::BranchVoteCast, &pkt, sizeof(pkt));
 }
 
-void Net_SendPhaseBundle(Connection* conn, uint32_t phaseId, const std::vector<uint8_t>& blob)
+void Net_SendPhaseBundle(CoopNet::Connection* conn, uint32_t phaseId, const std::vector<uint8_t>& blob)
 {
     if (!conn || blob.empty() || blob.size() > 16384)
         return;
@@ -1845,7 +1934,7 @@ void Net_SendAptInteriorStateReq(const char* json, uint32_t len)
     }
 }
 
-void Net_SendAptPurchaseAck(Connection* conn, uint32_t aptId, bool success, uint64_t balance)
+void Net_SendAptPurchaseAck(CoopNet::Connection* conn, uint32_t aptId, bool success, uint64_t balance)
 {
     if (!conn)
         return;
@@ -1853,7 +1942,7 @@ void Net_SendAptPurchaseAck(Connection* conn, uint32_t aptId, bool success, uint
     Net_Send(conn, EMsg::AptPurchaseAck, &pkt, sizeof(pkt));
 }
 
-void Net_SendAptEnterAck(Connection* conn, bool allow, uint32_t phaseId, uint32_t interiorSeed)
+void Net_SendAptEnterAck(CoopNet::Connection* conn, bool allow, uint32_t phaseId, uint32_t interiorSeed)
 {
     if (!conn)
         return;
@@ -1877,6 +1966,7 @@ bool Net_StartServer(uint32_t port, uint32_t maxPlayers)
     }
     
     g_Host = enet_host_create(&address, maxPlayers, 2, 0, 0);
+    g_MaxPlayers = maxPlayers;
     if (!g_Host) {
         std::cerr << "[Net_StartServer] Failed to create server host on port " << port << std::endl;
         return false;
@@ -1884,6 +1974,41 @@ bool Net_StartServer(uint32_t port, uint32_t maxPlayers)
     
     std::cout << "[Net_StartServer] Server successfully started on port " << port << std::endl;
     return true;
+}
+
+void Net_StopServer()
+{
+    std::lock_guard<std::mutex> lock(g_NetMutex);
+    if (!g_Host)
+        return;
+    for (auto& e : g_Peers)
+    {
+        if (e.peer)
+            enet_peer_disconnect(e.peer, 0);
+        if (e.conn)
+            delete e.conn;
+    }
+    g_Peers.clear();
+    enet_host_destroy(g_Host);
+    g_Host = nullptr;
+}
+
+void Net_SetServerPassword(const std::string& password)
+{
+    std::lock_guard<std::mutex> lock(g_NetMutex);
+    g_ServerPassword = password;
+}
+
+ServerInfo Net_GetServerInfo()
+{
+    std::lock_guard<std::mutex> lock(g_NetMutex);
+    ServerInfo info{};
+    info.name = "cp2077-coop";
+    info.playerCount = static_cast<uint32_t>(g_Peers.size());
+    info.maxPlayers = g_MaxPlayers;
+    info.hasPassword = !g_ServerPassword.empty();
+    info.mode = "Coop";
+    return info;
 }
 
 void InitializeGameSystems()
@@ -1934,4 +2059,27 @@ uint32_t Net_GetPeerId()
     // For client, return a fixed peer ID for now
     // In a full implementation, this would be assigned by the server
     return 1;
+}
+
+// Stub implementations for missing functions
+bool Net_IsPlayerBanned(uint32_t peerId) {
+    return CoopNet::AdminController_IsBanned(peerId);
+}
+
+void Net_HandlePlayerJoin(uint32_t peerId, const std::string& playerName) {
+    std::cout << "[Net] Player " << playerName << " (ID: " << peerId << ") joined" << std::endl;
+}
+
+void Net_HandlePlayerLeave(uint32_t peerId, const std::string& reason) {
+    std::cout << "[Net] Player ID " << peerId << " left: " << reason << std::endl;
+}
+
+CoopNet::Connection* Net_FindConnection(uint32_t peerId) {
+    auto it = std::find_if(g_Peers.begin(), g_Peers.end(),
+        [peerId](const PeerEntry& p) { return p.conn && p.conn->peerId == peerId; });
+
+    if (it != g_Peers.end() && it->conn) {
+        return it->conn;
+    }
+    return nullptr;
 }

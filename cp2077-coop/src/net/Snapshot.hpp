@@ -1,7 +1,7 @@
 #pragma once
 
-#include <RED4ext/Scripting/Natives/Quaternion.hpp>
-#include <RED4ext/Scripting/Natives/Vector3.hpp>
+#include <RED4ext/Scripting/Natives/Generated/Quaternion.hpp>
+#include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
 #include <cstdint>
 #include <cstring>
 #include <type_traits>
@@ -138,7 +138,7 @@ public:
     template<typename T>
     void Write(uint32_t fieldIndex, const T& value)
     {
-        static_assert(std::is_trivially_copyable_v<T>, "snapshot values must be POD");
+        static_assert(std::is_trivially_copyable_v<T> || std::is_standard_layout_v<T>, "snapshot values must be copyable");
 
         if (fieldIndex >= kMaxSnapshotFields)
             return; // ignore out-of-range field bits

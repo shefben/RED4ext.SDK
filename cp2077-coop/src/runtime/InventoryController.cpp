@@ -1,4 +1,5 @@
 #include "InventoryController.hpp"
+#include "InventoryDatabase.hpp"
 #include "../core/Logger.hpp"
 #include "../net/Snapshot.hpp"
 #include <chrono>
@@ -12,14 +13,38 @@ InventoryController& InventoryController::Instance() {
     return instance;
 }
 
+bool InventoryController::Initialize() {
+    // Initialize the database
+    if (!InventoryDatabase::Instance().Initialize("inventory.db")) {
+        Logger::Log(static_cast<LogLevel>(3), "Failed to initialize inventory database");
+        return false;
+    }
+
+    // Initialize game integration adapter
+    // The adapter is a singleton and initializes itself
+
+    Logger::Log(static_cast<LogLevel>(1), "Inventory controller initialized successfully");
+    return true;
+}
+
+void InventoryController::Shutdown() {
+    // Clear all in-memory data
+    ClearAllData();
+
+    // Shutdown database
+    InventoryDatabase::Instance().Shutdown();
+
+    Logger::Log(static_cast<LogLevel>(1), "Inventory controller shutdown complete");
+}
+
 bool InventoryController::UpdatePlayerInventory(const PlayerInventorySnap& snap) {
     if (!ValidatePlayerInventory(snap)) {
         Logger::Log(static_cast<LogLevel>(3), "Invalid inventory snapshot for peer " + std::to_string(snap.peerId));
         return false;
     }
-    
+
     std::lock_guard<std::mutex> lock(m_inventoryMutex);
-    
+
     auto it = m_playerInventories.find(snap.peerId);
     if (it != m_playerInventories.end()) {
         // Check version for conflict resolution
@@ -27,7 +52,7 @@ bool InventoryController::UpdatePlayerInventory(const PlayerInventorySnap& snap)
             Logger::Log(static_cast<LogLevel>(2), "Received outdated inventory update for peer " + std::to_string(snap.peerId) + " (version " + std::to_string(snap.version) + " <= " + std::to_string(it->second->version) + ")");
             return false;
         }
-        
+
         // Update existing inventory
         *it->second = snap;
         it->second->lastUpdate = GetCurrentTimestamp();
@@ -37,7 +62,12 @@ bool InventoryController::UpdatePlayerInventory(const PlayerInventorySnap& snap)
         newInventory->lastUpdate = GetCurrentTimestamp();
         m_playerInventories[snap.peerId] = std::move(newInventory);
     }
-    
+
+    // Persist to database
+    if (!InventoryDatabase::Instance().SavePlayerInventory(snap.peerId, snap)) {
+        Logger::Log(static_cast<LogLevel>(2), "Failed to persist inventory to database for peer " + std::to_string(snap.peerId));
+    }
+
     Logger::Log(static_cast<LogLevel>(1), "Updated inventory for peer " + std::to_string(snap.peerId) + " (" + std::to_string(snap.items.size()) + " items, version " + std::to_string(snap.version) + ")");
     return true;
 }
@@ -46,16 +76,32 @@ PlayerInventorySnap* InventoryController::GetPlayerInventory(uint32_t peerId) {
     if (!ValidatePlayerId(peerId)) {
         return nullptr;
     }
-    
+
     std::lock_guard<std::mutex> lock(m_inventoryMutex);
     auto it = m_playerInventories.find(peerId);
-    return (it != m_playerInventories.end()) ? it->second.get() : nullptr;
+
+    // If not in memory, try loading from database
+    if (it == m_playerInventories.end()) {
+        auto newInventory = std::make_unique<PlayerInventorySnap>();
+        if (InventoryDatabase::Instance().LoadPlayerInventory(peerId, *newInventory)) {
+            auto result = newInventory.get();
+            m_playerInventories[peerId] = std::move(newInventory);
+            Logger::Log(static_cast<LogLevel>(1), "Loaded inventory for peer " + std::to_string(peerId) + " from database");
+            return result;
+        }
+        return nullptr;
+    }
+
+    return it->second.get();
 }
 
 bool InventoryController::RemovePlayerInventory(uint32_t peerId) {
     std::lock_guard<std::mutex> lock(m_inventoryMutex);
     auto removed = m_playerInventories.erase(peerId);
+
+    // Also remove from database
     if (removed > 0) {
+        InventoryDatabase::Instance().DeletePlayerInventory(peerId);
         Logger::Log(static_cast<LogLevel>(1), "Removed inventory for peer " + std::to_string(peerId));
     }
     return removed > 0;
@@ -89,8 +135,16 @@ uint32_t InventoryController::RequestItemTransfer(uint32_t fromPeerId, uint32_t 
     request->requestId = GenerateRequestId();
     request->timestamp = GetCurrentTimestamp();
     request->validated = false;
-    
+
     uint32_t requestId = request->requestId;
+
+    // Log transaction to database
+    uint64_t dbTransactionId = InventoryDatabase::Instance().LogTransaction(*request);
+    if (dbTransactionId == 0) {
+        Logger::Log(static_cast<LogLevel>(3), "Failed to log transaction to database");
+        return 0;
+    }
+
     m_pendingTransfers[requestId] = std::move(request);
     
     Logger::Log(static_cast<LogLevel>(1), "Created item transfer request " + std::to_string(requestId) + " (item " + std::to_string(itemId) + " from " + std::to_string(fromPeerId) + " to " + std::to_string(toPeerId) + ")");
@@ -119,6 +173,15 @@ bool InventoryController::ProcessTransferRequest(uint32_t requestId, bool approv
     m_pendingTransfers.erase(it);
     
     if (!approve) {
+        // Update transaction status in database
+        auto dbTransactions = InventoryDatabase::Instance().GetPendingTransactions();
+        for (const auto& tx : dbTransactions) {
+            if (tx.fromPeerId == request->fromPeerId && tx.toPeerId == request->toPeerId &&
+                tx.itemId == request->itemId && tx.quantity == request->quantity) {
+                InventoryDatabase::Instance().UpdateTransactionStatus(tx.transactionId, "cancelled", reason);
+                break;
+            }
+        }
         Logger::Log(static_cast<LogLevel>(1), "Transfer request " + std::to_string(requestId) + " denied: " + reason);
         return true;
     }
@@ -179,7 +242,21 @@ bool InventoryController::ProcessTransferRequest(uint32_t requestId, bool approv
     toIt->second->version++;
     fromIt->second->lastUpdate = GetCurrentTimestamp();
     toIt->second->lastUpdate = GetCurrentTimestamp();
-    
+
+    // Persist updated inventories to database
+    InventoryDatabase::Instance().SavePlayerInventory(request->fromPeerId, *fromIt->second);
+    InventoryDatabase::Instance().SavePlayerInventory(request->toPeerId, *toIt->second);
+
+    // Update transaction status in database
+    auto dbTransactions = InventoryDatabase::Instance().GetPendingTransactions();
+    for (const auto& tx : dbTransactions) {
+        if (tx.fromPeerId == request->fromPeerId && tx.toPeerId == request->toPeerId &&
+            tx.itemId == request->itemId && tx.quantity == request->quantity) {
+            InventoryDatabase::Instance().UpdateTransactionStatus(tx.transactionId, "completed");
+            break;
+        }
+    }
+
     Logger::Log(static_cast<LogLevel>(1), "Transfer request " + std::to_string(requestId) + " completed successfully");
     return true;
 }
@@ -257,33 +334,60 @@ bool InventoryController::ValidatePlayerInventory(const PlayerInventorySnap& sna
     if (!ValidatePlayerId(snap.peerId)) {
         return false;
     }
-    
+
     if (snap.items.size() > MAX_INVENTORY_ITEMS) {
         Logger::Log(static_cast<LogLevel>(3), "Player " + std::to_string(snap.peerId) + " inventory has too many items: " + std::to_string(snap.items.size()));
         return false;
     }
-    
+
     if (snap.money > MAX_MONEY) {
         Logger::Log(static_cast<LogLevel>(3), "Player " + std::to_string(snap.peerId) + " has invalid money amount: " + std::to_string(snap.money));
         return false;
     }
-    
+
+    // Use game integration adapter for enhanced validation
+    auto& adapter = GameInventoryAdapter::Instance();
+
     for (const auto& item : snap.items) {
         if (!ValidateItemId(item.itemId) || !ValidateQuantity(item.quantity)) {
             return false;
         }
-        
+
+        // Validate against game data
+        if (!adapter.IsValidItemId(item.itemId)) {
+            Logger::Log(static_cast<LogLevel>(3), "Invalid item ID from game perspective: " + std::to_string(item.itemId));
+            return false;
+        }
+
+        if (!adapter.ValidateItemQuantity(item.itemId, item.quantity)) {
+            Logger::Log(static_cast<LogLevel>(3), "Invalid item quantity for item " + std::to_string(item.itemId) + ": " + std::to_string(item.quantity));
+            return false;
+        }
+
         if (item.durability > 100) {
             Logger::Log(static_cast<LogLevel>(3), "Invalid item durability: " + std::to_string(item.durability));
             return false;
         }
-        
+
         if (item.modData.size() > 1024) { // 1KB limit for mod data
             Logger::Log(static_cast<LogLevel>(3), "Item mod data too large: " + std::to_string(item.modData.size()) + " bytes");
             return false;
         }
+
+        // Validate modifications against game data
+        std::string modDataStr(item.modData.begin(), item.modData.end());
+        if (!adapter.ValidateItemModifications(item.itemId, modDataStr)) {
+            Logger::Log(static_cast<LogLevel>(3), "Invalid item modifications for item: " + std::to_string(item.itemId));
+            return false;
+        }
+
+        // Check for duplication attempts
+        if (adapter.CheckDuplicationAttempt(snap.peerId, item.itemId)) {
+            Logger::Log(static_cast<LogLevel>(3), "Duplication attempt detected for player " + std::to_string(snap.peerId) + " item " + std::to_string(item.itemId));
+            return false;
+        }
     }
-    
+
     return true;
 }
 

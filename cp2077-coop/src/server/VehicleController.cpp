@@ -7,6 +7,7 @@
 #include "../net/Net.hpp"
 #include "../net/Packets.hpp"
 #include "../physics/CarPhysics.hpp"
+#include "../physics/EnhancedVehiclePhysics.hpp"
 #include <cmath>
 #include <iostream>
 #include <unordered_map>
@@ -73,39 +74,409 @@ struct VehicleCustomization
     uint8_t modCount = 0;
 };
 
-struct VehicleState
+// Enhanced VehicleController Implementation
+VehicleController& VehicleController::GetInstance()
 {
-    uint32_t id = 1;
-    uint32_t archetype = 0;
-    uint32_t paint = 0;
-    TransformSnap snap{};
-    uint16_t damage = 0;
-    RED4ext::Vector3 prevVel{};
-    bool destroyed = false;
-    float despawn = 0.f;
-    float idle = 0.f;
-    uint32_t owner = 0;
-    uint32_t phaseId = 0;
-    uint32_t seat[4] = {0, 0, 0, 0};
-    float lastHit = 0.f;
-    float towTimer = 0.f;
-    
-    // Advanced features
-    VehicleCustomization customization{};
-    TransformSnap interpolationBuffer[3]{}; // For lag compensation
-    uint8_t bufferIndex = 0;
-    float lastUpdate = 0.f;
-    bool needsValidation = false;
-};
-static std::unordered_map<uint32_t, VehicleState> g_vehicles;
-static std::mutex g_vehicleMutex;
-static std::atomic<uint32_t> g_nextVehId{1};
+    static VehicleController instance;
+    return instance;
+}
+
+void VehicleController::Initialize()
+{
+    // Initialize MultiOccupancyManager integration
+    auto& occupancyManager = RED4ext::MultiOccupancyManager::GetInstance();
+
+    // Set up callbacks for vehicle occupancy events
+    occupancyManager.SetVehicleEntryCallback(
+        [this](uint32_t playerId, uint64_t vehicleId, int32_t seatIndex, RED4ext::VehicleEntryResult result) {
+            this->OnVehicleEntryResult(playerId, vehicleId, seatIndex, result);
+        });
+
+    occupancyManager.SetVehicleExitCallback(
+        [this](uint32_t playerId, uint64_t vehicleId, int32_t seatIndex, RED4ext::VehicleExitResult result) {
+            this->OnVehicleExitResult(playerId, vehicleId, seatIndex, result);
+        });
+
+    occupancyManager.SetSeatReservationCallback(
+        [this](uint32_t playerId, uint64_t vehicleId, int32_t seatIndex, RED4ext::SeatReservationResult result) {
+            this->OnSeatReservationResult(playerId, vehicleId, seatIndex, result);
+        });
+
+    occupancyManager.SetDriverChangeCallback(
+        [this](uint64_t vehicleId, uint32_t oldDriverId, uint32_t newDriverId) {
+            this->OnDriverChange(vehicleId, oldDriverId, newDriverId);
+        });
+
+    std::cout << "[VehicleController] Enhanced vehicle controller initialized with MultiOccupancyManager integration" << std::endl;
+}
+
+void VehicleController::Shutdown()
+{
+    // Clean up any resources
+    std::cout << "[VehicleController] Enhanced vehicle controller shutdown" << std::endl;
+}
+
+void VehicleController::ServerTick(float dt)
+{
+    // Update MultiOccupancyManager
+    auto& occupancyManager = RED4ext::MultiOccupancyManager::GetInstance();
+    occupancyManager.Update();
+
+    // Sync any legacy vehicle states that need updating
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    for (const auto& [vehicleId, vehicle] : VehicleController::g_vehicles) {
+        if (!vehicle.destroyed) {
+            SyncOccupancyWithLegacyState(vehicleId);
+        }
+    }
+}
+
+void VehicleController::PhysicsStep(float dt)
+{
+    // Call legacy physics step
+    VehicleController_PhysicsStep(dt);
+}
+
+void VehicleController::Spawn(uint32_t archetype, uint32_t paint, const TransformSnap& t)
+{
+    SpawnPhaseVehicle(archetype, paint, t, 0u);
+}
+
+void VehicleController::SpawnPhaseVehicle(uint32_t archetype, uint32_t paint, const TransformSnap& t, uint32_t phaseId)
+{
+    // Call legacy implementation
+    VehicleController_SpawnPhaseVehicle(archetype, paint, t, phaseId);
+}
+
+void VehicleController::HandleSummon(CoopNet::Connection* c, uint32_t vehId, const TransformSnap& t)
+{
+    // Call legacy implementation
+    VehicleController_HandleSummon(c, vehId, t);
+}
+
+void VehicleController::RemovePeer(uint32_t peerId)
+{
+    // Update MultiOccupancyManager
+    uint32_t playerId = PeerIdToPlayerId(peerId);
+    auto& occupancyManager = RED4ext::MultiOccupancyManager::GetInstance();
+    occupancyManager.ForcePlayerExitVehicle(playerId);
+
+    // Call legacy implementation
+    VehicleController_RemovePeer(peerId);
+}
+
+void VehicleController::HandleSeatRequest(CoopNet::Connection* c, uint32_t vehicleId, uint8_t seatIdx)
+{
+    // Use enhanced vehicle entry instead
+    HandleVehicleEntry(c, vehicleId, static_cast<int32_t>(seatIdx));
+}
+
+void VehicleController::ApplyDamage(uint16_t dmg, bool side)
+{
+    // Call legacy implementation
+    VehicleController_ApplyDamage(dmg, side);
+}
+
+void VehicleController::HandleHit(uint32_t vehicleId, uint16_t dmg, bool side)
+{
+    // Call legacy implementation
+    VehicleController_HandleHit(vehicleId, dmg, side);
+}
+
+void VehicleController::ApplyHitValidated(uint32_t attackerPeerId, uint32_t vehicleId, uint16_t dmg, bool side)
+{
+    // Call legacy implementation
+    VehicleController_ApplyHitValidated(attackerPeerId, vehicleId, dmg, side);
+}
+
+void VehicleController::HandleTowRequest(CoopNet::Connection* c, const RED4ext::Vector3& pos)
+{
+    // Call legacy implementation
+    VehicleController_HandleTowRequest(c, pos);
+}
+
+uint32_t VehicleController::GetPeerVehicleId(uint32_t peerId)
+{
+    // Try MultiOccupancyManager first
+    uint32_t playerId = PeerIdToPlayerId(peerId);
+    auto& occupancyManager = RED4ext::MultiOccupancyManager::GetInstance();
+    uint64_t vehicleId = occupancyManager.GetPlayerCurrentVehicle(playerId);
+
+    if (vehicleId != 0) {
+        return static_cast<uint32_t>(vehicleId);
+    }
+
+    // Fallback to legacy implementation
+    return VehicleController_GetPeerVehicleId(peerId);
+}
+
+void VehicleController::HandleVehicleEntry(CoopNet::Connection* c, uint32_t vehicleId, int32_t preferredSeat)
+{
+    if (!ValidateConnection(c)) {
+        return;
+    }
+
+    uint32_t playerId = PeerIdToPlayerId(c->peerId);
+    auto& occupancyManager = RED4ext::MultiOccupancyManager::GetInstance();
+
+    // Use MultiOccupancyManager for enhanced vehicle entry
+    auto result = occupancyManager.RequestVehicleEntry(playerId, vehicleId, preferredSeat);
+
+    std::cout << "[VehicleController] Vehicle entry request: Player " << playerId
+              << " -> Vehicle " << vehicleId << " (Seat " << preferredSeat << "): "
+              << static_cast<int>(result) << std::endl;
+}
+
+void VehicleController::HandleVehicleExit(CoopNet::Connection* c, uint32_t vehicleId)
+{
+    if (!ValidateConnection(c)) {
+        return;
+    }
+
+    uint32_t playerId = PeerIdToPlayerId(c->peerId);
+    auto& occupancyManager = RED4ext::MultiOccupancyManager::GetInstance();
+
+    // Use MultiOccupancyManager for enhanced vehicle exit
+    auto result = occupancyManager.RequestVehicleExit(playerId, vehicleId);
+
+    std::cout << "[VehicleController] Vehicle exit request: Player " << playerId
+              << " -> Vehicle " << vehicleId << ": " << static_cast<int>(result) << std::endl;
+}
+
+void VehicleController::HandleSeatReservation(CoopNet::Connection* c, uint32_t vehicleId, int32_t preferredSeat)
+{
+    if (!ValidateConnection(c)) {
+        return;
+    }
+
+    uint32_t playerId = PeerIdToPlayerId(c->peerId);
+    auto& occupancyManager = RED4ext::MultiOccupancyManager::GetInstance();
+
+    // Use MultiOccupancyManager for seat reservation
+    auto result = occupancyManager.RequestSeatReservation(playerId, vehicleId, preferredSeat);
+
+    std::cout << "[VehicleController] Seat reservation request: Player " << playerId
+              << " -> Vehicle " << vehicleId << " (Seat " << preferredSeat << "): "
+              << static_cast<int>(result) << std::endl;
+}
+
+void VehicleController::HandleDriverTransfer(CoopNet::Connection* c, uint32_t vehicleId, uint32_t newDriverId)
+{
+    if (!ValidateConnection(c)) {
+        return;
+    }
+
+    auto& occupancyManager = RED4ext::MultiOccupancyManager::GetInstance();
+
+    // Validate that the new driver is in the vehicle
+    if (!occupancyManager.IsPlayerInVehicle(newDriverId)) {
+        std::cout << "[VehicleController] Driver transfer failed: Player " << newDriverId
+                  << " is not in vehicle " << vehicleId << std::endl;
+        return;
+    }
+
+    bool success = occupancyManager.TransferVehicleControl(vehicleId, newDriverId);
+
+    std::cout << "[VehicleController] Driver transfer request: Vehicle " << vehicleId
+              << " -> New Driver " << newDriverId << ": " << (success ? "Success" : "Failed") << std::endl;
+}
+
+void VehicleController::RegisterVehicleWithOccupancyManager(uint64_t vehicleId, uint32_t maxSeats)
+{
+    auto& occupancyManager = RED4ext::MultiOccupancyManager::GetInstance();
+
+    if (occupancyManager.RegisterVehicle(vehicleId, maxSeats)) {
+        std::cout << "[VehicleController] Vehicle " << vehicleId
+                  << " registered with MultiOccupancyManager (Max seats: " << maxSeats << ")" << std::endl;
+    } else {
+        std::cout << "[VehicleController] Failed to register vehicle " << vehicleId
+                  << " with MultiOccupancyManager" << std::endl;
+    }
+}
+
+void VehicleController::SyncOccupancyWithLegacyState(uint64_t vehicleId)
+{
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    auto it = VehicleController::g_vehicles.find(vehicleId);
+    if (it == VehicleController::g_vehicles.end()) {
+        return;
+    }
+
+    auto& legacyVehicle = it->second;
+    auto& occupancyManager = RED4ext::MultiOccupancyManager::GetInstance();
+
+    // Sync legacy seat assignments with MultiOccupancyManager
+    for (int i = 0; i < 4; ++i) {
+        if (legacyVehicle.seat[i] != 0) {
+            uint32_t playerId = PeerIdToPlayerId(legacyVehicle.seat[i]);
+            if (playerId != 0) {
+                // Force sync the player's vehicle state
+                auto result = occupancyManager.RequestVehicleEntry(playerId, vehicleId, i);
+                if (result != RED4ext::VehicleEntryResult::Success) {
+                    std::cout << "[VehicleController] Failed to sync legacy seat " << i
+                              << " for player " << playerId << " in vehicle " << vehicleId << std::endl;
+                }
+            }
+        }
+    }
+}
+
+bool VehicleController::IsVehicleRegistered(uint64_t vehicleId) const
+{
+    auto& occupancyManager = RED4ext::MultiOccupancyManager::GetInstance();
+    return occupancyManager.GetVehicleState(vehicleId) != nullptr;
+}
+
+std::vector<uint32_t> VehicleController::GetVehicleOccupants(uint64_t vehicleId) const
+{
+    auto& occupancyManager = RED4ext::MultiOccupancyManager::GetInstance();
+    return occupancyManager.GetVehicleOccupants(vehicleId);
+}
+
+uint32_t VehicleController::GetVehicleDriver(uint64_t vehicleId) const
+{
+    auto& occupancyManager = RED4ext::MultiOccupancyManager::GetInstance();
+    return occupancyManager.GetVehicleDriver(vehicleId);
+}
+
+uint32_t VehicleController::GetTotalVehicles() const
+{
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    return static_cast<uint32_t>(VehicleController::g_vehicles.size());
+}
+
+uint32_t VehicleController::GetActiveVehicles() const
+{
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    uint32_t count = 0;
+    for (const auto& [vehicleId, vehicle] : VehicleController::g_vehicles) {
+        if (!vehicle.destroyed) {
+            count++;
+        }
+    }
+    return count;
+}
+
+// Event handlers for MultiOccupancyManager callbacks
+void VehicleController::OnVehicleEntryResult(uint32_t playerId, uint64_t vehicleId, int32_t seatIndex, RED4ext::VehicleEntryResult result)
+{
+    uint32_t peerId = PlayerIdToPeerId(playerId);
+
+    if (result == RED4ext::VehicleEntryResult::Success) {
+        // Update legacy state for compatibility
+        std::lock_guard lock(VehicleController::g_vehicleMutex);
+        auto it = VehicleController::g_vehicles.find(vehicleId);
+        if (it != VehicleController::g_vehicles.end() && seatIndex >= 0 && seatIndex < 4) {
+            it->second.seat[seatIndex] = peerId;
+            if (seatIndex == 0) {
+                it->second.owner = peerId; // Driver becomes owner
+            }
+        }
+
+        // Broadcast seat assignment
+        SeatAssignPacket pkt{peerId, static_cast<uint32_t>(vehicleId), static_cast<uint8_t>(seatIndex)};
+        Net_Broadcast(EMsg::SeatAssign, &pkt, sizeof(pkt));
+
+        std::cout << "[VehicleController] Player " << playerId << " successfully entered vehicle "
+                  << vehicleId << " at seat " << seatIndex << std::endl;
+    } else {
+        std::cout << "[VehicleController] Player " << playerId << " failed to enter vehicle "
+                  << vehicleId << ": " << static_cast<int>(result) << std::endl;
+    }
+}
+
+void VehicleController::OnVehicleExitResult(uint32_t playerId, uint64_t vehicleId, int32_t seatIndex, RED4ext::VehicleExitResult result)
+{
+    uint32_t peerId = PlayerIdToPeerId(playerId);
+
+    if (result == RED4ext::VehicleExitResult::Success) {
+        // Update legacy state for compatibility
+        std::lock_guard lock(VehicleController::g_vehicleMutex);
+        auto it = VehicleController::g_vehicles.find(vehicleId);
+        if (it != VehicleController::g_vehicles.end() && seatIndex >= 0 && seatIndex < 4) {
+            it->second.seat[seatIndex] = 0;
+            if (seatIndex == 0) {
+                it->second.owner = 0; // Clear ownership if driver exits
+            }
+        }
+
+        std::cout << "[VehicleController] Player " << playerId << " successfully exited vehicle "
+                  << vehicleId << " from seat " << seatIndex << std::endl;
+    } else {
+        std::cout << "[VehicleController] Player " << playerId << " failed to exit vehicle "
+                  << vehicleId << ": " << static_cast<int>(result) << std::endl;
+    }
+}
+
+void VehicleController::OnSeatReservationResult(uint32_t playerId, uint64_t vehicleId, int32_t seatIndex, RED4ext::SeatReservationResult result)
+{
+    std::cout << "[VehicleController] Seat reservation for player " << playerId
+              << " in vehicle " << vehicleId << " (Seat " << seatIndex << "): "
+              << static_cast<int>(result) << std::endl;
+}
+
+void VehicleController::OnDriverChange(uint64_t vehicleId, uint32_t oldDriverId, uint32_t newDriverId)
+{
+    // Update legacy state for compatibility
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    auto it = VehicleController::g_vehicles.find(vehicleId);
+    if (it != VehicleController::g_vehicles.end()) {
+        uint32_t oldPeerId = PlayerIdToPeerId(oldDriverId);
+        uint32_t newPeerId = PlayerIdToPeerId(newDriverId);
+
+        // Move old driver to passenger seat if available
+        if (it->second.seat[1] == 0) {
+            it->second.seat[1] = oldPeerId;
+        }
+
+        // Set new driver
+        it->second.seat[0] = newPeerId;
+        it->second.owner = newPeerId;
+    }
+
+    std::cout << "[VehicleController] Driver change in vehicle " << vehicleId
+              << ": " << oldDriverId << " -> " << newDriverId << std::endl;
+}
+
+// Helper methods
+void VehicleController::BroadcastVehicleUpdate(uint32_t vehicleId)
+{
+    // Broadcast vehicle state update to all clients
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    auto it = VehicleController::g_vehicles.find(vehicleId);
+    if (it != VehicleController::g_vehicles.end()) {
+        // Would broadcast comprehensive vehicle update including occupancy
+        std::cout << "[VehicleController] Broadcasting update for vehicle " << vehicleId << std::endl;
+    }
+}
+
+bool VehicleController::ValidateConnection(CoopNet::Connection* c) const
+{
+    return c != nullptr && c->peerId != 0;
+}
+
+uint32_t VehicleController::PeerIdToPlayerId(uint32_t peerId) const
+{
+    // Simple mapping - in a real implementation, this would use a player registry
+    return peerId;
+}
+
+uint32_t VehicleController::PlayerIdToPeerId(uint32_t playerId) const
+{
+    // Simple mapping - in a real implementation, this would use a player registry
+    return playerId;
+}
+
+// Define static class members
+std::unordered_map<uint32_t, VehicleController::VehicleState> VehicleController::VehicleController::g_vehicles;
+std::mutex VehicleController::VehicleController::g_vehicleMutex;
+std::atomic<uint32_t> VehicleController::VehicleController::g_nextVehId{1};
 
 void VehicleController_SpawnPhaseVehicle(uint32_t archetype, uint32_t paint, const TransformSnap& t, uint32_t phaseId)
 {
-    std::lock_guard lock(g_vehicleMutex);
-    uint32_t id = g_nextVehId++;
-    VehicleState v{};
+    std::lock_guard lock(VehicleController::VehicleController::g_vehicleMutex);
+    uint32_t id = VehicleController::VehicleController::g_nextVehId++;
+    VehicleController::VehicleController::VehicleState v{};
     v.id = id;
     v.phaseId = phaseId;
     v.archetype = archetype;
@@ -118,9 +489,34 @@ void VehicleController_SpawnPhaseVehicle(uint32_t archetype, uint32_t paint, con
     v.owner = 0;
     v.towTimer = 0.f;
     for (int i = 0; i < 4; ++i) v.seat[i] = 0;
-    g_vehicles[id] = v;
+    VehicleController::VehicleController::g_vehicles[id] = v;
+
+    // Create vehicle in enhanced physics system
+    auto& enhancedPhysics = CoopNet::EnhancedVehiclePhysics::Instance();
+    CoopNet::VehicleProperties properties;
+
+    // Set vehicle type based on archetype (simplified mapping)
+    if (archetype >= 1000 && archetype < 2000) {
+        properties.type = CoopNet::VehicleProperties::VehicleType::Motorcycle;
+    } else if (archetype >= 2000 && archetype < 3000) {
+        properties.type = CoopNet::VehicleProperties::VehicleType::Truck;
+    } else {
+        properties.type = CoopNet::VehicleProperties::VehicleType::Car;
+    }
+
+    if (enhancedPhysics.CreateVehicle(id, v.owner, properties)) {
+        auto* enhancedVehicle = enhancedPhysics.GetVehicle(id);
+        if (enhancedVehicle) {
+            enhancedVehicle->FromTransformSnap(t);
+        }
+    }
+
     VehicleSpawnPacket pkt{id, archetype, paint, phaseId, t};
     Net_Broadcast(EMsg::VehicleSpawn, &pkt, sizeof(pkt));
+
+    // Register with MultiOccupancyManager
+    auto& vehicleController = VehicleController::GetInstance();
+    vehicleController.RegisterVehicleWithOccupancyManager(id, 4); // Default 4 seats
 }
 
 void VehicleController_Spawn(uint32_t archetype, uint32_t paint, const TransformSnap& t)
@@ -140,8 +536,8 @@ void VehicleController_ApplyDamage(uint16_t dmg, bool side)
 
 void VehicleController_SetOccupant(uint32_t peerId)
 {
-    std::lock_guard lock(g_vehicleMutex);
-    for (auto& kv : g_vehicles)
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    for (auto& kv : VehicleController::g_vehicles)
     {
         if (kv.second.owner == peerId)
         {
@@ -155,9 +551,15 @@ void VehicleController_HandleSeatRequest(CoopNet::Connection* c, uint32_t vehicl
 {
     if (!c || seatIdx >= 4)
         return;
-    std::lock_guard lock(g_vehicleMutex);
-    auto it = g_vehicles.find(vehicleId);
-    if (it == g_vehicles.end()) return;
+
+    // Use enhanced VehicleController for seat management
+    auto& vehicleController = VehicleController::GetInstance();
+    vehicleController.HandleVehicleEntry(c, vehicleId, static_cast<int32_t>(seatIdx));
+
+    // Legacy fallback for compatibility
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    auto it = VehicleController::g_vehicles.find(vehicleId);
+    if (it == VehicleController::g_vehicles.end()) return;
     auto& v = it->second;
     if (v.seat[seatIdx] == 0)
     {
@@ -169,9 +571,9 @@ void VehicleController_HandleSeatRequest(CoopNet::Connection* c, uint32_t vehicl
 
 void VehicleController_HandleHit(uint32_t vehicleId, uint16_t dmg, bool side)
 {
-    std::lock_guard lock(g_vehicleMutex);
-    auto it = g_vehicles.find(vehicleId);
-    if (it == g_vehicles.end()) return;
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    auto it = VehicleController::g_vehicles.find(vehicleId);
+    if (it == VehicleController::g_vehicles.end()) return;
     auto& v = it->second;
     if (v.destroyed) return;
     float now = GameClock::GetCurrentTick() * GameClock::GetTickMs();
@@ -207,23 +609,23 @@ void VehicleController_HandleHit(uint32_t vehicleId, uint16_t dmg, bool side)
 void VehicleController_HandleSummon(CoopNet::Connection* c, uint32_t vehId, const TransformSnap& t)
 {
     if (!c) return;
-    std::lock_guard lock(g_vehicleMutex);
-    auto it = g_vehicles.find(vehId);
-    if (it != g_vehicles.end() && !it->second.destroyed)
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    auto it = VehicleController::g_vehicles.find(vehId);
+    if (it != VehicleController::g_vehicles.end() && !it->second.destroyed)
     {
         if (it->second.damage >= 500u) return;
         it->second.snap = t;
     }
     else
     {
-        VehicleState v{};
+        VehicleController::VehicleState v{};
         v.id = vehId;
         v.snap = t;
         v.damage = 0;
         v.destroyed = false;
-        g_vehicles[vehId] = v;
+        VehicleController::g_vehicles[vehId] = v;
     }
-    auto& v = g_vehicles[vehId];
+    auto& v = VehicleController::g_vehicles[vehId];
     v.owner = c->peerId;
     v.idle = 0.f;
     VehicleSummonPacket pkt{vehId, c->peerId, t};
@@ -241,13 +643,13 @@ static RED4ext::Vector3 FindSafePos(const RED4ext::Vector3& pos)
 void VehicleController_HandleTowRequest(CoopNet::Connection* c, const RED4ext::Vector3& pos)
 {
     if (!c) return;
-    std::lock_guard lock(g_vehicleMutex);
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
     uint32_t peer = c->peerId;
     uint32_t ownedId = 0;
-    for (auto& kv : g_vehicles)
+    for (auto& kv : VehicleController::g_vehicles)
         if (kv.second.owner == peer) { ownedId = kv.first; break; }
     if (ownedId == 0) return;
-    auto& v = g_vehicles[ownedId];
+    auto& v = VehicleController::g_vehicles[ownedId];
     RED4ext::Vector3 safe = FindSafePos(pos);
     if (v.destroyed)
     {
@@ -271,8 +673,8 @@ void VehicleController_HandleTowRequest(CoopNet::Connection* c, const RED4ext::V
 
 void VehicleController_RemovePeer(uint32_t peerId)
 {
-    std::lock_guard lock(g_vehicleMutex);
-    for (auto& kv : g_vehicles)
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    for (auto& kv : VehicleController::g_vehicles)
     {
         for (int i = 0; i < 4; ++i)
             if (kv.second.seat[i] == peerId)
@@ -282,13 +684,13 @@ void VehicleController_RemovePeer(uint32_t peerId)
 
 uint32_t VehicleController_GetPeerVehicleId(uint32_t peerId)
 {
-    std::lock_guard lock(g_vehicleMutex);
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
     // Prefer ownership
-    for (auto& kv : g_vehicles)
+    for (auto& kv : VehicleController::g_vehicles)
         if (kv.second.owner == peerId)
             return kv.first;
     // Fallback to any seat occupancy
-    for (auto& kv : g_vehicles)
+    for (auto& kv : VehicleController::g_vehicles)
         for (int i = 0; i < 4; ++i)
             if (kv.second.seat[i] == peerId)
                 return kv.first;
@@ -309,8 +711,12 @@ void VehicleController_ApplyHitValidated(uint32_t attackerPeerId, uint32_t vehic
 
 void VehicleController_ServerTick(float dt)
 {
-    std::lock_guard lock(g_vehicleMutex);
-    for (auto& kv : g_vehicles)
+    // Update enhanced VehicleController
+    auto& vehicleController = VehicleController::GetInstance();
+    vehicleController.ServerTick(dt);
+
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    for (auto& kv : VehicleController::g_vehicles)
     {
         auto& v = kv.second;
         if (v.destroyed)
@@ -364,10 +770,24 @@ void VehicleController_ServerTick(float dt)
 
 void VehicleController_PhysicsStep(float dt)
 {
-    std::lock_guard lock(g_vehicleMutex);
-    for (auto& kv : g_vehicles)
-        if (!kv.second.destroyed)
-            ServerSimulate(kv.second.snap, dt);
+    // Use enhanced physics system for better simulation
+    auto& enhancedPhysics = CoopNet::EnhancedVehiclePhysics::Instance();
+    enhancedPhysics.StepSimulation(dt);
+
+    // Sync enhanced physics state back to legacy vehicle state for compatibility
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    for (auto& kv : VehicleController::g_vehicles) {
+        if (!kv.second.destroyed) {
+            auto* enhancedVehicle = enhancedPhysics.GetVehicle(kv.first);
+            if (enhancedVehicle) {
+                // Update legacy state from enhanced physics
+                kv.second.snap = enhancedVehicle->ToTransformSnap();
+            } else {
+                // Fallback to legacy physics if vehicle not in enhanced system
+                ServerSimulate(kv.second.snap, dt);
+            }
+        }
+    }
 }
 
 // === Advanced Vehicle Features ===
@@ -376,9 +796,9 @@ void VehicleController_HandleCustomization(CoopNet::Connection* c, uint32_t vehi
 {
     if (!c) return;
     
-    std::lock_guard lock(g_vehicleMutex);
-    auto it = g_vehicles.find(vehicleId);
-    if (it == g_vehicles.end()) return;
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    auto it = VehicleController::g_vehicles.find(vehicleId);
+    if (it == VehicleController::g_vehicles.end()) return;
     
     auto& vehicle = it->second;
     if (vehicle.owner != c->peerId) {
@@ -395,9 +815,9 @@ void VehicleController_HandleCustomization(CoopNet::Connection* c, uint32_t vehi
     // Copy packet data to vehicle customization
     vehicle.customization.colorId = customization.colorId;
     strncpy(vehicle.customization.plateText, customization.plateText, sizeof(vehicle.customization.plateText));
-    vehicle.customization.modCount = 8; // Copy all modifications
+    // Copy all modifications (no modCount needed in VehicleCustomizationPacket)
     for (int i = 0; i < 8; ++i) {
-        vehicle.customization.modIds[i] = customization.modifications[i];
+        vehicle.customization.modifications[i] = customization.modifications[i];
     }
     
     // Broadcast customization update
@@ -417,9 +837,9 @@ void VehicleController_HandlePassengerSync(CoopNet::Connection* c, uint32_t vehi
 {
     if (!c) return;
     
-    std::lock_guard lock(g_vehicleMutex);
-    auto it = g_vehicles.find(vehicleId);
-    if (it == g_vehicles.end()) return;
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    auto it = VehicleController::g_vehicles.find(vehicleId);
+    if (it == VehicleController::g_vehicles.end()) return;
     
     auto& vehicle = it->second;
     
@@ -452,9 +872,9 @@ void VehicleController_HandlePassengerSync(CoopNet::Connection* c, uint32_t vehi
 
 void VehicleController_UpdateInterpolationBuffer(uint32_t vehicleId, const TransformSnap& snap)
 {
-    std::lock_guard lock(g_vehicleMutex);
-    auto it = g_vehicles.find(vehicleId);
-    if (it == g_vehicles.end()) return;
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    auto it = VehicleController::g_vehicles.find(vehicleId);
+    if (it == VehicleController::g_vehicles.end()) return;
     
     auto& vehicle = it->second;
     vehicle.interpolationBuffer[vehicle.bufferIndex] = snap;
@@ -464,9 +884,9 @@ void VehicleController_UpdateInterpolationBuffer(uint32_t vehicleId, const Trans
 
 TransformSnap VehicleController_InterpolatePosition(uint32_t vehicleId, float deltaTime)
 {
-    std::lock_guard lock(g_vehicleMutex);
-    auto it = g_vehicles.find(vehicleId);
-    if (it == g_vehicles.end()) return TransformSnap{};
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    auto it = VehicleController::g_vehicles.find(vehicleId);
+    if (it == VehicleController::g_vehicles.end()) return TransformSnap{};
     
     auto& vehicle = it->second;
     float timeSinceUpdate = (GetCurrentTimeMs() / 1000.0f) - vehicle.lastUpdate;
@@ -496,9 +916,9 @@ TransformSnap VehicleController_InterpolatePosition(uint32_t vehicleId, float de
 
 bool VehicleController_ValidateDamage(uint32_t vehicleId, uint16_t damage, uint32_t attackerId)
 {
-    std::lock_guard lock(g_vehicleMutex);
-    auto it = g_vehicles.find(vehicleId);
-    if (it == g_vehicles.end()) return false;
+    std::lock_guard lock(VehicleController::g_vehicleMutex);
+    auto it = VehicleController::g_vehicles.find(vehicleId);
+    if (it == VehicleController::g_vehicles.end()) return false;
     
     auto& vehicle = it->second;
     

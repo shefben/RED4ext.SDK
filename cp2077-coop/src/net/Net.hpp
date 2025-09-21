@@ -41,8 +41,35 @@ bool Net_IsConnected();
 
 // === MISSING SERVER FUNCTION DECLARATIONS ===
 bool Net_StartServer(uint32_t port, uint32_t maxPlayers);
+void Net_StopServer();
 void InitializeGameSystems();
 void LoadServerPlugins();
+void Net_SetServerPassword(const std::string& password);
+
+struct ServerInfo
+{
+    std::string name;
+    uint32_t playerCount;
+    uint32_t maxPlayers;
+    bool hasPassword;
+    std::string mode;
+};
+
+ServerInfo Net_GetServerInfo();
+void Net_KickPlayer(uint32_t peerId, const std::string& reason);
+void Net_BanPlayer(uint32_t peerId, const std::string& reason);
+bool Net_IsPlayerBanned(uint32_t peerId);
+void Net_BroadcastChatMessage(const std::string& message);
+
+// === PLAYER SYNCHRONIZATION FUNCTIONS ===
+void Net_BroadcastAvatarSpawn(uint32_t peerId, const CoopNet::TransformSnap& snap);
+void Net_BroadcastAvatarDespawn(uint32_t peerId);
+void Net_SendPlayerSnapshot(CoopNet::Connection* conn, const CoopNet::TransformSnap& snap);
+void Net_BroadcastPlayerSnapshot(const CoopNet::TransformSnap& snap);
+void Net_BroadcastPlayerUpdate(uint32_t peerId, const RED4ext::Vector3& pos, const RED4ext::Vector3& vel,
+                              const RED4ext::Quaternion& rot, uint16_t health, uint16_t armor);
+void Net_HandlePlayerJoin(uint32_t peerId, const std::string& playerName);
+void Net_HandlePlayerLeave(uint32_t peerId, const std::string& reason);
 bool Net_ConnectToServer(const char* host, uint32_t port);
 uint32_t Net_GetPeerId();
 std::vector<CoopNet::Connection*> Net_GetConnections();

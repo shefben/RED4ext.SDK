@@ -21,7 +21,21 @@
       "Bash(timeout 60 cmake --build . --config Release --target cp2077-coop)",
       "Bash(timeout 240 cmake --build . --config Release --target cp2077-coop)",
       "Bash(timeout 300 cmake --build . --config Release --target cp2077-coop)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(dir)",
+      "Bash(toolsfetch_deps.bat)",
+      "Bash(.toolsfetch_deps.bat)",
+      "Bash(dir:*)",
+      "Bash(./tools/fetch_deps.bat)",
+      "Bash(if exist build_fresh rmdir /s /q build_fresh)",
+      "Bash(del /S /Q build_test)",
+      "Bash(timeout 180 cmake --build build_test --config Release --target cp2077-coop)",
+      "Bash(timeout 60 cmake --build build_test --config Release --target cp2077-coop)",
+      "Bash(timeout 120 cmake --build build_test --config Release --target cp2077-coop)",
+      "Bash(if exist build_test rmdir /s /q build_test)",
+      "Bash(timeout 30 cmake --build . --config Release --target cp2077-coop)",
+      "Bash(timeout 180 cmake --build . --config Release --target cp2077-coop)",
+      "Bash(timeout 30 cmake --build build_test --config Release --target cp2077-coop)"
     ],
     "deny": [],
     "ask": []

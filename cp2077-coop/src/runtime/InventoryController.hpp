@@ -45,7 +45,11 @@ struct ItemPickupEvent {
 class InventoryController {
 public:
     static InventoryController& Instance();
-    
+
+    // System lifecycle
+    bool Initialize();
+    void Shutdown();
+
     // Player inventory management
     bool UpdatePlayerInventory(const PlayerInventorySnap& snap);
     PlayerInventorySnap* GetPlayerInventory(uint32_t peerId);
@@ -77,9 +81,11 @@ public:
     size_t GetWorldItemCount() const;
     std::vector<uint32_t> GetActivePlayers() const;
 
-private:
+protected:
     InventoryController() = default;
-    ~InventoryController() = default;
+    virtual ~InventoryController() = default;
+
+private:
     InventoryController(const InventoryController&) = delete;
     InventoryController& operator=(const InventoryController&) = delete;
     

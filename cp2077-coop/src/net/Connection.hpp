@@ -3,7 +3,7 @@
 #include "Packets.hpp"
 #include "../core/ThreadSafeQueue.hpp"
 #include "../voice/VoiceEncoder.hpp"
-#include <RED4ext/Scripting/Natives/Vector3.hpp>
+#include <RED4ext/Scripting/Natives/Generated/Vector3.hpp>
 #include <array>
 #include <cstdint>
 #include <deque>
@@ -12,6 +12,10 @@
 #include <unordered_set>
 #include <vector>
 
+// Forward declaration for ENet
+struct _ENetPeer;
+typedef struct _ENetPeer ENetPeer;
+
 namespace CoopNet
 {
 
@@ -19,8 +23,10 @@ enum class ConnectionState
 {
     Disconnected,
     Handshaking,
+    Connected,
     Lobby,
-    InGame
+    InGame,
+    Disconnecting
 };
 
 // Threading:
@@ -55,6 +61,12 @@ public:
         return state;
     }
 
+    void SetState(ConnectionState newState)
+    {
+        std::lock_guard<std::mutex> _(m_stateMutex);
+        state = newState;
+    }
+
     float GetAverageRtt() const;
 
 private:
@@ -75,6 +87,7 @@ private:
     uint8_t pendingAssets = 0;
     uint8_t processedAssets = 0;
 public:
+    ENetPeer* peer = nullptr;  // ENet peer handle
     uint64_t lastPingSent;
     uint64_t lastRecvTime;
     uint32_t peerId = 0;
@@ -100,6 +113,7 @@ public:
     uint32_t voiceRecv = 0;
     uint32_t voiceDropped = 0;
     uint64_t lastStatTime = 0;
+    uint32_t lastSnapshotId = 0;
     uint64_t balance = 10000;
     uint64_t lastNonce = 0;
     uint64_t invulEndTick = 0;

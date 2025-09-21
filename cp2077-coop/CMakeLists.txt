@@ -28,20 +28,43 @@ add_library(zstd STATIC IMPORTED)
 set_target_properties(zstd PROPERTIES IMPORTED_LOCATION "${ZSTD_LIBRARY}")
 target_include_directories(zstd INTERFACE third_party/zstd)
 
-find_library(LIBSODIUM_LIBRARY NAMES libsodium sodium PATHS 
+find_library(LIBSODIUM_LIBRARY NAMES libsodium sodium PATHS
     "${PROJECT_SOURCE_DIR}/third_party/libsodium/x64/Release/v143/static"
     "${PROJECT_SOURCE_DIR}/third_party/libsodium/x64/Release/v142/static"
     "${PROJECT_SOURCE_DIR}/third_party/libsodium/x64/Debug/v143/static"
     "${PROJECT_SOURCE_DIR}/third_party/libsodium/x64/Debug/v142/static"
-    "${PROJECT_SOURCE_DIR}/third_party/libsodium" 
+    "${PROJECT_SOURCE_DIR}/third_party/libsodium"
     REQUIRED)
 add_library(libsodium STATIC IMPORTED)
 set_target_properties(libsodium PROPERTIES IMPORTED_LOCATION "${LIBSODIUM_LIBRARY}")
 target_include_directories(libsodium INTERFACE third_party/libsodium)
 
+# Build sqlite3 from source
+add_library(sqlite3 STATIC third_party/sqlite/sqlite3.c)
+target_include_directories(sqlite3 PUBLIC third_party/sqlite)
+
 file(GLOB ENET_SOURCES third_party/enet/*.c)
 add_library(enet STATIC ${ENET_SOURCES})
 target_include_directories(enet PUBLIC third_party/enet/include)
+
+# Add lz4 support
+find_library(LZ4_LIBRARY NAMES liblz4_static lz4 PATHS
+    "${PROJECT_SOURCE_DIR}/third_party/lz4/static"
+    "${PROJECT_SOURCE_DIR}/third_party/lz4"
+    REQUIRED)
+add_library(lz4 STATIC IMPORTED)
+set_target_properties(lz4 PROPERTIES IMPORTED_LOCATION "${LZ4_LIBRARY}")
+target_include_directories(lz4 INTERFACE third_party/lz4/include)
+
+# Add spdlog support
+add_subdirectory(third_party/spdlog)
+
+# Add Codeware support (header-only library)
+add_library(codeware INTERFACE)
+target_include_directories(codeware INTERFACE
+    ../Codeware/lib
+    third_party/wil/include)
+target_compile_definitions(codeware INTERFACE CODEWARE_HEADER_ONLY)
 
 file(GLOB_RECURSE COOP_SOURCES
     src/core/*.cpp
@@ -51,6 +74,17 @@ file(GLOB_RECURSE COOP_SOURCES
     src/physics/*.cpp
     src/voice/*.cpp
     src/plugin/*.cpp
+    src/content/*.cpp
+    src/config/*.cpp
+    src/performance/*.cpp
+    src/database/*.cpp
+    src/events/*.cpp
+    src/quest/*.cpp
+    src/save/*.cpp
+    src/scripting/*.cpp
+    src/sync/*.cpp
+    src/test/*.cpp
+    src/ui/*.cpp
 )
 
 add_library(cp2077-coop SHARED ${COOP_SOURCES})
@@ -62,17 +96,28 @@ target_include_directories(cp2077-coop PRIVATE
     third_party
     third_party/zstd
     third_party/libsodium
+    third_party/sqlite
     third_party/curl/include
     third_party/openal/include
     third_party/opus/include
     third_party/openssl/include
-    third_party/rapidjson/include)
+    third_party/rapidjson/include
+    third_party/nlohmann
+    third_party/lz4/lib
+    third_party/spdlog/include
+    ../Codeware/lib
+    ../cp2077-nativedb-master
+    ../cp2077-red-data-master
+    ../cp2077-red-filesystem-master
+    ../cp2077-red-socket-main
+    ../cp2077_db_json_dump)
 
 # Define SODIUM_STATIC and CURL_STATICLIB for proper static linking
-target_compile_definitions(cp2077-coop PRIVATE SODIUM_STATIC CURL_STATICLIB)
+# Also define NOMINMAX to prevent Windows.h min/max macro conflicts
+target_compile_definitions(cp2077-coop PRIVATE SODIUM_STATIC CURL_STATICLIB NOMINMAX WIN32_LEAN_AND_MEAN)
 
 # Include HTTP/3 QUIC libraries to resolve linking errors
-target_link_libraries(cp2077-coop PRIVATE enet zstd "${LIBSODIUM_LIBRARY}" juice opus AL::AL 
+target_link_libraries(cp2077-coop PRIVATE enet zstd "${LIBSODIUM_LIBRARY}" sqlite3 juice opus AL::AL lz4 spdlog::spdlog codeware
     "${PROJECT_SOURCE_DIR}/third_party/curl/lib/libssl.a"
     "${PROJECT_SOURCE_DIR}/third_party/curl/lib/libcrypto.a"
     "${PROJECT_SOURCE_DIR}/third_party/curl/lib/libcurl.a"
